@@ -302,13 +302,13 @@ export default function FleetApp() {
 
         let array: any[] = [];
         if (formData.purpose === 'Hire') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', formData.tripRef, formData.scDueAmount, formData.drvComms, formData.tripStartMeter, formData.tripEndMeter, formData.pkgBalanceMileage, formData.startLossMileage, formData.endLossMileage];
+          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', formData.tripRef, formData.scDueAmount, formData.drvComms, formData.tripStartMeter, formData.tripEndMeter, formData.pkgBalanceMileage, formData.startLossMileage];
         } else if (formData.purpose === 'Personal') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', '', 0, 0, 0, 0, 0, 0, 0];
+          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', '', 0, 0, 0, 0, 0, 0];
         } else if (formData.purpose === 'Repair') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, formData.repairCost, '', '', 0, 0, 0, 0, 0, 0, 0];
+          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, formData.repairCost, '', '', 0, 0, 0, 0, 0, 0];
         } else if (formData.purpose === 'Fuel') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', '', 0, 0, 0, 0, 0, 0, 0];
+          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', '', 0, 0, 0, 0, 0, 0];
         }
 
         await fetch('/api/fleet/update', {
@@ -343,11 +343,8 @@ export default function FleetApp() {
     <main className="container mx-auto px-4 py-8 max-w-xl">
       {/* Header */}
       <div className="flex flex-col items-center mb-10 text-center">
-        <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
+        <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white text-center">
           FLEET MANAGEMENT
-          <span className="text-[10px] bg-emerald-500 text-white px-3 py-1 rounded-full uppercase tracking-widest font-bold shadow-lg shadow-emerald-500/20">
-            Senu Cabs
-          </span>
         </h1>
       </div>
 
@@ -652,12 +649,7 @@ export default function FleetApp() {
                   />
                 </div>
 
-                {formData.scDueAmount && (
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-                    <p className="text-[10px] text-amber-500 uppercase font-bold mb-1 tracking-wider">Amount Due to Office</p>
-                    <p className="text-2xl font-black text-amber-400">Rs. {formData.scDueAmount}</p>
-                  </div>
-                )}
+
               </div>
             )}
 

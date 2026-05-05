@@ -17,13 +17,13 @@ export async function GET(request: Request) {
     
     // getTripRefs
     const accountsResponse = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SPREADSHEET_ID_MASTER,
+      spreadsheetId: '1lf0H2P34w03bapp31h2iOC4ypucKpS94qzlwqVtAkCs',
       range: 'master!A2:L',
     });
 
     const accountRows = accountsResponse.data.values || [];
     const tripRefs = accountRows
-      .filter(row => row[11] && row[9] === drvId && !row[0] && row[5] === 'Assigned')
+      .filter(row => row[11] && row[9] === 'DV1811' && !row[0] && row[5] === 'Assigned')
       .map(row => row[11]);
 
     // getFrRefs
