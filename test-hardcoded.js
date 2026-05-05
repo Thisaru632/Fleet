@@ -1,0 +1,37 @@
+const crypto = require('crypto');
+
+const key = `-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDaly2RrVv/1RZr
+fVgcuPkYCvEB3tQgrF5kLgxwi0GycnfGLXktFrv4dMsszXroP9M2ctqnGCVRBlss
+A2vi6y8h5kxpfzLLuWT8pddBsbx4YWIdbq59s+x9A3uRHbNbCCHFHofUWwU++miW
+vZ480wUAFKFClZWQiW1nC/ToZLdpTBpNlLfoA2yJUyIjbSTa5h3rIxtBfSKczlxz
+nyiQ6snw+0KSPfAPajc2fQxXMMCPQvX9xT93KLI4e03bh3QXjfCreN668/k4wcCHU
+WE7ufzgtzXiq77eqoRiBW4xSOxhorfbZTnrDD1zUkjXaxGrfwSsrGcd47BFwDcN3
+osfANHvpAgMBAAECggEAESnxwBCWur3mpsYO1yKHHKYvSnBOw8oFF2SuQWAN5o8q
+bHtBmpLAa7/v/DKeRgJM+WeHV7uDopsXKZuTKxxAdS76LQZ53JlQHq5++n+URveO
+lrUMKn6oQSC24Swt2yYGUM4W6EvFW66Z68wz0p7XM6xrBSlttw2zc3Xy4xSVekUE
+VEV62wKZGOky8Sy12hZhjuRZs2eklknqteygQAhvsCDIBveg0BaOQjk0ou/9HhOj
+zZV4vv6Y8GlDSsij+3K0N2n2nTBFOzAs2tDC6l9LQfIhE8hxtawS5Ovx7ET3Z6XE
+OHZfXpYlYSqVzA99AEo888GTm8QICT8Hs7ekHEn7iQKBgQD3JNuPtdXGl7Vtn8Sf
+3aPq1CbodOZWsoTi9kzqMEJIDE/fShU2cOjb1BSWl41yYyFlqrU4uHV5E/bQ7T/T
+93DaEgcZfUA/WGcUvVNJcqb2Sfvw+VLqdkqsIlpbUmEfvACmWJ6xDdUe+xOPY6XE
+LQ1aUUqioEW/Tr+Sfc6D1KLz/wKBgQDibGOijNhgOPBkgH3ieYQVLZMztPEjX91f
+oSQrlM0lWDAsD8qBz47wXKtrZiceLDQ78OzpGbUYeX1yUL/hbSd9RBJvSMCfvDTT
+nodV574v2nDZ3YYsEaxIK0RVYyWIyJuXVhAo8rRfRbzxwNWOl0EpKIpzuQaJzTDvv
+xQe2cS9wFwKBgQDBExNQVy72IckEJl/WwLFxIGJxEfps2rREF0UJY8A0RyIS/+5I
+hLb2Hd4js6w2I8mQgmdnM3vapkUY/W/y6YlJY/IV8KrDkg2dvzaU17QmDrB7llw3
+fUhi58eNNnNX9mjPi8YV7geEV4P1blSvSL74wy86k1lJ1nyFNjGi/fh8AwKBgQCV
+A1ZzNRR2ByMWUYYHlYd61JqrDeshJ8cuV4PRdsWoTSiu5tmUov/kamiabwlRjy/1
+PvL72eJYMCSCJmiRuF+jzjf/qzayKY/us/QloqRPcbFa0gRGrRybp8zPuQF6FiVu
+Zs7B7fzd5cI16r0g9DrgHXWATAvYq5RKkTYpOMZKkwKBgChujYMpCX2qm22dC05G
+nbWqF/fwDTY3IZWr6ZqoFsOFJEuon8Sxz/zLv5jSTYBJg4Q6ebQqpMdIEoV1KfGTC
+vW833W9lwRt407d7jp9BbeN5U31QAu2o20cyypBRIQaowqA+4QpMn6eVpoInx32O
+ruhNxWCuCZOasl3eodKECHio
+-----END PRIVATE KEY-----`;
+
+try {
+    crypto.createPrivateKey(key);
+    console.log('SUCCESS: Key is valid!');
+} catch (e) {
+    console.log('FAILURE:', e.message);
+}
