@@ -155,7 +155,7 @@ export default function FleetApp() {
 
       const fetchedTripRef = details[11] || '';
 
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         vehicle: details[3] || '',
         purpose: details[4] || '',
@@ -192,7 +192,7 @@ export default function FleetApp() {
       const comms = Number(d[2] || 0); // Driver Comm
       const distance = Number(d[58] || 0);
 
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         tripRef: ref,
         tripStartMeter: tripStart,
