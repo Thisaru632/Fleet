@@ -147,15 +147,27 @@ export default function FleetApp() {
       const data = await res.json();
       const details = data.details;
       
-      setFormData({
-        ...formData,
+      if (!details) {
+        setAlert({ type: 'error', message: 'FR details not found.' });
+        setLoading(false);
+        return;
+      }
+
+      const fetchedTripRef = details[11] || '';
+
+      setFormData(prev => ({
+        ...prev,
         vehicle: details[3] || '',
         purpose: details[4] || '',
         garageStartMeter: details[5] || '',
-        tripRef: details[7] || '',
-      });
+        tripRef: fetchedTripRef,
+      }));
       setCurrentRef(ref);
       setAlert(null);
+
+      if (fetchedTripRef && details[4] === 'Hire') {
+        await handleTripRefChange(fetchedTripRef);
+      }
     } catch (err) {
       setAlert({ type: 'error', message: 'Failed to fetch details' });
     } finally {
@@ -170,30 +182,24 @@ export default function FleetApp() {
       const data = await res.json();
       const d = data.details;
       
-      const drvComms = Math.round(Number(d[44]) * 0.2); // Matching Apps Script logic? Wait, index check.
-      // In Apps Script: data[43] is tripStart, data[46] is tripEnd, data[56] is price?
-      // Let's re-verify the indices from Apps Script.
-      // Range L30000:BP -> L is index 0. 
-      // L=0, M=1, N=2, O=3, P=4, Q=5, R=6, S=7, T=8, U=9, V=10, W=11, X=12, Y=13, Z=14, 
-      // AA=15, AB=16, AC=17, AD=18, AE=19, AF=20, AG=21, AH=22, AI=23, AJ=24, AK=25, AL=26, AM=27, AN=28, AO=29, AP=30, AQ=31, AR=32, AS=33, AT=34, AU=35, AV=36, AW=37, AX=38, AY=39, AZ=40,
-      // BA=41, BB=42, BC=43, BD=44, BE=45, BF=46, BG=47, BH=48, BI=49, BJ=50, BK=51, BL=52, BM=53, BN=54, BO=55, BP=56.
-      // Apps script: data[43] = BC, data[46] = BF, data[56] = BP, data[22] = AH, data[47] = BG.
-      
-      const tripStart = d[43];
-      const tripEnd = d[46];
-      const price = Number(d[56]);
-      const comms = Math.round(price * 0.2);
-      const pkgOriginal = Number(d[22]);
-      const pkgUtilized = Number(d[47]);
+      if (!d) {
+        setAlert({ type: 'error', message: 'Trip details not found.' });
+        return;
+      }
 
-      setFormData({
-        ...formData,
+      const tripStart = d[54] || 0;
+      const tripEnd = d[57] || 0;
+      const comms = Number(d[2] || 0); // Driver Comm
+      const distance = Number(d[58] || 0);
+
+      setFormData(prev => ({
+        ...prev,
         tripRef: ref,
         tripStartMeter: tripStart,
         tripEndMeter: tripEnd,
         drvComms: comms,
-        pkgBalanceMileage: pkgUtilized - pkgOriginal,
-      });
+        pkgBalanceMileage: distance,
+      }));
     } catch (err) {
       console.error(err);
     } finally {
@@ -279,7 +285,7 @@ export default function FleetApp() {
         if (formData.purpose === 'Personal') {
           array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter];
         } else if (formData.purpose === 'Hire') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, '', '', '', '', '', '', formData.tripRef];
+          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, '', '', '', '', '', formData.tripRef];
         } else if (formData.purpose === 'Repair') {
           array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, '', '', '', formData.comments, formData.repairCost];
         } else if (formData.purpose === 'Fuel') {
@@ -302,7 +308,7 @@ export default function FleetApp() {
 
         let array: any[] = [];
         if (formData.purpose === 'Hire') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', formData.tripRef, formData.scDueAmount, formData.drvComms, formData.tripStartMeter, formData.tripEndMeter, formData.pkgBalanceMileage, formData.startLossMileage];
+          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, formData.tripRef, formData.scDueAmount, formData.drvComms, formData.tripStartMeter, formData.tripEndMeter, formData.pkgBalanceMileage, formData.startLossMileage, formData.endLossMileage];
         } else if (formData.purpose === 'Personal') {
           array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', '', 0, 0, 0, 0, 0, 0];
         } else if (formData.purpose === 'Repair') {

@@ -18,11 +18,11 @@ export async function GET(request: Request) {
 
     if (type === 'trip') {
       const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: process.env.SPREADSHEET_ID_MASTER,
-        range: 'master!L2:BP',
+        spreadsheetId: '1lf0H2P34w03bapp31h2iOC4ypucKpS94qzlwqVtAkCs',
+        range: 'master!A2:BP',
       });
       const rows = response.data.values || [];
-      const details = rows.find(row => row[0] === ref);
+      const details = rows.find(row => row[11]?.toString().trim() === ref.trim());
       return NextResponse.json({ details });
     } else {
       const response = await sheets.spreadsheets.values.get({
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
         range: 'master!B3:M',
       });
       const rows = response.data.values || [];
-      const details = rows.find(row => row[0] === ref);
+      const details = rows.find(row => row[0]?.toString().trim() === ref.trim());
       return NextResponse.json({ details });
     }
   } catch (error: any) {
