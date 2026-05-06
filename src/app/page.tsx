@@ -54,6 +54,9 @@ export default function FleetApp() {
     startLossMileage: '',
     endLossMileage: '',
     pkgBalanceMileage: '',
+    tripPrice: '',
+    folderUrl: '',
+    folderId: '',
   });
 
   const [files, setFiles] = useState<{ [key: string]: File | null }>({
@@ -101,6 +104,7 @@ export default function FleetApp() {
       tripRef: '', tripStartMeter: '', tripEndMeter: '', fuelCost: '',
       repairCost: '', comments: '', scDueAmount: '', drvComms: '',
       startLossMileage: '', endLossMileage: '', pkgBalanceMileage: '',
+      tripPrice: '',
     });
     setFiles({
       garageStartImage: null, garageEndImage: null,
@@ -128,6 +132,7 @@ export default function FleetApp() {
       startLossMileage: '',
       endLossMileage: '',
       pkgBalanceMileage: '',
+      tripPrice: '',
     });
     setFiles({
       garageStartImage: null,
@@ -161,6 +166,8 @@ export default function FleetApp() {
         purpose: details[4] || '',
         garageStartMeter: details[5] || '',
         tripRef: fetchedTripRef,
+        folderUrl: details[19] || '',
+        folderId: details[20] || '',
       }));
       setCurrentRef(ref);
       setAlert(null);
@@ -189,8 +196,17 @@ export default function FleetApp() {
 
       const tripStart = d[54] || 0;
       const tripEnd = d[57] || 0;
-      const comms = Number(d[2] || 0); // Driver Comm
       const distance = Number(d[58] || 0);
+      const tripPrice = d[67] || 0;
+      const vehicle = d[17] || '';
+      
+      const numericPrice = Number(tripPrice.toString().replace(/[^\d.]/g, ''));
+      let percentage = 0.20;
+      const v = vehicle.toUpperCase();
+      if (v.includes('KDH') || v.includes('BUS')) {
+        percentage = 0.15;
+      }
+      const comms = Math.round(numericPrice * percentage);
 
       setFormData((prev: any) => ({
         ...prev,
@@ -199,6 +215,7 @@ export default function FleetApp() {
         tripEndMeter: tripEnd,
         drvComms: comms,
         pkgBalanceMileage: distance,
+        tripPrice: tripPrice,
       }));
     } catch (err) {
       console.error(err);
@@ -308,7 +325,7 @@ export default function FleetApp() {
 
         let array: any[] = [];
         if (formData.purpose === 'Hire') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, formData.tripRef, formData.scDueAmount, formData.drvComms, formData.tripStartMeter, formData.tripEndMeter, formData.pkgBalanceMileage, formData.startLossMileage, formData.endLossMileage];
+          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, formData.tripRef, formData.scDueAmount, formData.drvComms, formData.tripStartMeter, formData.tripEndMeter, formData.pkgBalanceMileage, formData.startLossMileage, formData.endLossMileage, formData.folderUrl, formData.folderId, '', formData.tripPrice];
         } else if (formData.purpose === 'Personal') {
           array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', '', 0, 0, 0, 0, 0, 0];
         } else if (formData.purpose === 'Repair') {
@@ -556,7 +573,7 @@ export default function FleetApp() {
                       <p className="font-bold">{formData.tripEndMeter} KM</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-slate-400 uppercase">Commission</p>
+                      <p className="text-[10px] text-slate-400 uppercase">Driver Salary</p>
                       <p className="font-bold text-emerald-400">Rs. {formData.drvComms}</p>
                     </div>
                     <div className="space-y-1">
@@ -568,7 +585,24 @@ export default function FleetApp() {
               </div>
             )}
 
-            {/* End Trip Details (Update Stage) */}
+            {formData.purpose === 'Hire' && formData.tripPrice && (
+              <div className="glass-card p-6 border-blue-500/30 bg-blue-500/5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Final Trip Price</p>
+                    <p className="text-3xl font-black text-white">
+                      <span className="text-sm font-normal text-blue-400 mr-1">Rs.</span>
+                      {formData.tripPrice.toString().replace(/[^\d.,]/g, '')}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-blue-500/10">
+                    <Car className="w-6 h-6 text-blue-400" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+
             {stage === 'update' && (
               <div className="glass-card p-6 space-y-6">
                 <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
@@ -656,6 +690,35 @@ export default function FleetApp() {
                 </div>
 
 
+              </div>
+            )}
+
+            {formData.purpose === 'Hire' && stage === 'update' && (
+              <div className="glass-card p-6 border-rose-500/30 bg-rose-500/5">
+                <div className="flex items-center gap-3 text-white font-bold text-lg mb-4">
+                  <AlertCircle className="w-5 h-5 text-rose-500" />
+                  Mileage Loss Summary
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-400 uppercase">Start Loss</p>
+                    <p className="font-bold text-white">
+                      {(Number(formData.tripStartMeter) - Number(formData.garageStartMeter))} KM
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-400 uppercase">End Loss</p>
+                    <p className="font-bold text-white">
+                      {(Number(formData.garageEndMeter) - Number(formData.tripEndMeter))} KM
+                    </p>
+                  </div>
+                  <div className="space-y-1 border-l border-white/10 pl-4">
+                    <p className="text-[10px] text-rose-400 font-bold uppercase">Total Loss</p>
+                    <p className="text-2xl font-black text-rose-500">
+                      {(Number(formData.tripStartMeter) - Number(formData.garageStartMeter)) + (Number(formData.garageEndMeter) - Number(formData.tripEndMeter))} KM
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 
