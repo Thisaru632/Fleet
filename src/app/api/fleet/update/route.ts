@@ -28,13 +28,13 @@ export async function POST(request: Request) {
     
     // row[0] is column B because the range starts at B
     // We use .trim() to be safe against hidden spaces
-    const rowIndex = rows.findIndex(row => row[0]?.toString().trim() === ref.trim());
+    const rowIndex = rows.findIndex((row: any[]) => row[0]?.toString().trim() === ref.trim());
 
     if (rowIndex === -1) {
       console.error(`FAILED: Reference "${ref}" not found in spreadsheet.`);
       // Log the first few references in the sheet to see what they look like
-      console.log('First 5 refs in sheet:', rows.slice(0, 5).map(r => r[0]));
-      console.log('Last 5 refs in sheet:', rows.slice(-5).map(r => r[0]));
+      console.log('First 5 refs in sheet:', rows.slice(0, 5).map((r: any[]) => r[0]));
+      console.log('Last 5 refs in sheet:', rows.slice(-5).map((r: any[]) => r[0]));
       return NextResponse.json({ error: 'Reference not found' }, { status: 404 });
     }
 

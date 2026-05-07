@@ -8,17 +8,24 @@ const SCOPES = [
   'https://www.googleapis.com/auth/drive'
 ];
 
+let cachedAuth: any = null;
+let cachedSheets: any = null;
+let cachedDrive: any = null;
+
 export async function getGoogleAuth() {
+  if (cachedAuth) return cachedAuth;
+
   const jsonPath = path.join(process.cwd(), 'src/lib/service-account.json');
   console.log('Attempting auth. JSON path:', jsonPath);
   
   // If the service-account.json exists, use it directly (Most Reliable)
   if (fs.existsSync(jsonPath)) {
     console.log('Using service-account.json file for auth');
-    return new google.auth.GoogleAuth({
+    cachedAuth = new google.auth.GoogleAuth({
       keyFile: jsonPath,
       scopes: SCOPES,
     });
+    return cachedAuth;
   }
   console.log('service-account.json not found, falling back to env vars');
 
@@ -32,21 +39,27 @@ export async function getGoogleAuth() {
     ? privateKey.replace(/\\n/g, '\n').replace(/"/g, '').trim()
     : undefined;
 
-  return new google.auth.GoogleAuth({
+  cachedAuth = new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_CLIENT_EMAIL,
       private_key: formattedKey,
     },
     scopes: SCOPES,
   });
+
+  return cachedAuth;
 }
 
 export async function getSheets() {
+  if (cachedSheets) return cachedSheets;
   const auth = await getGoogleAuth();
-  return google.sheets({ version: 'v4', auth });
+  cachedSheets = google.sheets({ version: 'v4', auth });
+  return cachedSheets;
 }
 
 export async function getDrive() {
+  if (cachedDrive) return cachedDrive;
   const auth = await getGoogleAuth();
-  return google.drive({ version: 'v3', auth });
+  cachedDrive = google.drive({ version: 'v3', auth });
+  return cachedDrive;
 }

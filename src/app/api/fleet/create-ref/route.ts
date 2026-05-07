@@ -19,10 +19,10 @@ export async function POST(request: Request) {
     });
 
     const values = response.data.values || [];
-    const references = values.flat().filter(ref => typeof ref === 'string' && ref.startsWith('FR'));
+    const references = values.flat().filter((ref: any) => typeof ref === 'string' && ref.startsWith('FR'));
     
     const lastReference = references
-      .sort((a, b) => parseInt(a.slice(2)) - parseInt(b.slice(2)))
+      .sort((a: any, b: any) => parseInt(a.slice(2)) - parseInt(b.slice(2)))
       .pop();
 
     const nextNumber = lastReference ? parseInt(lastReference.slice(2)) + 1 : 1;
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [
-          ["Pending", newReference, timestamp, drvId, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', folderUrl, folderId]
+          ["Pending", newReference, timestamp, drvId, '', '', '', '', '', '', '', '', '', 0, '', '', '', '', '', '', folderUrl, folderId]
         ],
       },
     });

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const rows = response.data.values;
     if (!rows) throw new Error('No data found in driver database');
 
-    const user = rows.find(row => row[0] === username && row[1] === password);
+    const user = rows.find((row: any[]) => row[0] === username && row[1] === password);
 
     if (user) {
       return NextResponse.json({ success: true, user });

@@ -22,7 +22,7 @@ export async function GET(request: Request) {
         range: 'master!A2:BP',
       });
       const rows = response.data.values || [];
-      const details = rows.find(row => row[11]?.toString().trim() === ref.trim());
+      const details = rows.find((row: any[]) => row[11]?.toString().trim() === ref.trim());
       return NextResponse.json({ details });
     } else {
       const response = await sheets.spreadsheets.values.get({
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
         range: 'master!B3:V',
       });
       const rows = response.data.values || [];
-      const details = rows.find(row => row[0]?.toString().trim() === ref.trim());
+      const details = rows.find((row: any[]) => row[0]?.toString().trim() === ref.trim());
       return NextResponse.json({ details });
     }
   } catch (error: any) {

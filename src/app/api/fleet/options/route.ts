@@ -15,8 +15,8 @@ export async function GET() {
 
     const values = cityNamesResponse.data.values || [];
     // Column E is index 0 (Vehicle Num), Column F is index 1 (Purpose)
-    const vehicles = [...new Set(values.map(row => row[0]).filter(v => v))];
-    const purposes = [...new Set(values.map(row => row[1]).filter(p => p))];
+    const vehicles = [...new Set(values.map((row: any[]) => row[0]).filter((v: any) => v))];
+    const purposes = [...new Set(values.map((row: any[]) => row[1]).filter((p: any) => p))];
 
     return NextResponse.json({ vehicles, purposes });
   } catch (error: any) {

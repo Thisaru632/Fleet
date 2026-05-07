@@ -31,8 +31,9 @@ export default function FleetApp() {
   const [user, setUser] = useState<any>(null);
   const [stage, setStage] = useState<'dashboard' | 'new' | 'update'>('dashboard');
   const [loading, setLoading] = useState(false);
+  const [fetchingDetails, setFetchingDetails] = useState(false);
   const [options, setOptions] = useState<{ vehicles: string[], purposes: string[] }>({ vehicles: [], purposes: [] });
-  const [tripRefs, setTripRefs] = useState<string[]>([]);
+  const [tripRefs, setTripRefs] = useState<any[]>([]);
   const [frRefs, setFrRefs] = useState<string[]>([]);
   const [currentRef, setCurrentRef] = useState<string | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'warning' | 'error', message: string } | null>(null);
@@ -145,7 +146,7 @@ export default function FleetApp() {
   };
 
   const handleFrRefChange = async (ref: string) => {
-    setLoading(true);
+    setFetchingDetails(true);
     setAlert({ type: 'warning', message: 'Retrieving reference details...' });
     try {
       const res = await fetch(`/api/fleet/details?type=fr&ref=${ref}`);
@@ -178,12 +179,12 @@ export default function FleetApp() {
     } catch (err) {
       setAlert({ type: 'error', message: 'Failed to fetch details' });
     } finally {
-      setLoading(false);
+      setFetchingDetails(false);
     }
   };
 
   const handleTripRefChange = async (ref: string) => {
-    setLoading(true);
+    setFetchingDetails(true);
     try {
       const res = await fetch(`/api/fleet/details?type=trip&ref=${ref}`);
       const data = await res.json();
@@ -197,7 +198,11 @@ export default function FleetApp() {
       const tripStart = d[54] || 0;
       const tripEnd = d[57] || 0;
       const distance = Number(d[58] || 0);
-      const tripPrice = d[67] || 0;
+      const finalTripPriceRaw = d[67] || 0;
+      const miscValueRaw = d[66] || 0;
+      const numFinal = Number(finalTripPriceRaw.toString().replace(/[^\d.]/g, '')) || 0;
+      const numMisc = Number(miscValueRaw.toString().replace(/[^\d.]/g, '')) || 0;
+      const tripPrice = numFinal - numMisc;
       const vehicle = d[17] || '';
       
       const numericPrice = Number(tripPrice.toString().replace(/[^\d.]/g, ''));
@@ -220,21 +225,33 @@ export default function FleetApp() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      setFetchingDetails(false);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target;
+    const { id, value, type } = e.target as any;
+    
+    // Prevent negative numbers for price and mileage fields
+    if (type === 'number' && Number(value) < 0) return;
+
+    if (id === 'comments') {
+      const words = value.trim().split(/\s+/).filter(Boolean);
+      if (words.length > 50) {
+        const currentWords = (formData.comments || "").trim().split(/\s+/).filter(Boolean);
+        if (words.length > currentWords.length) return;
+      }
+    }
+
     setFormData((prev: any) => ({ ...prev, [id]: value }));
 
     // Auto-calcs
-    if (id === 'fuelCost' || id === 'repairCost') {
-      // Calc scDueAmount
-      const fuel = id === 'fuelCost' ? Number(value) : Number(formData.fuelCost);
-      const comms = Number(formData.drvComms);
-      const tripPrice = comms * 5;
-      const due = Math.round(tripPrice - comms - fuel);
+    if (id === 'fuelCost') {
+      // Calc scDueAmount = Final price - fuel cost - driver salary
+      const fuel = Number(value) || 0;
+      const tripPrice = Number(formData.tripPrice.toString().replace(/[^\d.]/g, '')) || 0;
+      const salary = Number(formData.drvComms) || 0;
+      const due = Math.round(tripPrice - fuel - salary);
       setFormData((prev: any) => ({ ...prev, scDueAmount: due }));
     }
 
@@ -252,10 +269,25 @@ export default function FleetApp() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, files } = e.target;
-    if (files && files[0]) {
-      setFiles((prev: any) => ({ ...prev, [id]: files[0] }));
+    const { id, files: selectedFiles } = e.target;
+    if (selectedFiles && selectedFiles.length > 0) {
+      if (id === 'repairReceipt') {
+        // Append files for repairReceipt instead of overwriting
+        setFiles((prev: any) => ({ 
+          ...prev, 
+          [id]: [...(Array.isArray(prev[id]) ? prev[id] : []), ...Array.from(selectedFiles)] 
+        }));
+      } else {
+        setFiles((prev: any) => ({ ...prev, [id]: selectedFiles[0] }));
+      }
     }
+  };
+
+  const removeFile = (id: string, index: number) => {
+    setFiles((prev: any) => ({
+      ...prev,
+      [id]: Array.isArray(prev[id]) ? prev[id].filter((_: any, i: number) => i !== index) : null
+    }));
   };
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -272,8 +304,29 @@ export default function FleetApp() {
     setAlert({ type: 'warning', message: 'Submitting record, please hold on...' });
     
     try {
+      // Validation
+      if (stage === 'new') {
+        if (!formData.vehicle || !formData.purpose || !formData.garageStartMeter || !files.garageStartImage) {
+          setAlert({ type: 'error', message: 'Please fill all required fields (Vehicle, Purpose, Start KM, and Start Image).' });
+          setLoading(false);
+          return;
+        }
+        if (formData.purpose === 'Hire' && !formData.tripRef) {
+          setAlert({ type: 'error', message: 'Please select a Trip Reference for Hire records.' });
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Update stage validation
+        if (!formData.garageEndMeter || !files.garageEndImage) {
+          setAlert({ type: 'error', message: 'Please enter Garage End KM and upload the End Image.' });
+          setLoading(false);
+          return;
+        }
+      }
+
       const now = new Date();
-      const endTs = now.toISOString().slice(0, 19).replace('T', ' ');
+      const endTs = now.toLocaleString('sv-SE').replace('T', ' ');
       
       let uploadFiles: any[] = [];
       let actualRef = currentRef;
@@ -321,7 +374,15 @@ export default function FleetApp() {
         // Stage update
         if (files.fuelReceipt) uploadFiles.push({ name: `${currentRef}_FuelReceipt`, dataUrl: await fileToBase64(files.fuelReceipt) });
         if (files.garageEndImage) uploadFiles.push({ name: `${currentRef}_GarageEnd`, dataUrl: await fileToBase64(files.garageEndImage) });
-        if (files.repairReceipt) uploadFiles.push({ name: `${currentRef}_Repair`, dataUrl: await fileToBase64(files.repairReceipt) });
+        if (files.repairReceipt) {
+          const repairFiles = Array.isArray(files.repairReceipt) ? files.repairReceipt : [files.repairReceipt];
+          for (let i = 0; i < repairFiles.length; i++) {
+            uploadFiles.push({ 
+              name: `${currentRef}_Repair_${i + 1}`, 
+              dataUrl: await fileToBase64(repairFiles[i] as File) 
+            });
+          }
+        }
 
         let array: any[] = [];
         if (formData.purpose === 'Hire') {
@@ -517,33 +578,41 @@ export default function FleetApp() {
                     <input 
                       id="garageStartMeter"
                       type="number"
+                      min="0"
                       disabled={stage === 'update'}
                       className="w-full input-field py-3"
                       value={formData.garageStartMeter}
                       onChange={handleInputChange}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Start Image</label>
-                    <div className="relative">
-                      <Camera className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                      <input 
-                        id="garageStartImage"
-                        type="file"
-                        accept="image/*"
-                        disabled={stage === 'update'}
-                        className="w-full input-field py-2 pr-10 text-[10px]"
-                        onChange={handleFileChange}
-                      />
+                  {stage === 'new' && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Start Image</label>
+                      <div className="relative">
+                        <Camera className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input 
+                          id="garageStartImage"
+                          type="file"
+                          accept="image/*"
+                          className="w-full input-field py-2 pr-10 text-[10px]"
+                          onChange={handleFileChange}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Stage Specific Cards */}
             {formData.purpose === 'Hire' && (
-              <div className="glass-card p-6 space-y-6">
+              <div className="glass-card p-6 space-y-6 relative overflow-hidden">
+                {fetchingDetails && (
+                  <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-20 flex flex-col items-center justify-center">
+                    <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-2" />
+                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Loading Trip Data...</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
                   <MapPin className="w-5 h-5 text-blue-500" />
                   Hire Details
@@ -557,9 +626,17 @@ export default function FleetApp() {
                     value={formData.tripRef}
                     onChange={(e) => handleTripRefChange(e.target.value)}
                   >
-                    <option value="">Select</option>
-                    {tripRefs?.map((t, idx) => <option key={`${t}-${idx}`} value={t}>{t}</option>)}
-                  </select>
+                  <option value="">Select</option>
+                  {(() => {
+                    // Filter by vehicle if selected
+                    let filtered = (tripRefs || []).filter(t => !formData.vehicle || t.vehicle === formData.vehicle).map(t => t.ref);
+                    // Ensure the current value is in the list (especially for the Update stage)
+                    if (formData.tripRef && !filtered.includes(formData.tripRef)) {
+                      filtered = [formData.tripRef, ...filtered];
+                    }
+                    return filtered.map((t, idx) => <option key={`${t}-${idx}`} value={t}>{t}</option>);
+                  })()}
+                </select>
                 </div>
 
                 {stage === 'update' && (
@@ -585,7 +662,7 @@ export default function FleetApp() {
               </div>
             )}
 
-            {formData.purpose === 'Hire' && formData.tripPrice && (
+            {formData.purpose === 'Hire' && stage === 'update' && formData.tripPrice && (
               <div className="glass-card p-6 border-blue-500/30 bg-blue-500/5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -616,6 +693,7 @@ export default function FleetApp() {
                     <input 
                       id="fuelCost"
                       type="number"
+                      min="0"
                       className="w-full input-field py-3"
                       value={formData.fuelCost}
                       onChange={handleInputChange}
@@ -638,6 +716,7 @@ export default function FleetApp() {
                     <input 
                       id="garageEndMeter"
                       type="number"
+                      min="0"
                       className="w-full input-field py-3"
                       value={formData.garageEndMeter}
                       onChange={handleInputChange}
@@ -661,6 +740,7 @@ export default function FleetApp() {
                       <input 
                         id="repairCost"
                         type="number"
+                        min="0"
                         className="w-full input-field py-3"
                         value={formData.repairCost}
                         onChange={handleInputChange}
@@ -671,9 +751,28 @@ export default function FleetApp() {
                       <input 
                         id="repairReceipt"
                         type="file"
+                        multiple
                         className="w-full input-field py-2 text-[10px]"
                         onChange={handleFileChange}
                       />
+                      {files.repairReceipt && Array.isArray(files.repairReceipt) && files.repairReceipt.length > 0 && (
+                        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                          {files.repairReceipt.map((f, i) => (
+                            <div key={i} className="flex items-center justify-between text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg border border-white/5">
+                              <span className="truncate flex-1 mr-2">{f.name}</span>
+                              <button 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  removeFile('repairReceipt', i);
+                                }}
+                                className="text-rose-500 hover:text-rose-400 font-bold px-1"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -699,7 +798,7 @@ export default function FleetApp() {
                   <AlertCircle className="w-5 h-5 text-rose-500" />
                   Mileage Loss Summary
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-[10px] text-slate-400 uppercase">Start Loss</p>
                     <p className="font-bold text-white">
@@ -709,13 +808,19 @@ export default function FleetApp() {
                   <div className="space-y-1">
                     <p className="text-[10px] text-slate-400 uppercase">End Loss</p>
                     <p className="font-bold text-white">
-                      {(Number(formData.garageEndMeter) - Number(formData.tripEndMeter))} KM
+                      {formData.garageEndMeter ? (Number(formData.garageEndMeter) - Number(formData.tripEndMeter)) : 0} KM
+                    </p>
+                  </div>
+                  <div className="space-y-1 border-l border-white/10 pl-4">
+                    <p className="text-[10px] text-emerald-400 font-bold uppercase">SC Due Amount</p>
+                    <p className="text-2xl font-black text-emerald-500">
+                      Rs. {formData.scDueAmount}
                     </p>
                   </div>
                   <div className="space-y-1 border-l border-white/10 pl-4">
                     <p className="text-[10px] text-rose-400 font-bold uppercase">Total Loss</p>
                     <p className="text-2xl font-black text-rose-500">
-                      {(Number(formData.tripStartMeter) - Number(formData.garageStartMeter)) + (Number(formData.garageEndMeter) - Number(formData.tripEndMeter))} KM
+                      {formData.garageEndMeter ? ((Number(formData.tripStartMeter) - Number(formData.garageStartMeter)) + (Number(formData.garageEndMeter) - Number(formData.tripEndMeter))) : 0} KM
                     </p>
                   </div>
                 </div>
@@ -732,7 +837,7 @@ export default function FleetApp() {
               </button>
               <button 
                 onClick={handleSubmit}
-                disabled={loading || !formData.purpose}
+                disabled={loading || !formData.purpose || (formData.purpose === 'Hire' && (!formData.tripRef || !formData.tripPrice))}
                 className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
