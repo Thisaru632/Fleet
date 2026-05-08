@@ -42,6 +42,12 @@ export default function FleetApp() {
   const [alert, setAlert] = useState<{ type: 'success' | 'warning' | 'error', message: string } | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
+  const [salaryStartDate, setSalaryStartDate] = useState('');
+  const [salaryEndDate, setSalaryEndDate] = useState('');
+  const [salaryData, setSalaryData] = useState<any[]>([]);
+  const [totalSalary, setTotalSalary] = useState(0);
+  const [fetchingSalary, setFetchingSalary] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState<any>({
@@ -132,10 +138,36 @@ export default function FleetApp() {
     }
   };
 
+  const fetchSalaryDetails = async () => {
+    if (!salaryStartDate || !salaryEndDate) {
+      setAlert({ type: 'warning', message: 'Please select both start and end dates.' });
+      return;
+    }
+    setFetchingSalary(true);
+    setAlert({ type: 'warning', message: 'Fetching salary details...' });
+    try {
+      const res = await fetch(`/api/fleet/salary?drvId=${user[0]}&startDate=${salaryStartDate}&endDate=${salaryEndDate}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSalaryData(data.salaryDetails);
+      setTotalSalary(data.totalSalary);
+      setAlert(null);
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to fetch salary details' });
+    } finally {
+      setFetchingSalary(false);
+    }
+  };
+
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     localStorage.removeItem('fleetUser');
     setUser(null);
     setStage('dashboard');
+    setShowLogoutConfirm(false);
   };
 
   const handleInstall = async () => {
@@ -503,6 +535,42 @@ export default function FleetApp() {
         </h1>
       </div>
 
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="glass-card p-8 w-full max-w-sm text-center space-y-6 border-rose-500/20"
+            >
+              <div className="w-20 h-20 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto">
+                <LogOut className="w-10 h-10 text-rose-500" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-white">ARE YOU SURE?</h3>
+                <p className="text-slate-400 text-sm">You will need to login again to access your fleet records.</p>
+              </div>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all font-bold text-sm"
+                >
+                  CANCEL
+                </button>
+                <button 
+                  onClick={confirmLogout}
+                  className="flex-1 py-3 rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition-all font-bold text-sm"
+                >
+                  YES, LOGOUT
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Driver Info Bar */}
       <div className="glass-card p-4 mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -578,10 +646,10 @@ export default function FleetApp() {
                 setStage('salary');
               }}
               disabled={loading}
-              className="flex flex-col items-center justify-center p-8 glass-card hover:border-amber-500/50 transition-all group"
+              className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
             >
-              <div className="p-4 rounded-2xl bg-amber-500/10 group-hover:bg-amber-500 group-hover:text-white transition-all mb-4">
-                <IdCard className="w-8 h-8 text-amber-500 group-hover:text-white" />
+              <div className="p-4 rounded-2xl bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-4">
+                <IdCard className="w-8 h-8 text-emerald-500 group-hover:text-white" />
               </div>
               <span className="font-bold text-sm text-center uppercase">Salary Details</span>
             </button>
@@ -633,16 +701,103 @@ export default function FleetApp() {
               </div>
             )}
 
-            {(stage === 'last-trip' || stage === 'salary') && !currentRef && (
+            {stage === 'salary' && (
+              <div className="space-y-6">
+                <div className="glass-card p-6 space-y-4">
+                  <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
+                    <IdCard className="w-5 h-5 text-emerald-500" />
+                    Salary Date Range
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Start Date</label>
+                      <input 
+                        type="date"
+                        className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4"
+                        value={salaryStartDate}
+                        onChange={(e) => setSalaryStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">End Date</label>
+                      <input 
+                        type="date"
+                        className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4"
+                        value={salaryEndDate}
+                        onChange={(e) => setSalaryEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    onClick={fetchSalaryDetails}
+                    disabled={fetchingSalary}
+                    className="w-full py-3 mt-2 bg-emerald-500 text-black font-black rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2"
+                  >
+                    {fetchingSalary ? <Loader2 className="w-5 h-5 animate-spin" /> : 'GENERATE REPORT'}
+                  </button>
+                </div>
+
+                {salaryData.length > 0 && (
+                  <div className="glass-card overflow-hidden">
+                    <div className="p-4 border-b border-white/10 bg-white/5">
+                      <div className="grid grid-cols-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <span>RF Number</span>
+                        <span>Date</span>
+                        <span className="text-right">Salary (Rs)</span>
+                      </div>
+                    </div>
+                    <div className="divide-y divide-white/5 max-h-[400px] overflow-y-auto">
+                      {salaryData.map((item, idx) => (
+                        <div key={idx} className="p-4 grid grid-cols-3 items-center hover:bg-white/5 transition-colors">
+                          <span className="text-xs font-bold text-white">{item.rf}</span>
+                          <span className="text-[10px] text-slate-400">{item.date?.split(' ')[0]}</span>
+                          <span className="text-xs font-bold text-emerald-400 text-right">{item.salary.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="p-6 bg-emerald-500/10 border-t border-emerald-500/20">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-black text-emerald-500 uppercase tracking-widest">Total Salary</span>
+                        <span className="text-2xl font-black text-white">Rs. {totalSalary.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {salaryData.length === 0 && !fetchingSalary && (
+                   <div className="glass-card p-12 text-center border-dashed border-white/10">
+                     <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                       <IdCard className="w-8 h-8 text-emerald-500/50" />
+                     </div>
+                     <p className="text-slate-400 text-sm font-medium">
+                       Select a date range and click <span className="text-emerald-500 font-bold">Generate Report</span> to view your salary.
+                     </p>
+                   </div>
+                )}
+
+                <button 
+                  onClick={() => {
+                    setStage('dashboard');
+                    setSalaryData([]);
+                    setTotalSalary(0);
+                  }}
+                  className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+                >
+                  Back to Dashboard
+                </button>
+              </div>
+            )}
+
+            {stage === 'last-trip' && !currentRef && (
               <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
                 <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-                  {stage === 'last-trip' ? <MapPin className="w-10 h-10 text-purple-500" /> : <IdCard className="w-10 h-10 text-amber-500" />}
+                  <MapPin className="w-10 h-10 text-purple-500" />
                 </div>
                 <h2 className="text-xl font-bold text-white uppercase tracking-wider">
-                  {stage === 'last-trip' ? 'Last Trip Details' : 'Salary Details'}
+                  Last Trip Details
                 </h2>
                 <p className="text-slate-400 text-sm max-w-xs">
-                  {stage === 'last-trip' ? 'Please select a reference number above to view trip details.' : 'This feature is currently under development.'}
+                  Please select a reference number above to view trip details.
                 </p>
                 <button 
                   onClick={() => window.history.back()}
