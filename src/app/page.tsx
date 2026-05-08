@@ -42,12 +42,14 @@ export default function FleetApp() {
   const [alert, setAlert] = useState<{ type: 'success' | 'warning' | 'error', message: string } | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
-  const [salaryStartDate, setSalaryStartDate] = useState('');
-  const [salaryEndDate, setSalaryEndDate] = useState('');
+  const [salaryYear, setSalaryYear] = useState(new Date().getFullYear().toString());
+  const [salaryMonth, setSalaryMonth] = useState((new Date().getMonth() + 1).toString());
   const [salaryData, setSalaryData] = useState<any[]>([]);
   const [totalSalary, setTotalSalary] = useState(0);
   const [fetchingSalary, setFetchingSalary] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [officeMessage, setOfficeMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState<any>({
@@ -139,14 +141,11 @@ export default function FleetApp() {
   };
 
   const fetchSalaryDetails = async () => {
-    if (!salaryStartDate || !salaryEndDate) {
-      setAlert({ type: 'warning', message: 'Please select both start and end dates.' });
-      return;
-    }
+    if (!user) return;
     setFetchingSalary(true);
     setAlert({ type: 'warning', message: 'Fetching salary details...' });
     try {
-      const res = await fetch(`/api/fleet/salary?drvId=${user[0]}&startDate=${salaryStartDate}&endDate=${salaryEndDate}`);
+      const res = await fetch(`/api/fleet/salary?drvId=${user[0]}&year=${salaryYear}&month=${salaryMonth}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setSalaryData(data.salaryDetails);
@@ -159,6 +158,12 @@ export default function FleetApp() {
     }
   };
 
+  useEffect(() => {
+    if (stage === 'salary' && user) {
+      fetchSalaryDetails();
+    }
+  }, [stage, salaryYear, salaryMonth, user]);
+
   const handleLogout = () => {
     setShowLogoutConfirm(true);
   };
@@ -168,6 +173,33 @@ export default function FleetApp() {
     setUser(null);
     setStage('dashboard');
     setShowLogoutConfirm(false);
+  };
+
+  const handleSendMessage = async () => {
+    if (!officeMessage.trim()) return;
+    setSendingMessage(true);
+    try {
+      const res = await fetch('/api/fleet/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          drvId: user[0],
+          drvName: user[2],
+          drvPhone: user[3],
+          message: officeMessage
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setAlert({ type: 'success', message: 'Message sent to Senu Cabs Office successfully!' });
+      setOfficeMessage('');
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to send message' });
+    } finally {
+      setSendingMessage(false);
+      setTimeout(() => setAlert(null), 3000);
+    }
   };
 
   const handleInstall = async () => {
@@ -657,6 +689,37 @@ export default function FleetApp() {
         ) : null}
       </AnimatePresence>
 
+      {/* Message Box */}
+      {stage === 'dashboard' && (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-6 space-y-4 border-blue-500/20 bg-blue-500/5 mb-8"
+        >
+          <div className="flex items-center gap-3 text-white font-bold text-sm mb-2">
+            <MessageSquare className="w-5 h-5 text-blue-500" />
+            SEND MESSAGE TO SENU CABS OFFICE
+          </div>
+          <p className="text-sm font-bold text-slate-200 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
+            Senu cabs කාර්යාලය වෙත පැමිනිල්ලක්, පණිවුඩයක් හෝ කිසියම් දැනුම් දීමක් කිරිමට අවශ්ය නම් පහත "Send Message" පහසුකම භාවිතා කරන්න.
+          </p>
+          <textarea 
+            className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
+            placeholder="Type your message here..."
+            rows={3}
+            value={officeMessage}
+            onChange={(e) => setOfficeMessage(e.target.value)}
+          />
+          <button 
+            onClick={handleSendMessage}
+            disabled={sendingMessage || !officeMessage.trim()}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-widest"
+          >
+            {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SEND MESSAGE'}
+          </button>
+        </motion.div>
+      )}
+
       {/* Alert Component */}
       <AnimatePresence>
         {alert && (
@@ -706,37 +769,61 @@ export default function FleetApp() {
                 <div className="glass-card p-6 space-y-4">
                   <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
                     <IdCard className="w-5 h-5 text-emerald-500" />
-                    Salary Date Range
+                    Salary Period
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Start Date</label>
-                      <input 
-                        type="date"
-                        className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4"
-                        value={salaryStartDate}
-                        onChange={(e) => setSalaryStartDate(e.target.value)}
-                      />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Year</label>
+                      <select 
+                        className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4 text-sm"
+                        value={salaryYear}
+                        onChange={(e) => setSalaryYear(e.target.value)}
+                      >
+                        {[2024, 2025, 2026, 2027].map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">End Date</label>
-                      <input 
-                        type="date"
-                        className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4"
-                        value={salaryEndDate}
-                        onChange={(e) => setSalaryEndDate(e.target.value)}
-                      />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Month</label>
+                      <select 
+                        className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4 text-sm"
+                        value={salaryMonth}
+                        onChange={(e) => setSalaryMonth(e.target.value)}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                          <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                  <button 
-                    onClick={fetchSalaryDetails}
-                    disabled={fetchingSalary}
-                    className="w-full py-3 mt-2 bg-emerald-500 text-black font-black rounded-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2"
-                  >
-                    {fetchingSalary ? <Loader2 className="w-5 h-5 animate-spin" /> : 'GENERATE REPORT'}
-                  </button>
                 </div>
 
+                {/* Summary Card */}
+                {salaryData.length > 0 && (
+                  <div className="glass-card p-6 bg-emerald-500/10 border-emerald-500/20">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-8">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block">Salary</span>
+                          <span className="text-3xl font-black text-white">Rs. {totalSalary.toLocaleString()}</span>
+                        </div>
+                        <div className="w-px h-10 bg-white/10" />
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Hire Count</span>
+                          <span className="text-2xl font-bold text-white">{salaryData.length} <span className="text-xs font-normal text-slate-400">Trips</span></span>
+                        </div>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                         <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter italic">
+                           {new Date(2000, parseInt(salaryMonth) - 1).toLocaleString('default', { month: 'short' })} {salaryYear}
+                         </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Trip Table */}
                 {salaryData.length > 0 && (
                   <div className="glass-card overflow-hidden">
                     <div className="p-4 border-b border-white/10 bg-white/5">
@@ -755,12 +842,6 @@ export default function FleetApp() {
                         </div>
                       ))}
                     </div>
-                    <div className="p-6 bg-emerald-500/10 border-t border-emerald-500/20">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-black text-emerald-500 uppercase tracking-widest">Total Salary</span>
-                        <span className="text-2xl font-black text-white">Rs. {totalSalary.toLocaleString()}</span>
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -770,7 +851,7 @@ export default function FleetApp() {
                        <IdCard className="w-8 h-8 text-emerald-500/50" />
                      </div>
                      <p className="text-slate-400 text-sm font-medium">
-                       Select a date range and click <span className="text-emerald-500 font-bold">Generate Report</span> to view your salary.
+                       No hire commissions found for this period.
                      </p>
                    </div>
                 )}
