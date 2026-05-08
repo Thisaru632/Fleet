@@ -20,8 +20,19 @@ import {
   Phone,
   Download,
   X,
-  Lock
+  Lock,
+  TrendingUp,
+  Users,
+  DollarSign,
+  Activity,
+  History,
+  Calendar,
+  Filter
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area 
+} from 'recharts';
 import LoginModal from '@/components/LoginModal';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -51,6 +62,18 @@ export default function FleetApp() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [officeMessage, setOfficeMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+
+  // Admin Dashboard States
+  const [adminData, setAdminData] = useState<any>(null);
+  const [fetchingAdmin, setFetchingAdmin] = useState(false);
+  const [adminFilters, setAdminFilters] = useState({
+    startDate: '',
+    endDate: '',
+    purpose: 'All',
+    status: 'All',
+    vehicle: 'All',
+    driver: 'All'
+  });
 
   // Form states
   const [formData, setFormData] = useState<any>({
@@ -202,6 +225,28 @@ export default function FleetApp() {
       setTimeout(() => setAlert(null), 3000);
     }
   };
+
+  const fetchAdminSales = async () => {
+    setFetchingAdmin(true);
+    try {
+      const params = new URLSearchParams(adminFilters);
+      const res = await fetch(`/api/admin/sales?${params.toString()}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAdminData(data);
+    } catch (err: any) {
+      console.error('Error fetching admin sales:', err);
+      setAlert({ type: 'error', message: 'Failed to load dashboard data' });
+    } finally {
+      setFetchingAdmin(false);
+    }
+  };
+
+  useEffect(() => {
+    if (stage === 'admin' && user[4]?.toLowerCase() === 'admin') {
+      fetchAdminSales();
+    }
+  }, [stage, adminFilters, user]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -560,7 +605,7 @@ export default function FleetApp() {
   if (!user) return <LoginModal onLogin={(u) => { setUser(u); fetchInitialData(u[0]); }} />;
 
   return (
-    <main className="container mx-auto px-4 py-8 max-w-xl">
+    <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-7xl" : "max-w-xl")}>
       {/* Header */}
       <div className="flex flex-col items-center mb-10 text-center">
         <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white text-center">
@@ -760,24 +805,339 @@ export default function FleetApp() {
             )}
 
             {stage === 'admin' && (
-              <div className="space-y-6">
-                <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
-                    <Lock className="w-10 h-10 text-rose-500" />
+              <div className="space-y-8 pb-20">
+                {/* Header & Back */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <TrendingUp className="w-6 h-6 text-emerald-500" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-white uppercase tracking-tight">Sales Dashboard</h2>
+                      <p className="text-[10px] text-emerald-500/60 font-black tracking-widest uppercase">Admin Control Panel</p>
+                    </div>
                   </div>
-                  <h2 className="text-xl font-bold text-white uppercase tracking-wider">
-                    Admin Dashboard
-                  </h2>
-                  <p className="text-slate-400 text-sm max-w-xs">
-                    This area is restricted to authorized personnel only. Please contact the office for access.
-                  </p>
                   <button 
                     onClick={() => setStage('dashboard')}
-                    className="mt-6 px-8 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-bold"
+                    className="px-4 py-2 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
                   >
-                    GO BACK
+                    Exit Admin
                   </button>
                 </div>
+
+                {/* Filters */}
+                <div className="glass-card p-6 space-y-6">
+                  <div className="flex items-center gap-2 text-white font-bold text-sm border-b border-white/5 pb-4">
+                    <Filter className="w-4 h-4 text-emerald-500" />
+                    FILTERS
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Calendar className="w-3 h-3" /> From Date
+                      </label>
+                      <input 
+                        type="date"
+                        className="w-full input-field py-2.5 text-xs text-white"
+                        value={adminFilters.startDate}
+                        onChange={(e) => setAdminFilters({...adminFilters, startDate: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Calendar className="w-3 h-3" /> To Date
+                      </label>
+                      <input 
+                        type="date"
+                        className="w-full input-field py-2.5 text-xs text-white"
+                        value={adminFilters.endDate}
+                        onChange={(e) => setAdminFilters({...adminFilters, endDate: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
+                      <select 
+                        className="w-full input-field py-2.5 text-xs text-white"
+                        value={adminFilters.purpose}
+                        onChange={(e) => setAdminFilters({...adminFilters, purpose: e.target.value})}
+                      >
+                        {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</label>
+                      <select 
+                        className="w-full input-field py-2.5 text-xs text-white"
+                        value={adminFilters.status}
+                        onChange={(e) => setAdminFilters({...adminFilters, status: e.target.value})}
+                      >
+                        {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
+                      <select 
+                        className="w-full input-field py-2.5 text-xs text-white"
+                        value={adminFilters.vehicle}
+                        onChange={(e) => setAdminFilters({...adminFilters, vehicle: e.target.value})}
+                      >
+                        <option value="All">All Vehicles</option>
+                        {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
+                      <select 
+                        className="w-full input-field py-2.5 text-xs text-white"
+                        value={adminFilters.driver}
+                        onChange={(e) => setAdminFilters({...adminFilters, driver: e.target.value})}
+                      >
+                        <option value="All">All Drivers</option>
+                        {adminData?.filterOptions.drivers.map((d: string) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {fetchingAdmin ? (
+                  <div className="glass-card p-20 flex flex-col items-center justify-center space-y-4">
+                    <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase animate-pulse">Calculating Stats...</p>
+                  </div>
+                ) : adminData ? (
+                  <>
+                    {/* KPI Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: 'Total Sales', value: adminData.kpis.totalSales, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                        { label: 'Driver Comms', value: adminData.kpis.totalCommission, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                        { label: 'Net Income', value: adminData.kpis.netIncome, icon: TrendingUp, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                        { label: 'Total Mileage', value: adminData.kpis.totalMileage, unit: 'KM', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+                        { label: 'Hires Count', value: adminData.kpis.hireCount, unit: 'Trips', icon: ClipboardCheck, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                        { label: 'Repairs Count', value: adminData.kpis.repairCount, unit: 'Repairs', icon: Wrench, color: 'text-rose-500', bg: 'bg-rose-500/10' },
+                        { label: 'Fuel Cost', value: adminData.kpis.totalFuel, icon: Fuel, color: 'text-sky-500', bg: 'bg-sky-500/10' },
+                        { label: 'Repair Cost', value: adminData.kpis.totalRepairCost, icon: Wrench, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+                      ].map((kpi, idx) => (
+                        <div key={idx} className="glass-card p-4 space-y-3">
+                          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", kpi.bg)}>
+                            <kpi.icon className={cn("w-4 h-4", kpi.color)} />
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{kpi.label}</p>
+                            <p className="text-lg font-black text-white">
+                              {kpi.unit === 'KM' || kpi.unit === 'Trips' || kpi.unit === 'Repairs' ? '' : 'Rs. '}
+                              {kpi.value.toLocaleString()} 
+                              <span className="text-[10px] ml-1 text-slate-500 font-bold">{kpi.unit || ''}</span>
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Charts Row 1 */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="glass-card p-6 space-y-6">
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Daily Sales Trend</h3>
+                        <div className="h-[250px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={adminData.charts.dailySales}>
+                              <defs>
+                                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                              <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                              <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `Rs.${v/1000}k`} />
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                                itemStyle={{ color: '#10b981', fontSize: '12px', fontWeight: 'bold' }}
+                              />
+                              <Area type="monotone" dataKey="sales" stroke="#10b981" fillOpacity={1} fill="url(#colorSales)" strokeWidth={3} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      <div className="glass-card p-6 space-y-6">
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Monthly Sales Trend</h3>
+                        <div className="h-[250px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={adminData.charts.monthlySales}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                              <XAxis dataKey="month" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                              <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `Rs.${v/1000}k`} />
+                              <Tooltip 
+                                cursor={{ fill: '#ffffff05' }}
+                                contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                                itemStyle={{ color: '#10b981', fontSize: '12px', fontWeight: 'bold' }}
+                              />
+                              <Bar dataKey="sales" fill="#10b981" radius={[6, 6, 0, 0]} barSize={40} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Charts Row 2 */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="glass-card p-6 space-y-6">
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Purpose Count</h3>
+                        <div className="h-[200px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={adminData.charts.purposeCount}
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="count"
+                              >
+                                {adminData.charts.purposeCount.map((entry: any, index: number) => (
+                                  <Cell key={`cell-${index}`} fill={['#10b981', '#ef4444', '#3b82f6'][index % 3]} />
+                                ))}
+                              </Pie>
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                                itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                              />
+                              <Legend verticalAlign="bottom" height={36}/>
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      <div className="glass-card p-6 space-y-6 md:col-span-2">
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Driver-wise Sales Performance</h3>
+                        <div className="h-[200px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={adminData.charts.driverSales.slice(0, 8)} layout="vertical">
+                              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
+                              <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                              <YAxis dataKey="driver" type="category" stroke="#64748b" fontSize={9} width={80} tickLine={false} axisLine={false} />
+                              <Tooltip 
+                                cursor={{ fill: '#ffffff05' }}
+                                contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                                itemStyle={{ color: '#3b82f6', fontSize: '12px', fontWeight: 'bold' }}
+                              />
+                              <Bar dataKey="sales" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Charts Row 3 */}
+                    <div className="glass-card p-6 space-y-6">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Vehicle-wise Sales Performance</h3>
+                      <div className="h-[250px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={adminData.charts.vehicleSales.slice(0, 15)}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                            <XAxis dataKey="vehicle" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                            <Tooltip 
+                              cursor={{ fill: '#ffffff05' }}
+                              contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                              itemStyle={{ color: '#8b5cf6', fontSize: '12px', fontWeight: 'bold' }}
+                            />
+                            <Bar dataKey="sales" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Tables Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="glass-card overflow-hidden">
+                        <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Vehicles by Sales</h3>
+                          <Car className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div className="divide-y divide-white/5">
+                          {adminData.tables.topVehicles.map((v: any, i: number) => (
+                            <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                                <span className="text-xs font-bold text-white">{v.vehicle}</span>
+                              </div>
+                              <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="glass-card overflow-hidden">
+                        <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Drivers by Sales</h3>
+                          <Users className="w-4 h-4 text-blue-500" />
+                        </div>
+                        <div className="divide-y divide-white/5">
+                          {adminData.tables.topDrivers.map((d: any, i: number) => (
+                            <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                                <span className="text-xs font-bold text-white">{d.driver}</span>
+                              </div>
+                              <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Recent Trips Table */}
+                    <div className="glass-card overflow-hidden">
+                      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
+                        <History className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="border-b border-white/5 bg-white/[0.02]">
+                              {['FR Ref', 'Date', 'Driver', 'Vehicle', 'Purpose', 'Status', 'Sales', 'Commission', 'Fuel', 'Repair', 'Mileage'].map(h => (
+                                <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {adminData.tables.recentTrips.map((t: any, i: number) => (
+                              <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.rf}</td>
+                                <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">{t.date.split(' ')[0]}</td>
+                                <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.driver}</td>
+                                <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.vehicle}</td>
+                                <td className="px-6 py-4">
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                    t.purpose === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
+                                  )}>
+                                    {t.purpose}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                    t.status === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
+                                  )}>
+                                    {t.status}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-[10px] font-black text-emerald-500 whitespace-nowrap">Rs. {t.scDue.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-[10px] font-black text-blue-400 whitespace-nowrap">Rs. {t.comms.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-[10px] text-rose-400 whitespace-nowrap">Rs. {t.fuel.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-[10px] text-amber-400 whitespace-nowrap">Rs. {t.repair.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.mileage} KM</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
             )}
 
@@ -1325,7 +1685,7 @@ export default function FleetApp() {
             )}
 
             {/* Footer Buttons */}
-            {stage !== 'last-trip' && stage !== 'salary' && (
+            {(stage === 'new' || stage === 'update') && (
               <div className="flex gap-4">
                 <button 
                   onClick={() => window.history.back()}
