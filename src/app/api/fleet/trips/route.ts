@@ -54,10 +54,16 @@ export async function GET(request: Request) {
       .filter((row: any[]) => row[0] && row[2] === drvId && !row[7])
       .map((row: any[]) => row[0]);
 
+    const historyFrRefs = masterRows
+      .filter((row: any[]) => row[0] && row[2] === drvId)
+      .map((row: any[]) => row[0])
+      .reverse()
+      .slice(0, 10);
+
     // Filter tripRefs from Accounts that are already in Master
     const filteredTripRefs = tripRefs.filter((item: any) => !usedTripRefs.has(item.ref.toString().trim()));
 
-    return NextResponse.json({ tripRefs: filteredTripRefs, frRefs });
+    return NextResponse.json({ tripRefs: filteredTripRefs, frRefs, historyFrRefs });
   } catch (error: any) {
     console.error('Error fetching trips/refs:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

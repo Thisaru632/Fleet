@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   Loader2,
   IdCard,
-  Phone
+  Phone,
+  Download,
+  X
 } from 'lucide-react';
 import LoginModal from '@/components/LoginModal';
 import { clsx, type ClassValue } from 'clsx';
@@ -29,14 +31,17 @@ function cn(...inputs: ClassValue[]) {
 
 export default function FleetApp() {
   const [user, setUser] = useState<any>(null);
-  const [stage, setStage] = useState<'dashboard' | 'new' | 'update'>('dashboard');
+  const [stage, setStage] = useState<'dashboard' | 'new' | 'update' | 'last-trip' | 'salary'>('dashboard');
   const [loading, setLoading] = useState(false);
   const [fetchingDetails, setFetchingDetails] = useState(false);
   const [options, setOptions] = useState<{ vehicles: string[], purposes: string[] }>({ vehicles: [], purposes: [] });
   const [tripRefs, setTripRefs] = useState<any[]>([]);
   const [frRefs, setFrRefs] = useState<string[]>([]);
+  const [historyFrRefs, setHistoryFrRefs] = useState<string[]>([]);
   const [currentRef, setCurrentRef] = useState<string | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'warning' | 'error', message: string } | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPopup, setShowInstallPopup] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState<any>({
@@ -58,6 +63,10 @@ export default function FleetApp() {
     tripPrice: '',
     folderUrl: '',
     folderId: '',
+    startTs: '',
+    endTs: '',
+    totalMileage: '',
+    finalPrice: '',
   });
 
   const [files, setFiles] = useState<{ [key: string]: File | null }>({
@@ -74,6 +83,36 @@ export default function FleetApp() {
       setUser(parsedUser);
       fetchInitialData(parsedUser[0]);
     }
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+
+    // Capture Install Prompt
+    window.addEventListener('beforeinstallprompt', (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+
+    window.addEventListener('appinstalled', () => {
+      setDeferredPrompt(null);
+      setShowInstallPopup(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (user && deferredPrompt) {
+      setShowInstallPopup(true);
+    }
+  }, [user, deferredPrompt]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setStage('dashboard');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const fetchInitialData = async (drvId: string) => {
@@ -87,6 +126,7 @@ export default function FleetApp() {
       setOptions(optData);
       setTripRefs(tripData.tripRefs);
       setFrRefs(tripData.frRefs);
+      setHistoryFrRefs(tripData.historyFrRefs);
     } catch (err) {
       console.error('Error fetching initial data:', err);
     }
@@ -96,6 +136,16 @@ export default function FleetApp() {
     localStorage.removeItem('fleetUser');
     setUser(null);
     setStage('dashboard');
+  };
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setShowInstallPopup(false);
+    }
   };
 
   const handleNewRecord = () => {
@@ -111,6 +161,7 @@ export default function FleetApp() {
       garageStartImage: null, garageEndImage: null,
       fuelReceipt: null, repairReceipt: null,
     });
+    window.history.pushState({ stage: 'new' }, '');
     setStage('new');
     setAlert({ type: 'success', message: 'Please fill details. The record will be created when you submit.' });
   };
@@ -141,6 +192,7 @@ export default function FleetApp() {
       fuelReceipt: null,
       repairReceipt: null,
     });
+    window.history.pushState({ stage: 'update' }, '');
     setStage('update');
     setAlert({ type: 'warning', message: 'Please select an FR reference from the list.' });
   };
@@ -169,6 +221,20 @@ export default function FleetApp() {
         tripRef: fetchedTripRef,
         folderUrl: details[19] || '',
         folderId: details[20] || '',
+        startTs: details[1] || '',
+        endTs: details[6] || '',
+        fuelCost: details[8] || '',
+        comments: details[9] || '',
+        repairCost: details[10] || '',
+        scDueAmount: details[12] || '',
+        drvComms: details[13] || '',
+        tripStartMeter: details[14] || '',
+        tripEndMeter: details[15] || '',
+        pkgBalanceMileage: details[16] || '',
+        startLossMileage: details[17] || '',
+        endLossMileage: details[18] || '',
+        totalMileage: details[21] || '',
+        finalPrice: details[22] || '',
       }));
       setCurrentRef(ref);
       setAlert(null);
@@ -195,17 +261,19 @@ export default function FleetApp() {
         return;
       }
 
-      const tripStart = d[54] || 0;
-      const tripEnd = d[57] || 0;
-      const distance = Number(d[58] || 0);
+      const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, '')) || 0;
+
+      const tripStart = parseNum(d[54]);
+      const tripEnd = parseNum(d[57]);
+      const distance = parseNum(d[58]);
       const finalTripPriceRaw = d[67] || 0;
       const miscValueRaw = d[66] || 0;
-      const numFinal = Number(finalTripPriceRaw.toString().replace(/[^\d.]/g, '')) || 0;
-      const numMisc = Number(miscValueRaw.toString().replace(/[^\d.]/g, '')) || 0;
+      const numFinal = parseNum(finalTripPriceRaw);
+      const numMisc = parseNum(miscValueRaw);
       const tripPrice = numFinal - numMisc;
       const vehicle = d[17] || '';
       
-      const numericPrice = Number(tripPrice.toString().replace(/[^\d.]/g, ''));
+      const numericPrice = parseNum(tripPrice);
       let percentage = 0.20;
       const v = vehicle.toUpperCase();
       if (v.includes('KDH') || v.includes('BUS')) {
@@ -213,13 +281,16 @@ export default function FleetApp() {
       }
       const comms = Math.round(numericPrice * percentage);
 
+      const pkgKms = parseNum(d[33]);
+      const pkgBalance = pkgKms - distance;
+
       setFormData((prev: any) => ({
         ...prev,
         tripRef: ref,
         tripStartMeter: tripStart,
         tripEndMeter: tripEnd,
         drvComms: comms,
-        pkgBalanceMileage: distance,
+        pkgBalanceMileage: pkgBalance,
         tripPrice: tripPrice,
       }));
     } catch (err) {
@@ -484,7 +555,35 @@ export default function FleetApp() {
               <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
                 <RefreshCw className="w-8 h-8 text-blue-500 group-hover:text-white" />
               </div>
-              <span className="font-bold text-sm">UPDATE RECORD</span>
+              <span className="font-bold text-sm text-center">UPDATE RECORD</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                window.history.pushState({ stage: 'last-trip' }, '');
+                setStage('last-trip');
+              }}
+              disabled={loading}
+              className="flex flex-col items-center justify-center p-8 glass-card hover:border-purple-500/50 transition-all group"
+            >
+              <div className="p-4 rounded-2xl bg-purple-500/10 group-hover:bg-purple-500 group-hover:text-white transition-all mb-4">
+                <MapPin className="w-8 h-8 text-purple-500 group-hover:text-white" />
+              </div>
+              <span className="font-bold text-sm text-center uppercase">Last Trip Details</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                window.history.pushState({ stage: 'salary' }, '');
+                setStage('salary');
+              }}
+              disabled={loading}
+              className="flex flex-col items-center justify-center p-8 glass-card hover:border-amber-500/50 transition-all group"
+            >
+              <div className="p-4 rounded-2xl bg-amber-500/10 group-hover:bg-amber-500 group-hover:text-white transition-all mb-4">
+                <IdCard className="w-8 h-8 text-amber-500 group-hover:text-white" />
+              </div>
+              <span className="font-bold text-sm text-center uppercase">Salary Details</span>
             </button>
           </motion.div>
         ) : null}
@@ -518,6 +617,107 @@ export default function FleetApp() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            {stage === 'last-trip' && (
+              <div className="glass-card p-6 space-y-4">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center block">Select FR Number (Last 10)</label>
+                <select 
+                  className="w-full input-field py-3"
+                  value={currentRef || ''}
+                  onChange={(e) => handleFrRefChange(e.target.value)}
+                >
+                  <option value="" disabled>Select FR Reference</option>
+                  {historyFrRefs?.map((ref, idx) => (
+                    <option key={`${ref}-${idx}`} value={ref}>{ref}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {(stage === 'last-trip' || stage === 'salary') && !currentRef && (
+              <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                  {stage === 'last-trip' ? <MapPin className="w-10 h-10 text-purple-500" /> : <IdCard className="w-10 h-10 text-amber-500" />}
+                </div>
+                <h2 className="text-xl font-bold text-white uppercase tracking-wider">
+                  {stage === 'last-trip' ? 'Last Trip Details' : 'Salary Details'}
+                </h2>
+                <p className="text-slate-400 text-sm max-w-xs">
+                  {stage === 'last-trip' ? 'Please select a reference number above to view trip details.' : 'This feature is currently under development.'}
+                </p>
+                <button 
+                  onClick={() => window.history.back()}
+                  className="mt-6 px-8 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-bold"
+                >
+                  GO BACK
+                </button>
+              </div>
+            )}
+            {stage === 'last-trip' && currentRef && (
+              <div className="space-y-6">
+                <div className="glass-card p-6 border-purple-500/30 bg-purple-500/5">
+                  <div className="flex items-center gap-3 text-white font-bold text-lg mb-6">
+                    <ClipboardCheck className="w-6 h-6 text-purple-500" />
+                    Detailed Trip Report: {currentRef}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                    {[
+                      { label: 'Start Timestamp', value: formData.startTs },
+                      { label: 'End Timestamp', value: formData.endTs },
+                      { label: 'Vehicle Number', value: formData.vehicle },
+                      { label: 'Purpose', value: formData.purpose },
+                      { label: 'Trip Reference', value: formData.tripRef },
+                      { label: 'Garage Start', value: `${formData.garageStartMeter} KM` },
+                      { label: 'Garage End', value: `${formData.garageEndMeter} KM` },
+                      { label: 'Trip Start', value: `${formData.tripStartMeter} KM` },
+                      { label: 'Trip End', value: `${formData.tripEndMeter} KM` },
+                      { label: 'Pkg Balance', value: `${formData.pkgBalanceMileage} KM` },
+                      { label: 'Loss (Start)', value: `${formData.startLossMileage} KM` },
+                      { label: 'Loss (End)', value: `${formData.endLossMileage} KM` },
+                      { label: 'Total Mileage', value: `${formData.totalMileage} KM` },
+                      { label: 'Fuel Cost', value: `Rs. ${formData.fuelCost}` },
+                      { label: 'Repair Cost', value: `Rs. ${formData.repairCost}` },
+                      { label: 'SC Due', value: `Rs. ${formData.scDueAmount}`, highlight: true },
+                      { label: 'Driver Comms', value: `Rs. ${formData.drvComms}`, highlight: true },
+                      { label: 'Final Price', value: `Rs. ${formData.finalPrice}`, highlight: true },
+                    ].map((item, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{item.label}</p>
+                        <p className={cn("text-sm font-bold", item.highlight ? "text-purple-400" : "text-white")}>
+                          {item.value || 'N/A'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {formData.comments && (
+                    <div className="mt-8 pt-6 border-t border-white/5">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-2">Comments / Remarks</p>
+                      <p className="text-sm text-slate-200 italic leading-relaxed">"{formData.comments}"</p>
+                    </div>
+                  )}
+
+                  <div className="mt-8">
+                    <button 
+                      onClick={() => {
+                        setCurrentRef(null);
+                        setFormData({
+                          vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '',
+                          tripRef: '', tripStartMeter: '', tripEndMeter: '', fuelCost: '',
+                          repairCost: '', comments: '', scDueAmount: '', drvComms: '',
+                          startLossMileage: '', endLossMileage: '', pkgBalanceMileage: '',
+                          tripPrice: '', totalMileage: '', finalPrice: '', startTs: '', endTs: ''
+                        });
+                      }}
+                      className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+                    >
+                      Close Report
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* FR Reference Selection (Update Stage) */}
             {stage === 'update' && (
               <div className="glass-card p-6 space-y-4">
@@ -536,7 +736,7 @@ export default function FleetApp() {
             )}
 
             {/* Core Details Card */}
-            {(currentRef || stage === 'new') && (
+            {(currentRef || stage === 'new') && stage !== 'last-trip' && stage !== 'salary' && (
               <div className="glass-card p-6 space-y-6">
                 <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
                   <Car className="w-5 h-5 text-emerald-500" />
@@ -605,7 +805,7 @@ export default function FleetApp() {
             )}
 
             {/* Stage Specific Cards */}
-            {formData.purpose === 'Hire' && (
+            {formData.purpose === 'Hire' && stage !== 'last-trip' && (
               <div className="glass-card p-6 space-y-6 relative overflow-hidden">
                 {fetchingDetails && (
                   <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-20 flex flex-col items-center justify-center">
@@ -828,21 +1028,69 @@ export default function FleetApp() {
             )}
 
             {/* Footer Buttons */}
-            <div className="flex gap-4">
+            {stage !== 'last-trip' && stage !== 'salary' && (
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => window.history.back()}
+                  className="flex-1 py-4 glass-card font-bold hover:bg-white/5 transition-colors"
+                >
+                  CANCEL
+                </button>
+                <button 
+                  onClick={handleSubmit}
+                  disabled={loading || !formData.purpose || (formData.purpose === 'Hire' && (!formData.tripRef || !formData.tripPrice))}
+                  className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
+                  SUBMIT RECORD
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* PWA Install Popup */}
+      <AnimatePresence>
+        {showInstallPopup && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-6 left-6 right-6 z-[100] md:max-w-md md:mx-auto"
+          >
+            <div className="glass-card p-5 border-blue-500/30 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-blue-500/20 relative">
               <button 
-                onClick={() => setStage('dashboard')}
-                className="flex-1 py-4 glass-card font-bold hover:bg-white/5 transition-colors"
+                onClick={() => setShowInstallPopup(false)}
+                className="absolute top-3 right-3 text-slate-500 hover:text-white transition-colors"
               >
-                CANCEL
+                <X className="w-4 h-4" />
               </button>
-              <button 
-                onClick={handleSubmit}
-                disabled={loading || !formData.purpose || (formData.purpose === 'Hire' && (!formData.tripRef || !formData.tripPrice))}
-                className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
-                SUBMIT RECORD
-              </button>
+              
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                  <Download className="w-6 h-6 text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold text-base leading-tight">Install Fleet App</h3>
+                  <p className="text-slate-400 text-xs mt-1">Add to your home screen for quick access and better experience.</p>
+                </div>
+              </div>
+              
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={handleInstall}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-600/20"
+                >
+                  <Download className="w-4 h-4" />
+                  Install Now
+                </button>
+                <button
+                  onClick={() => setShowInstallPopup(false)}
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                >
+                  Later
+                </button>
+              </div>
             </div>
           </motion.div>
         )}

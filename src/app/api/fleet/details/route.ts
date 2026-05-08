@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     } else {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: process.env.SPREADSHEET_ID_MASTER,
-        range: 'master!B3:V',
+        range: 'master!B3:Y',
       });
       const rows = response.data.values || [];
       const details = rows.find((row: any[]) => row[0]?.toString().trim() === ref.trim());
