@@ -6,9 +6,10 @@ export async function POST(request: Request) {
     const { username, password } = await request.json();
     const sheets = await getSheets();
 
+    // Fetching A:E to include a potential Role column in index 4
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID_DRIVER,
-      range: 'Sheet2!A:D',
+      range: 'Sheet2!A:E',
     });
 
     const rows = response.data.values;

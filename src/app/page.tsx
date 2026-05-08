@@ -19,7 +19,8 @@ import {
   IdCard,
   Phone,
   Download,
-  X
+  X,
+  Lock
 } from 'lucide-react';
 import LoginModal from '@/components/LoginModal';
 import { clsx, type ClassValue } from 'clsx';
@@ -31,7 +32,7 @@ function cn(...inputs: ClassValue[]) {
 
 export default function FleetApp() {
   const [user, setUser] = useState<any>(null);
-  const [stage, setStage] = useState<'dashboard' | 'new' | 'update' | 'last-trip' | 'salary'>('dashboard');
+  const [stage, setStage] = useState<'dashboard' | 'new' | 'update' | 'last-trip' | 'salary' | 'contact-office' | 'admin'>('dashboard');
   const [loading, setLoading] = useState(false);
   const [fetchingDetails, setFetchingDetails] = useState(false);
   const [options, setOptions] = useState<{ vehicles: string[], purposes: string[] }>({ vehicles: [], purposes: [] });
@@ -685,40 +686,100 @@ export default function FleetApp() {
               </div>
               <span className="font-bold text-sm text-center uppercase">Salary Details</span>
             </button>
+
+            <button 
+              onClick={() => {
+                window.history.pushState({ stage: 'contact-office' }, '');
+                setStage('contact-office');
+              }}
+              disabled={loading}
+              className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group"
+            >
+              <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
+                <MessageSquare className="w-8 h-8 text-blue-500 group-hover:text-white" />
+              </div>
+              <span className="font-bold text-sm text-center uppercase">Contact Office</span>
+            </button>
+
+            {user[4]?.toLowerCase() === 'admin' && (
+              <button 
+                onClick={() => {
+                  window.history.pushState({ stage: 'admin' }, '');
+                  setStage('admin');
+                }}
+                disabled={loading}
+                className="flex flex-col items-center justify-center p-8 glass-card hover:border-rose-500/50 transition-all group"
+              >
+                <div className="p-4 rounded-2xl bg-rose-500/10 group-hover:bg-rose-500 group-hover:text-white transition-all mb-4">
+                  <Lock className="w-8 h-8 text-rose-500 group-hover:text-white" />
+                </div>
+                <span className="font-bold text-sm text-center uppercase">Admin Dashboard</span>
+              </button>
+            )}
           </motion.div>
         ) : null}
       </AnimatePresence>
 
-      {/* Message Box */}
-      {stage === 'dashboard' && (
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card p-6 space-y-4 border-blue-500/20 bg-blue-500/5 mb-8"
-        >
-          <div className="flex items-center gap-3 text-white font-bold text-sm mb-2">
-            <MessageSquare className="w-5 h-5 text-blue-500" />
-            SEND MESSAGE TO SENU CABS OFFICE
-          </div>
-          <p className="text-sm font-bold text-slate-200 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
-            Senu cabs කාර්යාලය වෙත පැමිනිල්ලක්, පණිවුඩයක් හෝ කිසියම් දැනුම් දීමක් කිරිමට අවශ්ය නම් පහත "Send Message" පහසුකම භාවිතා කරන්න.
-          </p>
-          <textarea 
-            className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
-            placeholder="Type your message here..."
-            rows={3}
-            value={officeMessage}
-            onChange={(e) => setOfficeMessage(e.target.value)}
-          />
-          <button 
-            onClick={handleSendMessage}
-            disabled={sendingMessage || !officeMessage.trim()}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-widest"
-          >
-            {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SEND MESSAGE'}
-          </button>
-        </motion.div>
-      )}
+            {stage === 'contact-office' && (
+              <div className="space-y-6">
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-card p-6 space-y-4 border-blue-500/20 bg-blue-500/5"
+                >
+                  <div className="flex items-center gap-3 text-white font-bold text-sm mb-2">
+                    <MessageSquare className="w-5 h-5 text-blue-500" />
+                    SEND MESSAGE TO SENU CABS OFFICE
+                  </div>
+                  <p className="text-sm font-bold text-slate-200 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
+                    Senu cabs කාර්යාලය වෙත පැමිනිල්ලක්, පණිවුඩයක් හෝ කිසියම් දැනුම් දීමක් කිරිමට අවශ්ය නම් පහත "Send Message" පහසුකම භාවිතා කරන්න.
+                  </p>
+                  <textarea 
+                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
+                    placeholder="Type your message here..."
+                    rows={6}
+                    value={officeMessage}
+                    onChange={(e) => setOfficeMessage(e.target.value)}
+                  />
+                  <button 
+                    onClick={handleSendMessage}
+                    disabled={sendingMessage || !officeMessage.trim()}
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest"
+                  >
+                    {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SEND MESSAGE'}
+                  </button>
+                </motion.div>
+
+                <button 
+                  onClick={() => setStage('dashboard')}
+                  className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+                >
+                  Back to Dashboard
+                </button>
+              </div>
+            )}
+
+            {stage === 'admin' && (
+              <div className="space-y-6">
+                <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="w-20 h-20 rounded-full bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
+                    <Lock className="w-10 h-10 text-rose-500" />
+                  </div>
+                  <h2 className="text-xl font-bold text-white uppercase tracking-wider">
+                    Admin Dashboard
+                  </h2>
+                  <p className="text-slate-400 text-sm max-w-xs">
+                    This area is restricted to authorized personnel only. Please contact the office for access.
+                  </p>
+                  <button 
+                    onClick={() => setStage('dashboard')}
+                    className="mt-6 px-8 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-bold"
+                  >
+                    GO BACK
+                  </button>
+                </div>
+              </div>
+            )}
 
       {/* Alert Component */}
       <AnimatePresence>
