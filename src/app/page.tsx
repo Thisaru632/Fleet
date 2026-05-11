@@ -1234,7 +1234,7 @@ export default function FleetApp() {
                   <div className="glass-card overflow-hidden">
                     <div className="p-4 border-b border-white/10 bg-white/5">
                       <div className="grid grid-cols-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <span>RF Number</span>
+                        <span>Trip Reference</span>
                         <span>Date</span>
                         <span className="text-right">Salary (Rs)</span>
                       </div>
@@ -1242,7 +1242,7 @@ export default function FleetApp() {
                     <div className="divide-y divide-white/5 max-h-[400px] overflow-y-auto">
                       {salaryData.map((item, idx) => (
                         <div key={idx} className="p-4 grid grid-cols-3 items-center hover:bg-white/5 transition-colors">
-                          <span className="text-xs font-bold text-white">{item.rf}</span>
+                          <span className="text-xs font-bold text-white">{item.tripRef}</span>
                           <span className="text-[10px] text-slate-400">{item.date?.split(' ')[0]}</span>
                           <span className="text-xs font-bold text-emerald-400 text-right">{item.salary.toLocaleString()}</span>
                         </div>

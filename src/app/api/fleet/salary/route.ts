@@ -50,8 +50,8 @@ export async function GET(request: Request) {
     });
 
     const salaryDetails = filteredRows.map((row: any[]) => ({
-      rf: row[0],        // Column B: FR Ref
-      date: row[1],      // Column C: Start TS
+      tripRef: row[11],   // Column M: Trip Reference
+      date: row[1],       // Column C: Start TS
       salary: Number(row[13]?.toString().replace(/[^\d.]/g, '')) || 0 // Column O: Drv Comms
     }));
 
