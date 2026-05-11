@@ -29,10 +29,7 @@ import {
   Calendar,
   Filter
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area 
-} from 'recharts';
+
 import LoginModal from '@/components/LoginModal';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -74,6 +71,7 @@ export default function FleetApp() {
     vehicle: 'All',
     driver: 'All'
   });
+  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings'>('overview');
 
   // Form states
   const [formData, setFormData] = useState<any>({
@@ -605,11 +603,12 @@ export default function FleetApp() {
   if (!user) return <LoginModal onLogin={(u) => { setUser(u); fetchInitialData(u[0]); }} />;
 
   return (
-    <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-7xl" : "max-w-xl")}>
+    <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full" : "max-w-xl")}>
       {/* Header */}
-      <div className="flex flex-col items-center mb-10 text-center">
-        <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white text-center">
-          FLEET MANAGEMENT
+      <div className="flex items-center gap-4 mb-10">
+        <img src="/logo.jpg" alt="Logo" className="w-16 h-16 object-contain" />
+        <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white uppercase">
+          SC FLEET MANAGEMENT
         </h1>
       </div>
 
@@ -650,29 +649,31 @@ export default function FleetApp() {
       </AnimatePresence>
 
       {/* Driver Info Bar */}
-      <div className="glass-card p-4 mb-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="flex flex-col items-center px-3 border-r border-white/10">
-            <IdCard className="w-5 h-5 text-emerald-500 mb-1" />
-            <span className="text-xs font-bold text-white">{user[0]}</span>
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white">{user[2]}</span>
+      {stage !== 'admin' && (
+        <div className="glass-card p-4 mb-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col items-center px-3 border-r border-white/10">
+              <IdCard className="w-5 h-5 text-emerald-500 mb-1" />
+              <span className="text-xs font-bold text-white">{user[0]}</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-400">
-              <Phone className="w-3 h-3" />
-              <span className="text-[10px]">{user[3]}</span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">{user[2]}</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-400">
+                <Phone className="w-3 h-3" />
+                <span className="text-[10px]">{user[3]}</span>
+              </div>
             </div>
           </div>
+          <button 
+            onClick={handleLogout}
+            className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
-        <button 
-          onClick={handleLogout}
-          className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
-      </div>
+      )}
 
       {/* Dashboard Actions */}
       <AnimatePresence mode="wait">
@@ -825,59 +826,89 @@ export default function FleetApp() {
                   </button>
                 </div>
 
+                {/* Tabs Navigation */}
+                <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10 w-fit">
+                  <button 
+                    onClick={() => setAdminTab('overview')}
+                    className={cn(
+                      "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                      adminTab === 'overview' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    <Activity className="w-4 h-4" />
+                    OVERVIEW
+                  </button>
+                  <button 
+                    onClick={() => setAdminTab('trips')}
+                    className={cn(
+                      "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                      adminTab === 'trips' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    <History className="w-4 h-4" />
+                    RECENT TRIPS
+                  </button>
+                  <button 
+                    onClick={() => setAdminTab('rankings')}
+                    className={cn(
+                      "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                      adminTab === 'rankings' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    <Users className="w-4 h-4" />
+                    RANKINGS
+                  </button>
+                </div>
+
                 {/* Filters */}
-                <div className="glass-card p-6 space-y-6">
-                  <div className="flex items-center gap-2 text-white font-bold text-sm border-b border-white/5 pb-4">
-                    <Filter className="w-4 h-4 text-emerald-500" />
-                    FILTERS
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Calendar className="w-3 h-3" /> From Date
+                <div className="glass-card p-4 space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <Calendar className="w-2.5 h-2.5" /> From
                       </label>
                       <input 
                         type="date"
-                        className="w-full input-field py-2.5 text-xs text-white"
+                        className="w-full input-field py-2 text-[10px] text-white h-9"
                         value={adminFilters.startDate}
                         onChange={(e) => setAdminFilters({...adminFilters, startDate: e.target.value})}
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Calendar className="w-3 h-3" /> To Date
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <Calendar className="w-2.5 h-2.5" /> To
                       </label>
                       <input 
                         type="date"
-                        className="w-full input-field py-2.5 text-xs text-white"
+                        className="w-full input-field py-2 text-[10px] text-white h-9"
                         value={adminFilters.endDate}
                         onChange={(e) => setAdminFilters({...adminFilters, endDate: e.target.value})}
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
                       <select 
-                        className="w-full input-field py-2.5 text-xs text-white"
+                        className="w-full input-field py-2 text-[10px] text-white h-9"
                         value={adminFilters.purpose}
                         onChange={(e) => setAdminFilters({...adminFilters, purpose: e.target.value})}
                       >
                         {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
                       </select>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</label>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
                       <select 
-                        className="w-full input-field py-2.5 text-xs text-white"
+                        className="w-full input-field py-2 text-[10px] text-white h-9"
                         value={adminFilters.status}
                         onChange={(e) => setAdminFilters({...adminFilters, status: e.target.value})}
                       >
                         {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
                       <select 
-                        className="w-full input-field py-2.5 text-xs text-white"
+                        className="w-full input-field py-2 text-[10px] text-white h-9"
                         value={adminFilters.vehicle}
                         onChange={(e) => setAdminFilters({...adminFilters, vehicle: e.target.value})}
                       >
@@ -885,10 +916,10 @@ export default function FleetApp() {
                         {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
                       </select>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
                       <select 
-                        className="w-full input-field py-2.5 text-xs text-white"
+                        className="w-full input-field py-2 text-[10px] text-white h-9"
                         value={adminFilters.driver}
                         onChange={(e) => setAdminFilters({...adminFilters, driver: e.target.value})}
                       >
@@ -898,245 +929,199 @@ export default function FleetApp() {
                     </div>
                   </div>
                 </div>
-
                 {fetchingAdmin ? (
                   <div className="glass-card p-20 flex flex-col items-center justify-center space-y-4">
                     <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
                     <p className="text-slate-400 font-black tracking-widest text-xs uppercase animate-pulse">Calculating Stats...</p>
                   </div>
                 ) : adminData ? (
-                  <>
-                    {/* KPI Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[
-                        { label: 'Total Sales', value: adminData.kpis.totalSales, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                        { label: 'Driver Comms', value: adminData.kpis.totalCommission, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                        { label: 'Net Income', value: adminData.kpis.netIncome, icon: TrendingUp, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-                        { label: 'Total Mileage', value: adminData.kpis.totalMileage, unit: 'KM', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-                        { label: 'Hires Count', value: adminData.kpis.hireCount, unit: 'Trips', icon: ClipboardCheck, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-                        { label: 'Repairs Count', value: adminData.kpis.repairCount, unit: 'Repairs', icon: Wrench, color: 'text-rose-500', bg: 'bg-rose-500/10' },
-                        { label: 'Fuel Cost', value: adminData.kpis.totalFuel, icon: Fuel, color: 'text-sky-500', bg: 'bg-sky-500/10' },
-                        { label: 'Repair Cost', value: adminData.kpis.totalRepairCost, icon: Wrench, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-                      ].map((kpi, idx) => (
-                        <div key={idx} className="glass-card p-4 space-y-3">
-                          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", kpi.bg)}>
-                            <kpi.icon className={cn("w-4 h-4", kpi.color)} />
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{kpi.label}</p>
-                            <p className="text-lg font-black text-white">
-                              {kpi.unit === 'KM' || kpi.unit === 'Trips' || kpi.unit === 'Repairs' ? '' : 'Rs. '}
-                              {kpi.value.toLocaleString()} 
-                              <span className="text-[10px] ml-1 text-slate-500 font-bold">{kpi.unit || ''}</span>
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="space-y-8">
 
-                    {/* Charts Row 1 */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="glass-card p-6 space-y-6">
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Daily Sales Trend</h3>
-                        <div className="h-[250px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={adminData.charts.dailySales}>
-                              <defs>
-                                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                                </linearGradient>
-                              </defs>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                              <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                              <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `Rs.${v/1000}k`} />
-                              <Tooltip 
-                                contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                                itemStyle={{ color: '#10b981', fontSize: '12px', fontWeight: 'bold' }}
-                              />
-                              <Area type="monotone" dataKey="sales" stroke="#10b981" fillOpacity={1} fill="url(#colorSales)" strokeWidth={3} />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
 
-                      <div className="glass-card p-6 space-y-6">
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Monthly Sales Trend</h3>
-                        <div className="h-[250px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={adminData.charts.monthlySales}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                              <XAxis dataKey="month" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                              <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `Rs.${v/1000}k`} />
-                              <Tooltip 
-                                cursor={{ fill: '#ffffff05' }}
-                                contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                                itemStyle={{ color: '#10b981', fontSize: '12px', fontWeight: 'bold' }}
-                              />
-                              <Bar dataKey="sales" fill="#10b981" radius={[6, 6, 0, 0]} barSize={40} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Charts Row 2 */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="glass-card p-6 space-y-6">
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Purpose Count</h3>
-                        <div className="h-[200px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={adminData.charts.purposeCount}
-                                innerRadius={60}
-                                outerRadius={80}
-                                paddingAngle={5}
-                                dataKey="count"
-                              >
-                                {adminData.charts.purposeCount.map((entry: any, index: number) => (
-                                  <Cell key={`cell-${index}`} fill={['#10b981', '#ef4444', '#3b82f6'][index % 3]} />
-                                ))}
-                              </Pie>
-                              <Tooltip 
-                                contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                                itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                              />
-                              <Legend verticalAlign="bottom" height={36}/>
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-
-                      <div className="glass-card p-6 space-y-6 md:col-span-2">
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Driver-wise Sales Performance</h3>
-                        <div className="h-[200px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={adminData.charts.driverSales.slice(0, 8)} layout="vertical">
-                              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
-                              <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                              <YAxis dataKey="driver" type="category" stroke="#64748b" fontSize={9} width={80} tickLine={false} axisLine={false} />
-                              <Tooltip 
-                                cursor={{ fill: '#ffffff05' }}
-                                contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                                itemStyle={{ color: '#3b82f6', fontSize: '12px', fontWeight: 'bold' }}
-                              />
-                              <Bar dataKey="sales" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Charts Row 3 */}
-                    <div className="glass-card p-6 space-y-6">
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Vehicle-wise Sales Performance</h3>
-                      <div className="h-[250px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={adminData.charts.vehicleSales.slice(0, 15)}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                            <XAxis dataKey="vehicle" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                            <Tooltip 
-                              cursor={{ fill: '#ffffff05' }}
-                              contentStyle={{ backgroundColor: '#020617', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                              itemStyle={{ color: '#8b5cf6', fontSize: '12px', fontWeight: 'bold' }}
-                            />
-                            <Bar dataKey="sales" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-
-                    {/* Tables Row */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="glass-card overflow-hidden">
-                        <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Vehicles by Sales</h3>
-                          <Car className="w-4 h-4 text-emerald-500" />
-                        </div>
-                        <div className="divide-y divide-white/5">
-                          {adminData.tables.topVehicles.map((v: any, i: number) => (
-                            <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                              <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                                <span className="text-xs font-bold text-white">{v.vehicle}</span>
+                    {adminTab === 'overview' && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-8"
+                      >
+                        {/* KPI Cards */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                          {[
+                            { label: 'Total Sales', value: adminData.kpis.totalSales, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                            { label: 'Driver Comms', value: adminData.kpis.totalCommission, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                            { label: 'Loss Mileage', value: adminData.kpis.totalMileage, unit: 'KM', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+                            { label: 'Hires Count', value: adminData.kpis.hireCount, unit: 'Trips', icon: ClipboardCheck, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                            { label: 'Fuel Cost', value: adminData.kpis.totalFuel, icon: Fuel, color: 'text-sky-500', bg: 'bg-sky-500/10' },
+                            { label: 'Repair Cost', value: adminData.kpis.totalRepairCost, icon: Wrench, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+                          ].map((kpi, idx) => (
+                            <div key={idx} className="glass-card p-6 space-y-4">
+                              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", kpi.bg)}>
+                                <kpi.icon className={cn("w-6 h-6", kpi.color)} />
                               </div>
-                              <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
+                              <div>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{kpi.label}</p>
+                                <p className="text-2xl font-black text-white tracking-tight">
+                                  {kpi.unit === 'KM' || kpi.unit === 'Trips' || kpi.unit === 'Repairs' ? '' : 'Rs. '}
+                                  {kpi.value.toLocaleString()} 
+                                  <span className="text-xs ml-1 text-slate-500 font-bold">{kpi.unit || ''}</span>
+                                </p>
+                              </div>
                             </div>
                           ))}
                         </div>
-                      </div>
 
-                      <div className="glass-card overflow-hidden">
-                        <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Drivers by Sales</h3>
-                          <Users className="w-4 h-4 text-blue-500" />
-                        </div>
-                        <div className="divide-y divide-white/5">
-                          {adminData.tables.topDrivers.map((d: any, i: number) => (
-                            <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                              <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                                <span className="text-xs font-bold text-white">{d.driver}</span>
-                              </div>
-                              <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
+                        {/* Summary Rankings Preview */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <div className="glass-card overflow-hidden">
+                            <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 3 Vehicles</h3>
+                              <Car className="w-4 h-4 text-emerald-500" />
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Recent Trips Table */}
-                    <div className="glass-card overflow-hidden">
-                      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
-                        <History className="w-4 h-4 text-emerald-500" />
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                          <thead>
-                            <tr className="border-b border-white/5 bg-white/[0.02]">
-                              {['FR Ref', 'Date', 'Driver', 'Vehicle', 'Purpose', 'Status', 'Sales', 'Commission', 'Fuel', 'Repair', 'Mileage'].map(h => (
-                                <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                            <div className="divide-y divide-white/5">
+                              {adminData.tables.topVehicles.slice(0, 3).map((v: any, i: number) => (
+                                <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                                    <span className="text-xs font-bold text-white">{v.vehicle}</span>
+                                  </div>
+                                  <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
+                                </div>
                               ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {adminData.tables.recentTrips.map((t: any, i: number) => (
-                              <tr key={i} className="hover:bg-white/5 transition-colors group">
-                                <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.rf}</td>
-                                <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">{t.date.split(' ')[0]}</td>
-                                <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.driver}</td>
-                                <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.vehicle}</td>
-                                <td className="px-6 py-4">
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    t.purpose === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
-                                  )}>
-                                    {t.purpose}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    t.status === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
-                                  )}>
-                                    {t.status}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 text-[10px] font-black text-emerald-500 whitespace-nowrap">Rs. {t.scDue.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-[10px] font-black text-blue-400 whitespace-nowrap">Rs. {t.comms.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-[10px] text-rose-400 whitespace-nowrap">Rs. {t.fuel.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-[10px] text-amber-400 whitespace-nowrap">Rs. {t.repair.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.mileage} KM</td>
-                              </tr>
+                            </div>
+                            <button 
+                              onClick={() => setAdminTab('rankings')}
+                              className="w-full py-3 bg-white/5 text-[10px] font-black text-slate-400 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                            >
+                              SEE ALL RANKINGS <TrendingUp className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          <div className="glass-card overflow-hidden">
+                            <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 3 Drivers</h3>
+                              <Users className="w-4 h-4 text-blue-500" />
+                            </div>
+                            <div className="divide-y divide-white/5">
+                              {adminData.tables.topDrivers.slice(0, 3).map((d: any, i: number) => (
+                                <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                                    <span className="text-xs font-bold text-white">{d.driver}</span>
+                                  </div>
+                                  <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <button 
+                              onClick={() => setAdminTab('rankings')}
+                              className="w-full py-3 bg-white/5 text-[10px] font-black text-slate-400 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                            >
+                              SEE ALL RANKINGS <TrendingUp className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {adminTab === 'rankings' && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                      >
+                        <div className="glass-card overflow-hidden">
+                          <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Vehicles by Sales</h3>
+                            <Car className="w-4 h-4 text-emerald-500" />
+                          </div>
+                          <div className="divide-y divide-white/5">
+                            {adminData.tables.topVehicles.map((v: any, i: number) => (
+                              <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                                  <span className="text-xs font-bold text-white">{v.vehicle}</span>
+                                </div>
+                                <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
+                              </div>
                             ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </>
+                          </div>
+                        </div>
+
+                        <div className="glass-card overflow-hidden">
+                          <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Drivers by Sales</h3>
+                            <Users className="w-4 h-4 text-blue-500" />
+                          </div>
+                          <div className="divide-y divide-white/5">
+                            {adminData.tables.topDrivers.map((d: any, i: number) => (
+                              <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                                  <span className="text-xs font-bold text-white">{d.driver}</span>
+                                </div>
+                                <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {adminTab === 'trips' && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="glass-card overflow-hidden"
+                      >
+                        <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
+                          <History className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                            <thead>
+                              <tr className="border-b border-white/5 bg-white/[0.02]">
+                                {['FR Ref', 'Date', 'Driver', 'Vehicle', 'Purpose', 'Status', 'Sales', 'Commission', 'Fuel', 'Repair', 'Loss Mileage'].map(h => (
+                                  <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {adminData.tables.recentTrips.map((t: any, i: number) => (
+                                <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                  <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.rf}</td>
+                                  <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">{t.date.split(' ')[0]}</td>
+                                  <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.driver}</td>
+                                  <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.vehicle}</td>
+                                  <td className="px-6 py-4">
+                                    <span className={cn(
+                                      "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                      t.purpose === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
+                                    )}>
+                                      {t.purpose}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className={cn(
+                                      "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                      t.status === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
+                                    )}>
+                                      {t.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-[10px] font-black text-emerald-500 whitespace-nowrap">Rs. {t.finalPrice?.toLocaleString()}</td>
+                                  <td className="px-6 py-4 text-[10px] font-black text-blue-400 whitespace-nowrap">Rs. {t.comms.toLocaleString()}</td>
+                                  <td className="px-6 py-4 text-[10px] text-rose-400 whitespace-nowrap">Rs. {t.fuel.toLocaleString()}</td>
+                                  <td className="px-6 py-4 text-[10px] text-amber-400 whitespace-nowrap">Rs. {t.repair.toLocaleString()}</td>
+                                  <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.mileage} KM</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
                 ) : null}
               </div>
             )}

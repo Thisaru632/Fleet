@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'master!A3:V', 
+      range: 'master!A3:Z', 
     });
 
     const rows = response.data.values || [];
@@ -59,18 +59,21 @@ export async function GET(request: Request) {
     filteredRows.forEach((row: any[]) => {
       const fuel = parseNum(row[9]);
       const repair = parseNum(row[11]);
-      const scDue = parseNum(row[13]);
       const comms = parseNum(row[14]);
-      const mileage = parseNum(row[20]);
+      // row[23] is Final Price (Column X), row[21] is Total Mileage (Column V)
+      const sales = parseNum(row[23]);
+      const mileage = parseNum(row[21]);
       const purpose = row[5];
 
-      totalSales += scDue;
+      totalSales += sales;
       totalCommission += comms;
       totalFuel += fuel;
       totalRepairCost += repair;
-      totalMileage += mileage;
-
-      if (purpose === 'Hire') hireCount++;
+      
+      if (purpose === 'Hire') {
+        totalMileage += mileage;
+        hireCount++;
+      }
       if (purpose === 'Repair') repairCount++;
     });
 
@@ -89,7 +92,7 @@ export async function GET(request: Request) {
       const vehicle = row[4];
       const driver = row[3];
       const purpose = row[5];
-      const sales = parseNum(row[13]);
+      const sales = parseNum(row[23]);
 
       dailyDataMap[date] = (dailyDataMap[date] || 0) + sales;
       vehicleDataMap[vehicle] = (vehicleDataMap[vehicle] || 0) + sales;
@@ -121,7 +124,8 @@ export async function GET(request: Request) {
       comms: parseNum(row[14]),
       fuel: parseNum(row[9]),
       repair: parseNum(row[11]),
-      mileage: parseNum(row[20])
+      mileage: parseNum(row[21]),
+      finalPrice: parseNum(row[23])
     }));
 
     return NextResponse.json({

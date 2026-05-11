@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   title: "Fleet Management | Senu Cabs",
   description: "Modern fleet management system for Senu Cabs",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.jpg",
+    apple: "/logo.jpg",
+  },
 };
 
 export const viewport: Viewport = {
