@@ -1504,7 +1504,7 @@ export default function FleetApp() {
               </div>
             )}
 
-            {formData.purpose === 'Hire' && stage === 'update' && formData.tripPrice && (
+            {formData.purpose === 'Hire' && stage === 'update' && Number(formData.tripPrice) > 0 && (
               <div className="glass-card p-6 border-blue-500/30 bg-blue-500/5">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1680,7 +1680,7 @@ export default function FleetApp() {
                 </button>
                 <button 
                   onClick={handleSubmit}
-                  disabled={loading || !formData.purpose || (formData.purpose === 'Hire' && (!formData.tripRef || (stage === 'update' && !formData.tripPrice)))}
+                  disabled={loading || !formData.purpose || (formData.purpose === 'Hire' && !formData.tripRef)}
                   className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
