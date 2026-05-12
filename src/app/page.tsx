@@ -1680,7 +1680,7 @@ export default function FleetApp() {
                 </button>
                 <button 
                   onClick={handleSubmit}
-                  disabled={loading || !formData.purpose || (formData.purpose === 'Hire' && (!formData.tripRef || !formData.tripPrice))}
+                  disabled={loading || !formData.purpose || (formData.purpose === 'Hire' && (!formData.tripRef || (stage === 'update' && !formData.tripPrice)))}
                   className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
