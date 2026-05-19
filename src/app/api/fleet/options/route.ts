@@ -1,26 +1,28 @@
-import { NextResponse } from 'next/server';
-import { getSheets } from '@/lib/google';
+import { NextResponse } from "next/server";
+import dbConnect from "@/lib/mongodb";
+import Trip from "@/models/Trip";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
   try {
-    const sheets = await getSheets();
+    await dbConnect();
     
-    const cityNamesResponse = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SPREADSHEET_ID_MASTER,
-      range: 'master!E3:F',
+    // Fetch unique vehicles and purposes from all existing trips in MongoDB
+    const vehicles = await Trip.distinct("vehicle", { vehicle: { $ne: null, $ne: "" } });
+    const purposes = await Trip.distinct("purpose", { purpose: { $ne: null, $ne: "" } });
+
+    // Sort alphabetically
+    vehicles.sort();
+    purposes.sort();
+
+    return NextResponse.json({ 
+      vehicles: vehicles.length > 0 ? vehicles : ["V001", "V002"], 
+      purposes: purposes.length > 0 ? purposes : ["Hire", "Repair", "Personal", "Fuel"] 
     });
-
-    const values = cityNamesResponse.data.values || [];
-    // Column E is index 0 (Vehicle Num), Column F is index 1 (Purpose)
-    const vehicles = [...new Set(values.map((row: any[]) => row[0]).filter((v: any) => v))];
-    const purposes = [...new Set(values.map((row: any[]) => row[1]).filter((p: any) => p))];
-
-    return NextResponse.json({ vehicles, purposes });
   } catch (error: any) {
-    console.error('Error fetching options:', error);
+    console.error("Error fetching options:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

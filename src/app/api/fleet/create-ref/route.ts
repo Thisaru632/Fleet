@@ -1,41 +1,39 @@
-import { NextResponse } from 'next/server';
-import { getSheets, getDrive } from '@/lib/google';
+import { NextResponse } from "next/server";
+import { getDrive } from "@/lib/google";
+import dbConnect from "@/lib/mongodb";
+import Trip from "@/models/Trip";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function POST(request: Request) {
   try {
     const { timestamp, drvId } = await request.json();
-    const sheets = await getSheets();
     const drive = await getDrive();
 
-    const spreadsheetId = process.env.SPREADSHEET_ID_MASTER;
-    const range = 'master!B:B';
-    
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-    });
+    await dbConnect();
 
-    const values = response.data.values || [];
-    const references = values.flat().filter((ref: any) => typeof ref === 'string' && ref.startsWith('FR'));
+    // Find last reference from MongoDB only
+    const lastTrip = await Trip.findOne({ reference: /^FR/ }).sort({ reference: -1 });
+    let nextNumber = 1;
     
-    const lastReference = references
-      .sort((a: any, b: any) => parseInt(a.slice(2)) - parseInt(b.slice(2)))
-      .pop();
+    if (lastTrip && lastTrip.reference) {
+      nextNumber = parseInt(lastTrip.reference.slice(2)) + 1;
+    } else {
+      // If MongoDB is empty, we start at 1
+      nextNumber = 1;
+    }
 
-    const nextNumber = lastReference ? parseInt(lastReference.slice(2)) + 1 : 1;
-    const newReference = `FR${String(nextNumber).padStart(5, '0')}`;
+    const newReference = `FR${String(nextNumber).padStart(5, "0")}`;
 
     // Create Drive Folder
     let folderId, folderUrl;
 
     if (process.env.APPS_SCRIPT_WEB_APP_URL) {
       const proxyRes = await fetch(process.env.APPS_SCRIPT_WEB_APP_URL, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify({
-          action: 'createFolder',
+          action: "createFolder",
           parentId: process.env.DRIVE_PARENT_FOLDER_ID,
           folderName: `${newReference} ${drvId}`
         })
@@ -43,7 +41,7 @@ export async function POST(request: Request) {
       
       const proxyData = await proxyRes.json();
       if (!proxyData.success) {
-        throw new Error('Apps Script Proxy Error: ' + proxyData.error);
+        throw new Error("Apps Script Proxy Error: " + proxyData.error);
       }
       folderId = proxyData.folderId;
       folderUrl = proxyData.folderUrl;
@@ -51,37 +49,34 @@ export async function POST(request: Request) {
       const folderMetadata = {
         name: `${newReference} ${drvId}`,
         parents: [process.env.DRIVE_PARENT_FOLDER_ID!],
-        mimeType: 'application/vnd.google-apps.folder',
+        mimeType: "application/vnd.google-apps.folder",
       };
 
       const folder = await drive.files.create({
         requestBody: folderMetadata,
-        fields: 'id',
+        fields: "id",
       });
 
       folderId = folder.data.id;
       folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
     }
 
-    // Append to sheet
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: 'master!A:V',
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [
-          ["Pending", newReference, timestamp, drvId, '', '', '', '', '', '', '', '', '', 0, '', '', '', '', '', '', folderUrl, folderId]
-        ],
-      },
+    // Save to MongoDB
+    const newTrip = new Trip({
+      status: "Pending",
+      reference: newReference,
+      timestamp,
+      driverId: drvId,
+      folderUrl,
+      folderId,
+      rawValues: ["Pending", newReference, timestamp, drvId, "", "", "", "", "", "", "", "", "", 0, "", "", "", "", "", "", folderUrl, folderId]
     });
+
+    await newTrip.save();
 
     return NextResponse.json({ reference: newReference, folderId });
   } catch (error: any) {
-    console.error('CRITICAL ERROR in create-ref:', {
-      message: error.message,
-      code: error.code,
-      details: error.response?.data?.error
-    });
+    console.error("CRITICAL ERROR in create-ref:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

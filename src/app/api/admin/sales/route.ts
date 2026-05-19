@@ -1,49 +1,35 @@
-import { NextResponse } from 'next/server';
-import { getSheets } from '@/lib/google';
+import { NextResponse } from "next/server";
+import dbConnect from "@/lib/mongodb";
+import Trip from "@/models/Trip";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const startDate = searchParams.get('startDate'); // YYYY-MM-DD
-  const endDate = searchParams.get('endDate');     // YYYY-MM-DD
-  const purposeFilter = searchParams.get('purpose'); // All, Hire, Repair
-  const statusFilter = searchParams.get('status');   // All, Approved, Pending
-  const vehicleFilter = searchParams.get('vehicle');
-  const driverFilter = searchParams.get('driver');
+  const startDate = searchParams.get("startDate"); // YYYY-MM-DD
+  const endDate = searchParams.get("endDate");     // YYYY-MM-DD
+  const purposeFilter = searchParams.get("purpose"); // All, Hire, Repair
+  const statusFilter = searchParams.get("status");   // All, Approved, Pending
+  const vehicleFilter = searchParams.get("vehicle");
+  const driverFilter = searchParams.get("driver");
 
   try {
-    const sheets = await getSheets();
-    const spreadsheetId = process.env.SPREADSHEET_ID_MASTER;
-    
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: 'master!A3:Z', 
-    });
+    await dbConnect();
 
-    const rows = response.data.values || [];
-    
-    // Filter the rows
-    const filteredRows = rows.filter((row: any[]) => {
-      const status = row[0];
-      const startTs = row[2];
-      const driver = row[3];
-      const vehicle = row[4];
-      const purpose = row[5];
-      
-      if (!startTs) return false;
-      const rowDate = startTs.split(' ')[0];
+    // Build query
+    const query: any = {};
+    if (startDate || endDate) {
+      query.timestamp = {};
+      if (startDate) query.timestamp.$gte = startDate;
+      if (endDate) query.timestamp.$lte = endDate + " 23:59:59";
+    }
+    if (purposeFilter && purposeFilter !== "All") query.purpose = purposeFilter;
+    if (statusFilter && statusFilter !== "All") query.status = statusFilter;
+    if (vehicleFilter && vehicleFilter !== "All") query.vehicle = vehicleFilter;
+    if (driverFilter && driverFilter !== "All") query.driverId = driverFilter;
 
-      if (startDate && rowDate < startDate) return false;
-      if (endDate && rowDate > endDate) return false;
-      if (purposeFilter && purposeFilter !== 'All' && purpose !== purposeFilter) return false;
-      if (statusFilter && statusFilter !== 'All' && status !== statusFilter) return false;
-      if (vehicleFilter && vehicleFilter !== 'All' && vehicle !== vehicleFilter) return false;
-      if (driverFilter && driverFilter !== 'All' && driver !== driverFilter) return false;
-
-      return true;
-    });
+    const trips = await Trip.find(query).sort({ updatedAt: -1 });
 
     // KPI Calculations
     let totalSales = 0;
@@ -54,27 +40,17 @@ export async function GET(request: Request) {
     let hireCount = 0;
     let repairCount = 0;
 
-    const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, '')) || 0;
-
-    filteredRows.forEach((row: any[]) => {
-      const fuel = parseNum(row[9]);
-      const repair = parseNum(row[11]);
-      const comms = parseNum(row[14]);
-      // row[23] is Final Price (Column X), row[21] is Total Mileage (Column V)
-      const sales = parseNum(row[23]);
-      const mileage = parseNum(row[21]);
-      const purpose = row[5];
-
-      totalSales += sales;
-      totalCommission += comms;
-      totalFuel += fuel;
-      totalRepairCost += repair;
+    trips.forEach((trip) => {
+      totalSales += trip.finalPrice || 0;
+      totalCommission += trip.commission || 0;
+      totalFuel += trip.fuel || 0;
+      totalRepairCost += trip.repair || 0;
       
-      if (purpose === 'Hire') {
-        totalMileage += mileage;
+      if (trip.purpose === "Hire") {
+        totalMileage += trip.mileage || 0;
         hireCount++;
       }
-      if (purpose === 'Repair') repairCount++;
+      if (trip.purpose === "Repair") repairCount++;
     });
 
     const netIncome = totalSales - totalCommission - totalFuel - totalRepairCost;
@@ -86,21 +62,21 @@ export async function GET(request: Request) {
     const purposeDataMap: any = { Hire: 0, Repair: 0, Other: 0 };
     const monthlyDataMap: any = {};
 
-    filteredRows.forEach((row: any[]) => {
-      const date = row[2].split(' ')[0];
-      const month = date.substring(0, 7); // YYYY-MM
-      const vehicle = row[4];
-      const driver = row[3];
-      const purpose = row[5];
-      const sales = parseNum(row[23]);
+    trips.forEach((trip) => {
+      const date = trip.timestamp ? trip.timestamp.split(" ")[0] : "Unknown";
+      const month = date !== "Unknown" ? date.substring(0, 7) : "Unknown"; // YYYY-MM
+      const vehicle = trip.vehicle || "Unknown";
+      const driver = trip.driverId || "Unknown";
+      const purpose = trip.purpose;
+      const sales = trip.finalPrice || 0;
 
-      dailyDataMap[date] = (dailyDataMap[date] || 0) + sales;
+      if (date !== "Unknown") dailyDataMap[date] = (dailyDataMap[date] || 0) + sales;
       vehicleDataMap[vehicle] = (vehicleDataMap[vehicle] || 0) + sales;
       driverDataMap[driver] = (driverDataMap[driver] || 0) + sales;
-      monthlyDataMap[month] = (monthlyDataMap[month] || 0) + sales;
+      if (month !== "Unknown") monthlyDataMap[month] = (monthlyDataMap[month] || 0) + sales;
 
-      if (purpose === 'Hire') purposeDataMap.Hire++;
-      else if (purpose === 'Repair') purposeDataMap.Repair++;
+      if (purpose === "Hire") purposeDataMap.Hire++;
+      else if (purpose === "Repair") purposeDataMap.Repair++;
       else purposeDataMap.Other++;
     });
 
@@ -112,20 +88,41 @@ export async function GET(request: Request) {
     const monthlySales = Object.keys(monthlyDataMap).sort().map(month => ({ month, sales: monthlyDataMap[month] }));
     const purposeCount = Object.keys(purposeDataMap).map(purpose => ({ purpose, count: purposeDataMap[purpose] }));
 
-    // Recent Trips (Last 10 from filtered)
-    const recentTrips = filteredRows.slice(-10).reverse().map((row: any[]) => ({
-      rf: row[1],
-      date: row[2],
-      driver: row[3],
-      vehicle: row[4],
-      purpose: row[5],
-      status: row[0],
-      scDue: parseNum(row[13]),
-      comms: parseNum(row[14]),
-      fuel: parseNum(row[9]),
-      repair: parseNum(row[11]),
-      mileage: parseNum(row[21]),
-      finalPrice: parseNum(row[23])
+    // Recent Trips (Last 10)
+    const recentTrips = trips.slice(-10).reverse().map((trip) => ({
+      rf: trip.reference,
+      date: trip.timestamp,
+      driver: trip.driverId,
+      vehicle: trip.vehicle,
+      purpose: trip.purpose,
+      status: trip.status,
+      scDue: trip.scDue,
+      comms: trip.commission,
+      fuel: trip.fuel,
+      repair: trip.repair,
+      mileage: trip.mileage,
+      finalPrice: trip.finalPrice
+    }));
+
+    // Filter Options
+    const allTrips = await Trip.find({}, { vehicle: 1, driverId: 1 });
+
+    // Pagination
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const skip = (page - 1) * limit;
+    const totalItems = trips.length;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // Slice for fleetData (already sorted in memory if needed, but here we use the existing trips array)
+    const fleetData = trips.slice(skip, skip + limit).map((trip) => ({
+      rf: trip.reference,
+      date: trip.timestamp,
+      driver: trip.driverId,
+      vehicle: trip.vehicle,
+      purpose: trip.purpose,
+      status: trip.status,
+      values: trip.rawValues || []
     }));
 
     return NextResponse.json({
@@ -149,18 +146,24 @@ export async function GET(request: Request) {
       tables: {
         topVehicles: vehicleSales.slice(0, 10),
         topDrivers: driverSales.slice(0, 10),
-        recentTrips
+        recentTrips,
+        fleetData
       },
-      // For filters
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages
+      },
       filterOptions: {
-        vehicles: Array.from(new Set(rows.map((r: any) => r[4]))).filter(Boolean),
-        drivers: Array.from(new Set(rows.map((r: any) => r[3]))).filter(Boolean),
-        purposes: ['All', 'Hire', 'Repair', 'Personal', 'Fuel'],
-        statuses: ['All', 'Approved', 'Pending']
+        vehicles: Array.from(new Set(allTrips.map((t: any) => t.vehicle))).filter(Boolean),
+        drivers: Array.from(new Set(allTrips.map((t: any) => t.driverId))).filter(Boolean),
+        purposes: ["All", "Hire", "Repair", "Personal", "Fuel"],
+        statuses: ["All", "Approved", "Pending"]
       }
     });
   } catch (error: any) {
-    console.error('Admin sales API error:', error);
+    console.error("Admin sales API error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

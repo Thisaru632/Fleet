@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, 
-  RefreshCw, 
-  LogOut, 
-  Car, 
-  MapPin, 
-  Fuel, 
-  Wrench, 
-  ClipboardCheck, 
-  Camera, 
+import {
+  Plus,
+  RefreshCw,
+  LogOut,
+  Car,
+  MapPin,
+  Fuel,
+  Wrench,
+  ClipboardCheck,
+  Camera,
   MessageSquare,
   AlertCircle,
   CheckCircle2,
@@ -27,6 +27,10 @@ import {
   Activity,
   History,
   Calendar,
+  Database,
+  Upload,
+  ChevronLeft,
+  ChevronRight,
   Filter
 } from 'lucide-react';
 
@@ -71,7 +75,15 @@ export default function FleetApp() {
     vehicle: 'All',
     driver: 'All'
   });
-  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts'>('overview');
+  const [accountSheetData, setAccountSheetData] = useState<any>(null);
+  const [fetchingAccountData, setFetchingAccountData] = useState(false);
+  const [messagesData, setMessagesData] = useState<any>(null);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [fetchingMessages, setFetchingMessages] = useState(false);
+  const [importingCsv, setImportingCsv] = useState(false);
+  const [adminPage, setAdminPage] = useState(1);
+  const [isSyncingAccounts, setIsSyncingAccounts] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState<any>({
@@ -206,8 +218,7 @@ export default function FleetApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           drvId: user[0],
-          drvName: user[2],
-          drvPhone: user[3],
+          drvName: user[4],
           message: officeMessage
         }),
       });
@@ -227,7 +238,11 @@ export default function FleetApp() {
   const fetchAdminSales = async () => {
     setFetchingAdmin(true);
     try {
-      const params = new URLSearchParams(adminFilters);
+      const params = new URLSearchParams({
+        ...adminFilters,
+        page: adminPage.toString(),
+        limit: '50'
+      });
       const res = await fetch(`/api/admin/sales?${params.toString()}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -241,10 +256,90 @@ export default function FleetApp() {
   };
 
   useEffect(() => {
-    if (stage === 'admin' && user[4]?.toLowerCase() === 'admin') {
-      fetchAdminSales();
+    if (stage === 'admin' && user[2]?.toLowerCase() === 'admin') {
+      if (adminTab === 'messages') {
+        fetchAdminMessages();
+      } else if (adminTab === 'accounts') {
+        fetchAccountSheetData();
+      } else {
+        fetchAdminSales();
+      }
     }
-  }, [stage, adminFilters, user]);
+  }, [stage, adminFilters, adminPage, user, adminTab]);
+
+  const fetchAccountSheetData = async () => {
+    setFetchingAccountData(true);
+    try {
+      const res = await fetch(`/api/admin/account-data?page=${adminPage}&limit=50`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAccountSheetData(data);
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to fetch account data' });
+    } finally {
+      setFetchingAccountData(false);
+    }
+  };
+
+  const handleSyncAccountSheet = async () => {
+    setIsSyncingAccounts(true);
+    setAlert({ type: 'warning', message: 'Syncing with Google Sheets... This may take a moment.' });
+    try {
+      const res = await fetch('/api/admin/sync-accounts');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAlert({ type: 'success', message: data.message || 'Account sheet synced successfully!' });
+      fetchAccountSheetData(); // Refresh table
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to sync account sheet' });
+    } finally {
+      setIsSyncingAccounts(false);
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
+  const fetchAdminMessages = async () => {
+    setFetchingMessages(true);
+    try {
+      const res = await fetch(`/api/admin/messages?page=${adminPage}&limit=50`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setMessagesData(data);
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to fetch messages' });
+    } finally {
+      setFetchingMessages(false);
+    }
+  };
+
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportingCsv(true);
+    setAlert({ type: 'warning', message: 'Importing CSV data...' });
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/admin/import-csv', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setAlert({ type: 'success', message: data.message });
+      fetchAdminSales(); // Refresh data
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to import CSV' });
+    } finally {
+      setImportingCsv(false);
+      e.target.value = ''; // Reset input
+    }
+  };
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -302,7 +397,6 @@ export default function FleetApp() {
     });
     window.history.pushState({ stage: 'update' }, '');
     setStage('update');
-    setAlert({ type: 'warning', message: 'Please select an FR reference from the list.' });
   };
 
   const handleFrRefChange = async (ref: string) => {
@@ -312,37 +406,38 @@ export default function FleetApp() {
       const res = await fetch(`/api/fleet/details?type=fr&ref=${ref}`);
       const data = await res.json();
       const details = data.details;
-      
+
       if (!details) {
         setAlert({ type: 'error', message: 'FR details not found.' });
         setLoading(false);
         return;
       }
 
-      const fetchedTripRef = details[11] || '';
+      const fetchedTripRef = details[12] || '';
 
       setFormData((prev: any) => ({
         ...prev,
-        vehicle: details[3] || '',
-        purpose: details[4] || '',
-        garageStartMeter: details[5] || '',
+        vehicle: details[4] || '',
+        purpose: details[5] || '',
+        garageStartMeter: details[6] || '',
         tripRef: fetchedTripRef,
-        folderUrl: details[19] || '',
-        folderId: details[20] || '',
-        startTs: details[1] || '',
-        endTs: details[6] || '',
-        fuelCost: details[8] || '',
-        comments: details[9] || '',
-        repairCost: details[10] || '',
-        scDueAmount: details[12] || '',
-        drvComms: details[13] || '',
-        tripStartMeter: details[14] || '',
-        tripEndMeter: details[15] || '',
-        pkgBalanceMileage: details[16] || '',
-        startLossMileage: details[17] || '',
-        endLossMileage: details[18] || '',
-        totalMileage: details[21] || '',
-        finalPrice: details[22] || '',
+        folderUrl: details[20] || '',
+        folderId: details[21] || '',
+        startTs: details[2] || '',
+        endTs: details[7] || '',
+        fuelCost: details[9] || '',
+        comments: details[10] || '',
+        repairCost: details[11] || '',
+        scDueAmount: details[13] || '',
+        drvComms: details[14] || '',
+        tripStartMeter: details[15] || '',
+        tripEndMeter: details[16] || '',
+        pkgBalanceMileage: details[17] || '',
+        startLossMileage: details[18] || '',
+        endLossMileage: details[19] || '',
+        totalMileage: details[22] || '',
+        finalPrice: details[23] || '',
+        tripPrice: details[23] || '',
       }));
       setCurrentRef(ref);
       setAlert(null);
@@ -363,7 +458,7 @@ export default function FleetApp() {
       const res = await fetch(`/api/fleet/details?type=trip&ref=${ref}`);
       const data = await res.json();
       const d = data.details;
-      
+
       if (!d) {
         setAlert({ type: 'error', message: 'Trip details not found.' });
         return;
@@ -380,7 +475,7 @@ export default function FleetApp() {
       const numMisc = parseNum(miscValueRaw);
       const tripPrice = numFinal - numMisc;
       const vehicle = d[17] || '';
-      
+
       const numericPrice = parseNum(tripPrice);
       let percentage = 0.20;
       const v = vehicle.toUpperCase();
@@ -410,7 +505,7 @@ export default function FleetApp() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { id, value, type } = e.target as any;
-    
+
     // Prevent negative numbers for price and mileage fields
     if (type === 'number' && Number(value) < 0) return;
 
@@ -452,9 +547,9 @@ export default function FleetApp() {
     if (selectedFiles && selectedFiles.length > 0) {
       if (id === 'repairReceipt') {
         // Append files for repairReceipt instead of overwriting
-        setFiles((prev: any) => ({ 
-          ...prev, 
-          [id]: [...(Array.isArray(prev[id]) ? prev[id] : []), ...Array.from(selectedFiles)] 
+        setFiles((prev: any) => ({
+          ...prev,
+          [id]: [...(Array.isArray(prev[id]) ? prev[id] : []), ...Array.from(selectedFiles)]
         }));
       } else {
         setFiles((prev: any) => ({ ...prev, [id]: selectedFiles[0] }));
@@ -481,7 +576,7 @@ export default function FleetApp() {
   const handleSubmit = async () => {
     setLoading(true);
     setAlert({ type: 'warning', message: 'Submitting record, please hold on...' });
-    
+
     try {
       // Validation
       if (stage === 'new') {
@@ -506,7 +601,7 @@ export default function FleetApp() {
 
       const now = new Date();
       const endTs = now.toLocaleString('sv-SE').replace('T', ' ');
-      
+
       let uploadFiles: any[] = [];
       let actualRef = currentRef;
 
@@ -518,28 +613,27 @@ export default function FleetApp() {
           body: JSON.stringify({ timestamp: endTs, drvId: user[0] }),
         });
         const createData = await createRes.json();
-        
+
         if (createData.error) {
           throw new Error(createData.error);
         }
-        
+
         actualRef = createData.reference;
         setCurrentRef(actualRef);
 
         setAlert({ type: 'warning', message: 'Uploading data...' });
         const fileData = await fileToBase64(files.garageStartImage!);
         uploadFiles.push({ name: `${actualRef} Garage Start`, dataUrl: fileData });
-        
-        let array: any[] = [];
-        if (formData.purpose === 'Personal') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter];
-        } else if (formData.purpose === 'Hire') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, '', '', '', '', '', formData.tripRef];
-        } else if (formData.purpose === 'Repair') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, '', '', '', formData.comments, formData.repairCost];
-        } else if (formData.purpose === 'Fuel') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, '', '', formData.fuelCost, formData.comments];
-        }
+
+        let array: any[] = new Array(21).fill('');
+        array[0] = user[0]; // Driver
+        array[1] = formData.vehicle;
+        array[2] = formData.purpose;
+        array[3] = formData.garageStartMeter;
+
+        if (formData.purpose === 'Hire') array[9] = formData.tripRef;
+        if (formData.purpose === 'Repair') array[8] = formData.repairCost;
+        if (formData.purpose === 'Fuel') array[6] = formData.fuelCost;
 
         const updateRes = await fetch('/api/fleet/update', {
           method: 'POST',
@@ -556,23 +650,38 @@ export default function FleetApp() {
         if (files.repairReceipt) {
           const repairFiles = Array.isArray(files.repairReceipt) ? files.repairReceipt : [files.repairReceipt];
           for (let i = 0; i < repairFiles.length; i++) {
-            uploadFiles.push({ 
-              name: `${currentRef}_Repair_${i + 1}`, 
-              dataUrl: await fileToBase64(repairFiles[i] as File) 
+            uploadFiles.push({
+              name: `${currentRef}_Repair_${i + 1}`,
+              dataUrl: await fileToBase64(repairFiles[i] as File)
             });
           }
         }
 
-        let array: any[] = [];
-        if (formData.purpose === 'Hire') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, formData.tripRef, formData.scDueAmount, formData.drvComms, formData.tripStartMeter, formData.tripEndMeter, formData.pkgBalanceMileage, formData.startLossMileage, formData.endLossMileage, formData.folderUrl, formData.folderId, '', formData.tripPrice];
-        } else if (formData.purpose === 'Personal') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', '', 0, 0, 0, 0, 0, 0];
-        } else if (formData.purpose === 'Repair') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, formData.repairCost, '', '', 0, 0, 0, 0, 0, 0];
-        } else if (formData.purpose === 'Fuel') {
-          array = [user[0], formData.vehicle, formData.purpose, formData.garageStartMeter, endTs, formData.garageEndMeter, formData.fuelCost, formData.comments, 0, '', '', 0, 0, 0, 0, 0, 0];
-        }
+        // Calculate Total Mileage
+        const totalMileage = Number(formData.garageEndMeter) - Number(formData.garageStartMeter);
+
+        let array: any[] = new Array(21).fill('');
+        array[0] = user[0];
+        array[1] = formData.vehicle;
+        array[2] = formData.purpose;
+        array[3] = formData.garageStartMeter;
+        array[4] = endTs;
+        array[5] = formData.garageEndMeter;
+        array[6] = formData.fuelCost;
+        array[7] = formData.comments;
+        array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
+        array[9] = formData.tripRef || '';
+        array[10] = formData.scDueAmount || '';
+        array[11] = formData.drvComms || '';
+        array[12] = formData.tripStartMeter || '';
+        array[13] = formData.tripEndMeter || '';
+        array[14] = formData.pkgBalanceMileage || '';
+        array[15] = formData.startLossMileage || '';
+        array[16] = formData.endLossMileage || '';
+        array[17] = formData.folderUrl || '';
+        array[18] = formData.folderId || '';
+        array[19] = totalMileage || '';
+        array[20] = formData.tripPrice || '';
 
         await fetch('/api/fleet/update', {
           method: 'POST',
@@ -616,7 +725,7 @@ export default function FleetApp() {
       <AnimatePresence>
         {showLogoutConfirm && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -630,13 +739,13 @@ export default function FleetApp() {
                 <p className="text-slate-400 text-sm">You will need to login again to access your fleet records.</p>
               </div>
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => setShowLogoutConfirm(false)}
                   className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all font-bold text-sm"
                 >
                   CANCEL
                 </button>
-                <button 
+                <button
                   onClick={confirmLogout}
                   className="flex-1 py-3 rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition-all font-bold text-sm"
                 >
@@ -658,7 +767,7 @@ export default function FleetApp() {
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white">{user[2]}</span>
+                <span className="text-sm font-bold text-white">{user[4]}</span>
               </div>
               <div className="flex items-center gap-2 text-slate-400">
                 <Phone className="w-3 h-3" />
@@ -666,7 +775,7 @@ export default function FleetApp() {
               </div>
             </div>
           </div>
-          <button 
+          <button
             onClick={handleLogout}
             className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors"
           >
@@ -678,13 +787,13 @@ export default function FleetApp() {
       {/* Dashboard Actions */}
       <AnimatePresence mode="wait">
         {stage === 'dashboard' ? (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className="grid grid-cols-2 gap-4 mb-8"
           >
-            <button 
+            <button
               onClick={handleNewRecord}
               disabled={loading}
               className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
@@ -694,7 +803,7 @@ export default function FleetApp() {
               </div>
               <span className="font-bold text-sm">NEW RECORD</span>
             </button>
-            <button 
+            <button
               onClick={handleUpdateBtnClick}
               disabled={loading}
               className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group"
@@ -705,7 +814,7 @@ export default function FleetApp() {
               <span className="font-bold text-sm text-center">UPDATE RECORD</span>
             </button>
 
-            <button 
+            <button
               onClick={() => {
                 window.history.pushState({ stage: 'last-trip' }, '');
                 setStage('last-trip');
@@ -719,7 +828,7 @@ export default function FleetApp() {
               <span className="font-bold text-sm text-center uppercase">Last Trip Details</span>
             </button>
 
-            <button 
+            <button
               onClick={() => {
                 window.history.pushState({ stage: 'salary' }, '');
                 setStage('salary');
@@ -733,7 +842,7 @@ export default function FleetApp() {
               <span className="font-bold text-sm text-center uppercase">Salary Details</span>
             </button>
 
-            <button 
+            <button
               onClick={() => {
                 window.history.pushState({ stage: 'contact-office' }, '');
                 setStage('contact-office');
@@ -747,10 +856,11 @@ export default function FleetApp() {
               <span className="font-bold text-sm text-center uppercase">Contact Office</span>
             </button>
 
-            {user[4]?.toLowerCase() === 'admin' && (
-              <button 
+            {user[2]?.toLowerCase() === 'admin' && (
+              <button
                 onClick={() => {
                   window.history.pushState({ stage: 'admin' }, '');
+                  setAlert(null);
                   setStage('admin');
                 }}
                 disabled={loading}
@@ -766,370 +876,803 @@ export default function FleetApp() {
         ) : null}
       </AnimatePresence>
 
-            {stage === 'contact-office' && (
-              <div className="space-y-6">
-                <motion.div 
+      {stage === 'contact-office' && (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-card p-6 space-y-4 border-blue-500/20 bg-blue-500/5"
+          >
+            <div className="flex items-center gap-3 text-white font-bold text-sm mb-2">
+              <MessageSquare className="w-5 h-5 text-blue-500" />
+              SEND MESSAGE TO SENU CABS OFFICE
+            </div>
+            <p className="text-sm font-bold text-slate-200 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
+              Senu cabs කාර්යාලය වෙත පැමිනිල්ලක්, පණිවුඩයක් හෝ කිසියම් දැනුම් දීමක් කිරිමට අවශ්ය නම් පහත "Send Message" පහසුකම භාවිතා කරන්න.
+            </p>
+            <textarea
+              className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
+              placeholder="Type your message here..."
+              rows={6}
+              value={officeMessage}
+              onChange={(e) => setOfficeMessage(e.target.value)}
+            />
+            <button
+              onClick={handleSendMessage}
+              disabled={sendingMessage || !officeMessage.trim()}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest"
+            >
+              {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SEND MESSAGE'}
+            </button>
+          </motion.div>
+
+          <button
+            onClick={() => setStage('dashboard')}
+            className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      )}
+
+      {stage === 'admin' && (
+        <div className="space-y-8 pb-20">
+          {/* Header & Back */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <TrendingUp className="w-6 h-6 text-emerald-500" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-white uppercase tracking-tight">Sales Dashboard</h2>
+                <p className="text-[10px] text-emerald-500/60 font-black tracking-widest uppercase">Admin Control Panel</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-widest cursor-pointer transition-all">
+                {importingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {importingCsv ? 'Importing...' : 'Import CSV'}
+                <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} disabled={importingCsv} />
+              </label>
+              <button
+                onClick={() => {
+                  setAlert(null);
+                  setStage('dashboard');
+                }}
+                className="px-4 py-2 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+              >
+                Exit Admin
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs Navigation */}
+          <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10 w-fit">
+            <button
+              onClick={() => setAdminTab('overview')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'overview' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <Activity className="w-4 h-4" />
+              OVERVIEW
+            </button>
+            <button
+              onClick={() => setAdminTab('trips')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'trips' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <History className="w-4 h-4" />
+              RECENT TRIPS
+            </button>
+            <button
+              onClick={() => setAdminTab('rankings')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'rankings' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <Users className="w-4 h-4" />
+              RANKINGS
+            </button>
+            <button
+              onClick={() => setAdminTab('fleet')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'fleet' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <Database className="w-4 h-4" />
+              FLEET DATA
+            </button>
+            <button
+              onClick={() => setAdminTab('messages')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'messages' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <MessageSquare className="w-4 h-4" />
+              MESSAGES
+            </button>
+            <button
+              onClick={() => setAdminTab('accounts')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'accounts' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <IdCard className="w-4 h-4" />
+              ACCOUNT SHEET
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="glass-card p-4 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <Calendar className="w-2.5 h-2.5" /> From
+                </label>
+                <input
+                  type="date"
+                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  value={adminFilters.startDate}
+                  onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <Calendar className="w-2.5 h-2.5" /> To
+                </label>
+                <input
+                  type="date"
+                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  value={adminFilters.endDate}
+                  onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
+                <select
+                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  value={adminFilters.purpose}
+                  onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
+                >
+                  {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
+                <select
+                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  value={adminFilters.status}
+                  onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
+                >
+                  {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
+                <select
+                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  value={adminFilters.vehicle}
+                  onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
+                >
+                  <option value="All">All Vehicles</option>
+                  {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
+                <select
+                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  value={adminFilters.driver}
+                  onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
+                >
+                  <option value="All">All Drivers</option>
+                  {adminData?.filterOptions.drivers.map((d: string) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+          {fetchingAdmin ? (
+            <div className="glass-card p-20 flex flex-col items-center justify-center space-y-4">
+              <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+              <p className="text-slate-400 font-black tracking-widest text-xs uppercase animate-pulse">Calculating Stats...</p>
+            </div>
+          ) : adminData ? (
+            <div className="space-y-8">
+
+
+              {adminTab === 'overview' && (
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="glass-card p-6 space-y-4 border-blue-500/20 bg-blue-500/5"
+                  className="space-y-8"
                 >
-                  <div className="flex items-center gap-3 text-white font-bold text-sm mb-2">
-                    <MessageSquare className="w-5 h-5 text-blue-500" />
-                    SEND MESSAGE TO SENU CABS OFFICE
+                  {/* KPI Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                    {[
+                      { label: 'Total Sales', value: adminData.kpis.totalSales, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                      { label: 'Driver Comms', value: adminData.kpis.totalCommission, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                      { label: 'Loss Mileage', value: adminData.kpis.totalMileage, unit: 'KM', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+                      { label: 'Hires Count', value: adminData.kpis.hireCount, unit: 'Trips', icon: ClipboardCheck, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                      { label: 'Fuel Cost', value: adminData.kpis.totalFuel, icon: Fuel, color: 'text-sky-500', bg: 'bg-sky-500/10' },
+                      { label: 'Repair Cost', value: adminData.kpis.totalRepairCost, icon: Wrench, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+                    ].map((kpi, idx) => (
+                      <div key={idx} className="glass-card p-6 space-y-4">
+                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", kpi.bg)}>
+                          <kpi.icon className={cn("w-6 h-6", kpi.color)} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{kpi.label}</p>
+                          <p className="text-2xl font-black text-white tracking-tight">
+                            {kpi.unit === 'KM' || kpi.unit === 'Trips' || kpi.unit === 'Repairs' ? '' : 'Rs. '}
+                            {kpi.value.toLocaleString()}
+                            <span className="text-xs ml-1 text-slate-500 font-bold">{kpi.unit || ''}</span>
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-sm font-bold text-slate-200 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
-                    Senu cabs කාර්යාලය වෙත පැමිනිල්ලක්, පණිවුඩයක් හෝ කිසියම් දැනුම් දීමක් කිරිමට අවශ්ය නම් පහත "Send Message" පහසුකම භාවිතා කරන්න.
-                  </p>
-                  <textarea 
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
-                    placeholder="Type your message here..."
-                    rows={6}
-                    value={officeMessage}
-                    onChange={(e) => setOfficeMessage(e.target.value)}
-                  />
-                  <button 
-                    onClick={handleSendMessage}
-                    disabled={sendingMessage || !officeMessage.trim()}
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest"
-                  >
-                    {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SEND MESSAGE'}
-                  </button>
+
+                  {/* Summary Rankings Preview */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="glass-card overflow-hidden">
+                      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 3 Vehicles</h3>
+                        <Car className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div className="divide-y divide-white/5">
+                        {adminData.tables.topVehicles.slice(0, 3).map((v: any, i: number) => (
+                          <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                              <span className="text-xs font-bold text-white">{v.vehicle}</span>
+                            </div>
+                            <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setAdminTab('rankings')}
+                        className="w-full py-3 bg-white/5 text-[10px] font-black text-slate-400 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                      >
+                        SEE ALL RANKINGS <TrendingUp className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    <div className="glass-card overflow-hidden">
+                      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 3 Drivers</h3>
+                        <Users className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div className="divide-y divide-white/5">
+                        {adminData.tables.topDrivers.slice(0, 3).map((d: any, i: number) => (
+                          <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                              <span className="text-xs font-bold text-white">{d.driver}</span>
+                            </div>
+                            <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setAdminTab('rankings')}
+                        className="w-full py-3 bg-white/5 text-[10px] font-black text-slate-400 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                      >
+                        SEE ALL RANKINGS <TrendingUp className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
                 </motion.div>
+              )}
 
-                <button 
-                  onClick={() => setStage('dashboard')}
-                  className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+              {adminTab === 'rankings' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="grid grid-cols-1 lg:grid-cols-2 gap-6"
                 >
-                  Back to Dashboard
-                </button>
-              </div>
-            )}
-
-            {stage === 'admin' && (
-              <div className="space-y-8 pb-20">
-                {/* Header & Back */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                      <TrendingUp className="w-6 h-6 text-emerald-500" />
+                  <div className="glass-card overflow-hidden">
+                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Vehicles by Sales</h3>
+                      <Car className="w-4 h-4 text-emerald-500" />
                     </div>
-                    <div>
-                      <h2 className="text-2xl font-black text-white uppercase tracking-tight">Sales Dashboard</h2>
-                      <p className="text-[10px] text-emerald-500/60 font-black tracking-widest uppercase">Admin Control Panel</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setStage('dashboard')}
-                    className="px-4 py-2 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
-                  >
-                    Exit Admin
-                  </button>
-                </div>
-
-                {/* Tabs Navigation */}
-                <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10 w-fit">
-                  <button 
-                    onClick={() => setAdminTab('overview')}
-                    className={cn(
-                      "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                      adminTab === 'overview' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-                    )}
-                  >
-                    <Activity className="w-4 h-4" />
-                    OVERVIEW
-                  </button>
-                  <button 
-                    onClick={() => setAdminTab('trips')}
-                    className={cn(
-                      "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                      adminTab === 'trips' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-                    )}
-                  >
-                    <History className="w-4 h-4" />
-                    RECENT TRIPS
-                  </button>
-                  <button 
-                    onClick={() => setAdminTab('rankings')}
-                    className={cn(
-                      "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                      adminTab === 'rankings' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-                    )}
-                  >
-                    <Users className="w-4 h-4" />
-                    RANKINGS
-                  </button>
-                </div>
-
-                {/* Filters */}
-                <div className="glass-card p-4 space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                        <Calendar className="w-2.5 h-2.5" /> From
-                      </label>
-                      <input 
-                        type="date"
-                        className="w-full input-field py-2 text-[10px] text-white h-9"
-                        value={adminFilters.startDate}
-                        onChange={(e) => setAdminFilters({...adminFilters, startDate: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                        <Calendar className="w-2.5 h-2.5" /> To
-                      </label>
-                      <input 
-                        type="date"
-                        className="w-full input-field py-2 text-[10px] text-white h-9"
-                        value={adminFilters.endDate}
-                        onChange={(e) => setAdminFilters({...adminFilters, endDate: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
-                      <select 
-                        className="w-full input-field py-2 text-[10px] text-white h-9"
-                        value={adminFilters.purpose}
-                        onChange={(e) => setAdminFilters({...adminFilters, purpose: e.target.value})}
-                      >
-                        {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
-                      <select 
-                        className="w-full input-field py-2 text-[10px] text-white h-9"
-                        value={adminFilters.status}
-                        onChange={(e) => setAdminFilters({...adminFilters, status: e.target.value})}
-                      >
-                        {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
-                      <select 
-                        className="w-full input-field py-2 text-[10px] text-white h-9"
-                        value={adminFilters.vehicle}
-                        onChange={(e) => setAdminFilters({...adminFilters, vehicle: e.target.value})}
-                      >
-                        <option value="All">All Vehicles</option>
-                        {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
-                      <select 
-                        className="w-full input-field py-2 text-[10px] text-white h-9"
-                        value={adminFilters.driver}
-                        onChange={(e) => setAdminFilters({...adminFilters, driver: e.target.value})}
-                      >
-                        <option value="All">All Drivers</option>
-                        {adminData?.filterOptions.drivers.map((d: string) => <option key={d} value={d}>{d}</option>)}
-                      </select>
+                    <div className="divide-y divide-white/5">
+                      {adminData.tables.topVehicles.map((v: any, i: number) => (
+                        <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                            <span className="text-xs font-bold text-white">{v.vehicle}</span>
+                          </div>
+                          <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-                {fetchingAdmin ? (
-                  <div className="glass-card p-20 flex flex-col items-center justify-center space-y-4">
-                    <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
-                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase animate-pulse">Calculating Stats...</p>
+
+                  <div className="glass-card overflow-hidden">
+                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Drivers by Sales</h3>
+                      <Users className="w-4 h-4 text-blue-500" />
+                    </div>
+                    <div className="divide-y divide-white/5">
+                      {adminData.tables.topDrivers.map((d: any, i: number) => (
+                        <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                            <span className="text-xs font-bold text-white">{d.driver}</span>
+                          </div>
+                          <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ) : adminData ? (
-                  <div className="space-y-8">
+                </motion.div>
+              )}
 
-
-                    {adminTab === 'overview' && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-8"
-                      >
-                        {/* KPI Cards */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                          {[
-                            { label: 'Total Sales', value: adminData.kpis.totalSales, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                            { label: 'Driver Comms', value: adminData.kpis.totalCommission, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                            { label: 'Loss Mileage', value: adminData.kpis.totalMileage, unit: 'KM', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-                            { label: 'Hires Count', value: adminData.kpis.hireCount, unit: 'Trips', icon: ClipboardCheck, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-                            { label: 'Fuel Cost', value: adminData.kpis.totalFuel, icon: Fuel, color: 'text-sky-500', bg: 'bg-sky-500/10' },
-                            { label: 'Repair Cost', value: adminData.kpis.totalRepairCost, icon: Wrench, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-                          ].map((kpi, idx) => (
-                            <div key={idx} className="glass-card p-6 space-y-4">
-                              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", kpi.bg)}>
-                                <kpi.icon className={cn("w-6 h-6", kpi.color)} />
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{kpi.label}</p>
-                                <p className="text-2xl font-black text-white tracking-tight">
-                                  {kpi.unit === 'KM' || kpi.unit === 'Trips' || kpi.unit === 'Repairs' ? '' : 'Rs. '}
-                                  {kpi.value.toLocaleString()} 
-                                  <span className="text-xs ml-1 text-slate-500 font-bold">{kpi.unit || ''}</span>
-                                </p>
-                              </div>
-                            </div>
+              {adminTab === 'trips' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-card overflow-hidden"
+                >
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
+                    <History className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-white/[0.02]">
+                          {['FR Ref', 'Date', 'Driver', 'Vehicle', 'Purpose', 'Status', 'Sales', 'Commission', 'Fuel', 'Repair', 'Loss Mileage'].map(h => (
+                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
                           ))}
-                        </div>
-
-                        {/* Summary Rankings Preview */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          <div className="glass-card overflow-hidden">
-                            <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 3 Vehicles</h3>
-                              <Car className="w-4 h-4 text-emerald-500" />
-                            </div>
-                            <div className="divide-y divide-white/5">
-                              {adminData.tables.topVehicles.slice(0, 3).map((v: any, i: number) => (
-                                <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                                    <span className="text-xs font-bold text-white">{v.vehicle}</span>
-                                  </div>
-                                  <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
-                                </div>
-                              ))}
-                            </div>
-                            <button 
-                              onClick={() => setAdminTab('rankings')}
-                              className="w-full py-3 bg-white/5 text-[10px] font-black text-slate-400 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
-                            >
-                              SEE ALL RANKINGS <TrendingUp className="w-3 h-3" />
-                            </button>
-                          </div>
-
-                          <div className="glass-card overflow-hidden">
-                            <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 3 Drivers</h3>
-                              <Users className="w-4 h-4 text-blue-500" />
-                            </div>
-                            <div className="divide-y divide-white/5">
-                              {adminData.tables.topDrivers.slice(0, 3).map((d: any, i: number) => (
-                                <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                                    <span className="text-xs font-bold text-white">{d.driver}</span>
-                                  </div>
-                                  <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
-                                </div>
-                              ))}
-                            </div>
-                            <button 
-                              onClick={() => setAdminTab('rankings')}
-                              className="w-full py-3 bg-white/5 text-[10px] font-black text-slate-400 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
-                            >
-                              SEE ALL RANKINGS <TrendingUp className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {adminTab === 'rankings' && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-                      >
-                        <div className="glass-card overflow-hidden">
-                          <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Vehicles by Sales</h3>
-                            <Car className="w-4 h-4 text-emerald-500" />
-                          </div>
-                          <div className="divide-y divide-white/5">
-                            {adminData.tables.topVehicles.map((v: any, i: number) => (
-                              <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                                  <span className="text-xs font-bold text-white">{v.vehicle}</span>
-                                </div>
-                                <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="glass-card overflow-hidden">
-                          <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Drivers by Sales</h3>
-                            <Users className="w-4 h-4 text-blue-500" />
-                          </div>
-                          <div className="divide-y divide-white/5">
-                            {adminData.tables.topDrivers.map((d: any, i: number) => (
-                              <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                                  <span className="text-xs font-bold text-white">{d.driver}</span>
-                                </div>
-                                <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {adminTab === 'trips' && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="glass-card overflow-hidden"
-                      >
-                        <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
-                          <History className="w-4 h-4 text-emerald-500" />
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left">
-                            <thead>
-                              <tr className="border-b border-white/5 bg-white/[0.02]">
-                                {['FR Ref', 'Date', 'Driver', 'Vehicle', 'Purpose', 'Status', 'Sales', 'Commission', 'Fuel', 'Repair', 'Loss Mileage'].map(h => (
-                                  <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                              {adminData.tables.recentTrips.map((t: any, i: number) => (
-                                <tr key={i} className="hover:bg-white/5 transition-colors group">
-                                  <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.rf}</td>
-                                  <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">{t.date.split(' ')[0]}</td>
-                                  <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.driver}</td>
-                                  <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.vehicle}</td>
-                                  <td className="px-6 py-4">
-                                    <span className={cn(
-                                      "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                      t.purpose === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
-                                    )}>
-                                      {t.purpose}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <span className={cn(
-                                      "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                      t.status === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
-                                    )}>
-                                      {t.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-[10px] font-black text-emerald-500 whitespace-nowrap">Rs. {t.finalPrice?.toLocaleString()}</td>
-                                  <td className="px-6 py-4 text-[10px] font-black text-blue-400 whitespace-nowrap">Rs. {t.comms.toLocaleString()}</td>
-                                  <td className="px-6 py-4 text-[10px] text-rose-400 whitespace-nowrap">Rs. {t.fuel.toLocaleString()}</td>
-                                  <td className="px-6 py-4 text-[10px] text-amber-400 whitespace-nowrap">Rs. {t.repair.toLocaleString()}</td>
-                                  <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.mileage} KM</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </motion.div>
-                    )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {adminData.tables.recentTrips.map((t: any, i: number) => (
+                          <tr key={i} className="hover:bg-white/5 transition-colors group">
+                            <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.rf}</td>
+                            <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">{t.date.split(' ')[0]}</td>
+                            <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.driver}</td>
+                            <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.vehicle}</td>
+                            <td className="px-6 py-4">
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                t.purpose === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
+                              )}>
+                                {t.purpose}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                t.status === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
+                              )}>
+                                {t.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-[10px] font-black text-emerald-500 whitespace-nowrap">Rs. {t.finalPrice?.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-[10px] font-black text-blue-400 whitespace-nowrap">Rs. {t.comms.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-[10px] text-rose-400 whitespace-nowrap">Rs. {t.fuel.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-[10px] text-amber-400 whitespace-nowrap">Rs. {t.repair.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.mileage} KM</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ) : null}
+                </motion.div>
+              )}
+
+              {adminTab === 'fleet' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-card overflow-hidden"
+                >
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Complete Fleet Data</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{adminData.tables.fleetData.length} Records</span>
+                      <Database className="w-4 h-4 text-emerald-500" />
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-white/[0.02]">
+                          {[
+                            'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
+                            'Purpose', 'Garage Start', 'End TS', 'Garage End',
+                            'Fuel Cost', 'Comments', 'Repair Cost', 'Trip Ref',
+                            'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
+                            'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
+                            'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price'
+                          ].map(h => (
+                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {adminData.tables.fleetData.map((t: any, i: number) => (
+                          <tr key={i} className="hover:bg-white/5 transition-colors group">
+                            {Array.from({ length: 24 }).map((_, idx) => (
+                              <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
+                                {idx === 0 ? (
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                    t.values[idx] === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
+                                  )}>
+                                    {t.values[idx] || 'Pending'}
+                                  </span>
+                                ) : idx === 5 ? (
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                    t.values[idx] === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
+                                  )}>
+                                    {t.values[idx]}
+                                  </span>
+                                ) : (idx === 20 || idx === 21) ? (
+                                  <span className="text-slate-500 italic max-w-[100px] truncate block" title={t.values[idx]}>
+                                    {t.values[idx] || '-'}
+                                  </span>
+                                ) : (
+                                  <span className={cn(
+                                    "font-bold",
+                                    (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
+                                      (idx === 9 || idx === 11) ? "text-rose-400" : "text-white"
+                                  )}>
+                                    {t.values[idx] !== undefined && t.values[idx] !== null ? t.values[idx].toString() : '-'}
+                                  </span>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {adminData.pagination && adminData.pagination.totalPages > 1 && (
+                    <div className="p-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        Showing <span className="text-white font-bold">{((adminData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(adminData.pagination.page * 50, adminData.pagination.totalItems)}</span> of <span className="text-white font-bold">{adminData.pagination.totalItems}</span> records
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setAdminPage(prev => Math.max(1, prev - 1))}
+                          disabled={adminData.pagination.page === 1}
+                          className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+
+                        {/* Page Numbers */}
+                        {Array.from({ length: Math.min(5, adminData.pagination.totalPages) }).map((_, i) => {
+                          let pageNum = 1;
+                          if (adminData.pagination.totalPages <= 5) pageNum = i + 1;
+                          else if (adminData.pagination.page <= 3) pageNum = i + 1;
+                          else if (adminData.pagination.page >= adminData.pagination.totalPages - 2) pageNum = adminData.pagination.totalPages - 4 + i;
+                          else pageNum = adminData.pagination.page - 2 + i;
+
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => setAdminPage(pageNum)}
+                              className={cn(
+                                "w-8 h-8 rounded-lg text-[10px] font-bold transition-all",
+                                adminData.pagination.page === pageNum ? "bg-emerald-500 text-black" : "text-slate-400 hover:text-white hover:bg-white/5"
+                              )}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+
+                        <button
+                          onClick={() => setAdminPage(prev => Math.min(adminData.pagination.totalPages, prev + 1))}
+                          disabled={adminData.pagination.page === adminData.pagination.totalPages}
+                          className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </div>
+          ) : null}
+
+          {adminTab === 'accounts' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="glass-card overflow-hidden">
+                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <IdCard className="w-5 h-5 text-emerald-500" />
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Sheet Data</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSyncAccountSheet}
+                      disabled={isSyncingAccounts}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                    >
+                      {isSyncingAccounts ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      SYNC NOW
+                    </button>
+                    <button
+                      onClick={() => fetchAccountSheetData()}
+                      className="p-2 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white"
+                      title="Refresh Data"
+                    >
+                      <RefreshCw className={cn("w-4 h-4", fetchingAccountData && "animate-spin")} />
+                    </button>
+                  </div>
+                </div>
+
+                {fetchingAccountData ? (
+                  <div className="p-20 flex flex-col items-center justify-center space-y-4">
+                    <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Account Data...</p>
+                  </div>
+                ) : accountSheetData?.data?.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-white/[0.02]">
+                          {(accountSheetData?.headers || [
+                            'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
+                            'Purpose', 'Garage Start', 'End TS', 'Garage End',
+                            'Fuel Cost', 'Comments', 'Repair Cost', 'Trip Ref',
+                            'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
+                            'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
+                            'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price'
+                          ]).map((h: string) => (
+                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {accountSheetData.data.map((row: any, i: number) => (
+                          <tr key={i} className="hover:bg-white/5 transition-colors group">
+                            {(row.rawValues || []).map((val: any, idx: number) => (
+                              <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
+                                {idx === 0 ? (
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                    val === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
+                                  )}>
+                                    {val || 'Pending'}
+                                  </span>
+                                ) : idx === 5 ? (
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                    val === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
+                                  )}>
+                                    {val}
+                                  </span>
+                                ) : (
+                                  <span className={cn(
+                                    "font-bold",
+                                    (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
+                                      (idx === 9 || idx === 11) ? "text-rose-400" : "text-white"
+                                  )}>
+                                    {val !== undefined && val !== null ? val.toString() : '-'}
+                                  </span>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-20 text-center">
+                    <p className="text-slate-500 font-bold">No account data found.</p>
+                  </div>
+                )}
+
+                {/* Pagination for account sheet */}
+                {accountSheetData?.pagination && accountSheetData.pagination.totalPages > 1 && (
+                  <div className="p-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
+                    <p className="text-[10px] text-slate-500 font-medium">
+                      Showing <span className="text-white font-bold">{((accountSheetData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(accountSheetData.pagination.page * 50, accountSheetData.pagination.totalItems)}</span> of <span className="text-white font-bold">{accountSheetData.pagination.totalItems}</span> records
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setAdminPage(prev => Math.max(1, prev - 1))}
+                        disabled={accountSheetData.pagination.page === 1}
+                        className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setAdminPage(prev => Math.min(accountSheetData.pagination.totalPages, prev + 1))}
+                        disabled={accountSheetData.pagination.page === accountSheetData.pagination.totalPages}
+                        className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </motion.div>
+          )}
+
+          {adminTab === 'messages' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="glass-card overflow-hidden">
+                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Messages</h3>
+                  <MessageSquare className="w-4 h-4 text-blue-500" />
+                </div>
+
+                {fetchingMessages ? (
+                  <div className="p-20 flex flex-col items-center justify-center space-y-4">
+                    <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Messages...</p>
+                  </div>
+                ) : messagesData?.messages?.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-white/[0.02]">
+                          {['Status', 'Driver ID', 'Driver Name', 'Message Preview', 'Actions'].map(h => (
+                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {messagesData.messages.map((msg: any, i: number) => (
+                          <tr key={i} className={cn("hover:bg-white/5 transition-colors group", !msg.isRead && "bg-blue-500/[0.02]")}>
+                            <td className="px-6 py-4">
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                msg.isRead ? "bg-slate-500/10 text-slate-500" : "bg-blue-500 text-white shadow-lg shadow-blue-500/20"
+                              )}>
+                                {msg.isRead ? 'READ' : 'NEW'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-[10px] font-bold text-white">{msg.driverId}</td>
+                            <td className="px-6 py-4 text-[10px] font-bold text-slate-300">{msg.driverName || '-'}</td>
+                            <td className="px-6 py-4 text-[10px] text-slate-500 max-w-[200px] truncate italic">"{msg.message}"</td>
+                            <td className="px-6 py-4">
+                              <button
+                                onClick={async () => {
+                                  setSelectedMessage(msg);
+                                  if (!msg.isRead) {
+                                    await fetch('/api/admin/messages', {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ id: msg._id }),
+                                    });
+                                    fetchAdminMessages(); // Refresh status
+                                  }
+                                }}
+                                className="px-4 py-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all border border-blue-500/20"
+                              >
+                                VIEW
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-20 text-center">
+                    <p className="text-slate-500 font-bold">No messages found.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Message View Modal */}
+              <AnimatePresence>
+                {selectedMessage && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                      className="w-full max-w-lg glass-card p-8 space-y-6 relative border-blue-500/30 bg-slate-900/90 shadow-2xl shadow-blue-500/10"
+                    >
+                      <button
+                        onClick={() => setSelectedMessage(null)}
+                        className="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+
+                      <div className="flex items-center gap-4 mb-2">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                          <MessageSquare className="w-6 h-6 text-blue-500" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-white uppercase tracking-tight">Driver Message</h3>
+                          <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{selectedMessage.timestamp}</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Driver</p>
+                          <p className="text-sm font-bold text-white">{selectedMessage.driverName} ({selectedMessage.driverId})</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Message Content</p>
+                        <div className="bg-white/5 p-6 rounded-2xl border border-white/5 min-h-[150px]">
+                          <p className="text-slate-200 text-sm leading-relaxed italic">
+                            "{selectedMessage.message}"
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setSelectedMessage(null)}
+                        className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition-all shadow-lg shadow-blue-600/20 uppercase tracking-widest text-xs"
+                      >
+                        CLOSE MESSAGE
+                      </button>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+
+              {/* Pagination for messages */}
+              {messagesData?.pagination && messagesData.pagination.totalPages > 1 && (
+                <div className="p-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
+                  <p className="text-[10px] text-slate-500 font-medium">
+                    Showing <span className="text-white font-bold">{((messagesData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(messagesData.pagination.page * 50, messagesData.pagination.totalItems)}</span> of <span className="text-white font-bold">{messagesData.pagination.totalItems}</span> messages
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setAdminPage(prev => Math.max(1, prev - 1))}
+                      disabled={messagesData.pagination.page === 1}
+                      className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setAdminPage(prev => Math.min(messagesData.pagination.totalPages, prev + 1))}
+                      disabled={messagesData.pagination.page === messagesData.pagination.totalPages}
+                      className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </div>
+      )}
 
       {/* Alert Component */}
       <AnimatePresence>
         {alert && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
@@ -1148,8 +1691,8 @@ export default function FleetApp() {
 
       {/* Form Content */}
       <AnimatePresence>
-        {stage !== 'dashboard' && (
-          <motion.div 
+        {stage !== 'dashboard' && stage !== 'admin' && (
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
@@ -1157,7 +1700,7 @@ export default function FleetApp() {
             {stage === 'last-trip' && (
               <div className="glass-card p-6 space-y-4">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center block">Select FR Number (Last 10)</label>
-                <select 
+                <select
                   className="w-full input-field py-3"
                   value={currentRef || ''}
                   onChange={(e) => handleFrRefChange(e.target.value)}
@@ -1180,7 +1723,7 @@ export default function FleetApp() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-400 uppercase">Year</label>
-                      <select 
+                      <select
                         className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4 text-sm"
                         value={salaryYear}
                         onChange={(e) => setSalaryYear(e.target.value)}
@@ -1192,7 +1735,7 @@ export default function FleetApp() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-400 uppercase">Month</label>
-                      <select 
+                      <select
                         className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4 text-sm"
                         value={salaryMonth}
                         onChange={(e) => setSalaryMonth(e.target.value)}
@@ -1221,9 +1764,9 @@ export default function FleetApp() {
                         </div>
                       </div>
                       <div className="text-right hidden sm:block">
-                         <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter italic">
-                           {new Date(2000, parseInt(salaryMonth) - 1).toLocaleString('default', { month: 'short' })} {salaryYear}
-                         </p>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter italic">
+                          {new Date(2000, parseInt(salaryMonth) - 1).toLocaleString('default', { month: 'short' })} {salaryYear}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1252,17 +1795,17 @@ export default function FleetApp() {
                 )}
 
                 {salaryData.length === 0 && !fetchingSalary && (
-                   <div className="glass-card p-12 text-center border-dashed border-white/10">
-                     <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                       <IdCard className="w-8 h-8 text-emerald-500/50" />
-                     </div>
-                     <p className="text-slate-400 text-sm font-medium">
-                       No hire commissions found for this period.
-                     </p>
-                   </div>
+                  <div className="glass-card p-12 text-center border-dashed border-white/10">
+                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                      <IdCard className="w-8 h-8 text-emerald-500/50" />
+                    </div>
+                    <p className="text-slate-400 text-sm font-medium">
+                      No hire commissions found for this period.
+                    </p>
+                  </div>
                 )}
 
-                <button 
+                <button
                   onClick={() => {
                     setStage('dashboard');
                     setSalaryData([]);
@@ -1286,7 +1829,7 @@ export default function FleetApp() {
                 <p className="text-slate-400 text-sm max-w-xs">
                   Please select a reference number above to view trip details.
                 </p>
-                <button 
+                <button
                   onClick={() => window.history.back()}
                   className="mt-6 px-8 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-bold"
                 >
@@ -1301,7 +1844,7 @@ export default function FleetApp() {
                     <ClipboardCheck className="w-6 h-6 text-purple-500" />
                     Detailed Trip Report: {currentRef}
                   </div>
-                  
+
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                     {[
                       { label: 'Start Timestamp', value: formData.startTs },
@@ -1340,7 +1883,7 @@ export default function FleetApp() {
                   )}
 
                   <div className="mt-8">
-                    <button 
+                    <button
                       onClick={() => {
                         setCurrentRef(null);
                         setFormData({
@@ -1364,7 +1907,7 @@ export default function FleetApp() {
             {stage === 'update' && (
               <div className="glass-card p-6 space-y-4">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select Reference</label>
-                <select 
+                <select
                   className="w-full input-field py-3"
                   value={currentRef || ''}
                   onChange={(e) => handleFrRefChange(e.target.value)}
@@ -1388,7 +1931,7 @@ export default function FleetApp() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Vehicle</label>
-                    <select 
+                    <select
                       id="vehicle"
                       disabled={stage === 'update'}
                       className="w-full input-field py-3"
@@ -1401,7 +1944,7 @@ export default function FleetApp() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Purpose</label>
-                    <select 
+                    <select
                       id="purpose"
                       disabled={stage === 'update'}
                       className="w-full input-field py-3"
@@ -1417,7 +1960,7 @@ export default function FleetApp() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Garage Start (KM)</label>
-                    <input 
+                    <input
                       id="garageStartMeter"
                       type="number"
                       min="0"
@@ -1432,7 +1975,7 @@ export default function FleetApp() {
                       <label className="text-[10px] font-bold text-slate-400 uppercase">Start Image</label>
                       <div className="relative">
                         <Camera className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input 
+                        <input
                           id="garageStartImage"
                           type="file"
                           accept="image/*"
@@ -1447,7 +1990,7 @@ export default function FleetApp() {
             )}
 
             {/* Stage Specific Cards */}
-            {formData.purpose === 'Hire' && stage !== 'last-trip' && (
+            {formData.purpose === 'Hire' && stage !== 'last-trip' && stage !== 'contact-office' && (
               <div className="glass-card p-6 space-y-6 relative overflow-hidden">
                 {fetchingDetails && (
                   <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-20 flex flex-col items-center justify-center">
@@ -1461,24 +2004,24 @@ export default function FleetApp() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Trip Reference</label>
-                  <select 
+                  <select
                     id="tripRef"
                     disabled={stage === 'update'}
                     className="w-full input-field py-3"
                     value={formData.tripRef}
                     onChange={(e) => handleTripRefChange(e.target.value)}
                   >
-                  <option value="">Select</option>
-                  {(() => {
-                    // Filter by vehicle if selected
-                    let filtered = (tripRefs || []).filter(t => !formData.vehicle || t.vehicle === formData.vehicle).map(t => t.ref);
-                    // Ensure the current value is in the list (especially for the Update stage)
-                    if (formData.tripRef && !filtered.includes(formData.tripRef)) {
-                      filtered = [formData.tripRef, ...filtered];
-                    }
-                    return filtered.map((t, idx) => <option key={`${t}-${idx}`} value={t}>{t}</option>);
-                  })()}
-                </select>
+                    <option value="">Select</option>
+                    {(() => {
+                      // Filter by vehicle if selected
+                      let filtered = (tripRefs || []).filter(t => !formData.vehicle || t.vehicle?.toString().trim().toUpperCase() === formData.vehicle.toString().trim().toUpperCase()).map(t => t.ref);
+                      // Ensure the current value is in the list (especially for the Update stage)
+                      if (formData.tripRef && !filtered.includes(formData.tripRef)) {
+                        filtered = [formData.tripRef, ...filtered];
+                      }
+                      return filtered.map((t, idx) => <option key={`${t}-${idx}`} value={t}>{t}</option>);
+                    })()}
+                  </select>
                 </div>
 
                 {stage === 'update' && (
@@ -1532,7 +2075,7 @@ export default function FleetApp() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Cost (Rs.)</label>
-                    <input 
+                    <input
                       id="fuelCost"
                       type="number"
                       min="0"
@@ -1543,7 +2086,7 @@ export default function FleetApp() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Receipt</label>
-                    <input 
+                    <input
                       id="fuelReceipt"
                       type="file"
                       className="w-full input-field py-2 text-[10px]"
@@ -1555,7 +2098,7 @@ export default function FleetApp() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Garage End (KM)</label>
-                    <input 
+                    <input
                       id="garageEndMeter"
                       type="number"
                       min="0"
@@ -1566,7 +2109,7 @@ export default function FleetApp() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">End Image</label>
-                    <input 
+                    <input
                       id="garageEndImage"
                       type="file"
                       className="w-full input-field py-2 text-[10px]"
@@ -1579,7 +2122,7 @@ export default function FleetApp() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-400 uppercase">Repair Cost (Rs.)</label>
-                      <input 
+                      <input
                         id="repairCost"
                         type="number"
                         min="0"
@@ -1590,7 +2133,7 @@ export default function FleetApp() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-400 uppercase">Repair Receipt</label>
-                      <input 
+                      <input
                         id="repairReceipt"
                         type="file"
                         multiple
@@ -1602,7 +2145,7 @@ export default function FleetApp() {
                           {files.repairReceipt.map((f, i) => (
                             <div key={i} className="flex items-center justify-between text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg border border-white/5">
                               <span className="truncate flex-1 mr-2">{f.name}</span>
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.preventDefault();
                                   removeFile('repairReceipt', i);
@@ -1621,7 +2164,7 @@ export default function FleetApp() {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Comments</label>
-                  <textarea 
+                  <textarea
                     id="comments"
                     rows={3}
                     className="w-full input-field py-3"
@@ -1672,15 +2215,15 @@ export default function FleetApp() {
             {/* Footer Buttons */}
             {(stage === 'new' || stage === 'update') && (
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => window.history.back()}
                   className="flex-1 py-4 glass-card font-bold hover:bg-white/5 transition-colors"
                 >
                   CANCEL
                 </button>
-                <button 
+                <button
                   onClick={handleSubmit}
-                  disabled={loading || !formData.purpose || (formData.purpose === 'Hire' && !formData.tripRef)}
+                  disabled={loading || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && (!formData.tripRef || formData.tripPrice === ''))}
                   className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
@@ -1694,20 +2237,20 @@ export default function FleetApp() {
       {/* PWA Install Popup */}
       <AnimatePresence>
         {showInstallPopup && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
             className="fixed bottom-6 left-6 right-6 z-[100] md:max-w-md md:mx-auto"
           >
             <div className="glass-card p-5 border-blue-500/30 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-blue-500/20 relative">
-              <button 
+              <button
                 onClick={() => setShowInstallPopup(false)}
                 className="absolute top-3 right-3 text-slate-500 hover:text-white transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
-              
+
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
                   <Download className="w-6 h-6 text-blue-400" />
@@ -1717,7 +2260,7 @@ export default function FleetApp() {
                   <p className="text-slate-400 text-xs mt-1">Add to your home screen for quick access and better experience.</p>
                 </div>
               </div>
-              
+
               <div className="mt-5 flex gap-3">
                 <button
                   onClick={handleInstall}

@@ -1,92 +1,81 @@
-import { NextResponse } from 'next/server';
-import { getSheets, getDrive } from '@/lib/google';
-import { Readable } from 'stream';
+import { NextResponse } from "next/server";
+import dbConnect from "@/lib/mongodb";
+import Trip from "@/models/Trip";
+import { getDrive } from "@/lib/google";
+import { Readable } from "stream";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function POST(request: Request) {
   try {
     const { stage, ref, array, files } = await request.json();
-    const sheets = await getSheets();
-    const drive = await getDrive();
-    const spreadsheetId = process.env.SPREADSHEET_ID_MASTER;
-
-    // Find the row index
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: 'master!B:V',
-    });
-
+    
     if (!ref) {
-      console.error('FAILED: No Reference provided in request.');
-      return NextResponse.json({ error: 'No Reference provided' }, { status: 400 });
+      return NextResponse.json({ error: "No Reference provided" }, { status: 400 });
     }
 
-    const rows = response.data.values || [];
-    console.log(`Searching for Reference: "${ref}" in ${rows.length} rows`);
-    
-    // row[0] is column B because the range starts at B
-    // We use .trim() to be safe against hidden spaces
-    const rowIndex = rows.findIndex((row: any[]) => row[0]?.toString().trim() === ref.trim());
+    await dbConnect();
 
-    if (rowIndex === -1) {
-      console.error(`FAILED: Reference "${ref}" not found in spreadsheet.`);
-      // Log the first few references in the sheet to see what they look like
-      console.log('First 5 refs in sheet:', rows.slice(0, 5).map((r: any[]) => r[0]));
-      console.log('Last 5 refs in sheet:', rows.slice(-5).map((r: any[]) => r[0]));
-      return NextResponse.json({ error: 'Reference not found' }, { status: 404 });
+    const trip = await Trip.findOne({ reference: ref.trim() });
+
+    if (!trip) {
+      return NextResponse.json({ error: "Reference not found" }, { status: 404 });
     }
 
-    const actualRow = rowIndex + 1; 
-    const folderId = rows[rowIndex][20]; // Column V is index 20 in range B:V
+    // Map array values to fields
+    // Array starts at Column D (index 3 of A:Z)
+    // D: 0, E: 1, F: 2, G: 3, H: 4, I: 5, J: 6 (Fuel), K: 7, L: 8 (Repair), M: 9, N: 10, O: 11 (Comms), ...
+    const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, "")) || 0;
 
-    // Update values
-    // updateRange = ss.getRange(rowIndex, 4, 1, array.length) -> Column D is index 4.
-    // In our range B:V, B is 1, C is 2, D is 3.
-    // So update range is D: ...
+    trip.driverId = array[0] || trip.driverId;
+    trip.vehicle = array[1] || trip.vehicle;
+    trip.purpose = array[2] || trip.purpose;
+    trip.fuel = parseNum(array[6]);
+    trip.repair = parseNum(array[8]);
+    trip.commission = parseNum(array[11]);
+    trip.mileage = parseNum(array[19]);
+    trip.finalPrice = parseNum(array[20]);
     
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `master!D${actualRow}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [array],
-      },
-    });
+    // Update rawValues to match the sheet structure
+    // Column A and B and C are already in trip.status, trip.reference, trip.timestamp
+    trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...array];
 
     // Handle file uploads
     if (files && files.length > 0) {
+      const drive = await getDrive();
+      const folderId = trip.folderId;
+
       for (const file of files) {
-        const base64Data = file.dataUrl.split(',')[1];
+        const base64Data = file.dataUrl.split(",")[1];
         
         if (process.env.APPS_SCRIPT_WEB_APP_URL) {
           const proxyRes = await fetch(process.env.APPS_SCRIPT_WEB_APP_URL, {
-            method: 'POST',
+            method: "POST",
             body: JSON.stringify({
-              action: 'uploadFile',
+              action: "uploadFile",
               folderId: folderId,
               fileName: file.name,
               base64Data: base64Data,
-              mimeType: 'image/jpeg'
+              mimeType: "image/jpeg"
             })
           });
           
           const proxyData = await proxyRes.json();
           if (!proxyData.success) {
-            throw new Error('Apps Script Proxy Error: ' + proxyData.error);
+            throw new Error("Apps Script Proxy Error: " + proxyData.error);
           }
         } else {
-          const buffer = Buffer.from(base64Data, 'base64');
+          const buffer = Buffer.from(base64Data, "base64");
           const stream = Readable.from(buffer);
 
           await drive.files.create({
             requestBody: {
               name: file.name,
-              parents: [folderId],
+              parents: [folderId!],
             },
             media: {
-              mimeType: 'image/jpeg',
+              mimeType: "image/jpeg",
               body: stream,
             },
           });
@@ -94,9 +83,11 @@ export async function POST(request: Request) {
       }
     }
 
+    await trip.save();
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Update error:', error);
+    console.error("Update error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
