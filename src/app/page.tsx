@@ -31,7 +31,10 @@ import {
   Upload,
   ChevronLeft,
   ChevronRight,
-  Filter
+  Filter,
+  Trash2,
+  Edit,
+  Search
 } from 'lucide-react';
 
 import LoginModal from '@/components/LoginModal';
@@ -78,12 +81,18 @@ export default function FleetApp() {
   const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts'>('overview');
   const [accountSheetData, setAccountSheetData] = useState<any>(null);
   const [fetchingAccountData, setFetchingAccountData] = useState(false);
+  const [accountSearch, setAccountSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [messagesData, setMessagesData] = useState<any>(null);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [fetchingMessages, setFetchingMessages] = useState(false);
   const [importingCsv, setImportingCsv] = useState(false);
   const [adminPage, setAdminPage] = useState(1);
   const [isSyncingAccounts, setIsSyncingAccounts] = useState(false);
+  const [clearingFleet, setClearingFleet] = useState(false);
+  const [editingTrip, setEditingTrip] = useState<any>(null);
+  const [savingEdit, setSavingEdit] = useState<boolean>(false);
+  const [viewingImages, setViewingImages] = useState<any>(null);
 
   // Form states
   const [formData, setFormData] = useState<any>({
@@ -265,12 +274,12 @@ export default function FleetApp() {
         fetchAdminSales();
       }
     }
-  }, [stage, adminFilters, adminPage, user, adminTab]);
+  }, [stage, adminFilters, adminPage, user, adminTab, debouncedSearch]);
 
   const fetchAccountSheetData = async () => {
     setFetchingAccountData(true);
     try {
-      const res = await fetch(`/api/admin/account-data?page=${adminPage}&limit=50`);
+      const res = await fetch(`/api/admin/account-data?page=${adminPage}&limit=50&search=${encodeURIComponent(debouncedSearch)}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAccountSheetData(data);
@@ -295,6 +304,85 @@ export default function FleetApp() {
     } finally {
       setIsSyncingAccounts(false);
       setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
+  const handleClearFleetData = async () => {
+    if (!confirm("Are you sure you want to clear ALL fleet data? This action cannot be undone.")) return;
+    setClearingFleet(true);
+    setAlert({ type: 'warning', message: 'Clearing fleet data...' });
+    try {
+      const res = await fetch('/api/admin/clear-fleet', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAlert({ type: 'success', message: 'Fleet data cleared successfully!' });
+      
+      // Refresh admin data
+      const queryParams = new URLSearchParams({
+        page: adminPage.toString(),
+        limit: "50"
+      });
+      if (adminFilters.purpose !== 'All') queryParams.append('purpose', adminFilters.purpose);
+      if (adminFilters.status !== 'All') queryParams.append('status', adminFilters.status);
+      if (adminFilters.vehicle !== 'All') queryParams.append('vehicle', adminFilters.vehicle);
+      if (adminFilters.driver !== 'All') queryParams.append('driver', adminFilters.driver);
+      
+      const updatedDataRes = await fetch(`/api/admin/sales?${queryParams.toString()}`);
+      const updatedData = await updatedDataRes.json();
+      setAdminData(updatedData);
+    } catch (err: any) {
+      console.error(err);
+      setAlert({ type: 'error', message: err.message || 'Failed to clear fleet data' });
+    } finally {
+      setClearingFleet(false);
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
+  const handleDeleteFleetRow = async (ref: string) => {
+    if (!confirm(`Are you sure you want to delete trip ${ref}?`)) return;
+    try {
+      const res = await fetch(`/api/admin/delete-trip?ref=${ref}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAlert({ type: 'success', message: 'Trip deleted successfully!' });
+      fetchAdminSales();
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to delete trip' });
+    }
+  };
+
+  const handleSaveEditedTrip = async () => {
+    if (!editingTrip) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch('/api/admin/edit-trip', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reference: editingTrip.rf,
+          status: editingTrip.status,
+          driverId: editingTrip.driver,
+          vehicle: editingTrip.vehicle,
+          purpose: editingTrip.purpose,
+          garageStartMeter: editingTrip.values[6],
+          garageEndMeter: editingTrip.values[8],
+          fuel: editingTrip.values[9],
+          repair: editingTrip.values[11],
+          commission: editingTrip.values[14],
+          tripRef: editingTrip.values[12],
+          finalPrice: editingTrip.values[23]
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAlert({ type: 'success', message: 'Trip updated successfully!' });
+      setEditingTrip(null);
+      fetchAdminSales();
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to update trip' });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -429,10 +517,10 @@ export default function FleetApp() {
         comments: details[10] || '',
         repairCost: details[11] || '',
         scDueAmount: details[13] || '',
-        drvComms: details[14] || '',
-        tripStartMeter: details[15] || '',
-        tripEndMeter: details[16] || '',
-        pkgBalanceMileage: details[17] || '',
+        drvComms: '',
+        tripStartMeter: '',
+        tripEndMeter: '',
+        pkgBalanceMileage: '',
         startLossMileage: details[18] || '',
         endLossMileage: details[19] || '',
         totalMileage: details[22] || '',
@@ -442,7 +530,7 @@ export default function FleetApp() {
       setCurrentRef(ref);
       setAlert(null);
 
-      if (fetchedTripRef && details[4] === 'Hire') {
+      if (fetchedTripRef && details[5] === 'Hire') {
         await handleTripRefChange(fetchedTripRef);
       }
     } catch (err) {
@@ -452,55 +540,14 @@ export default function FleetApp() {
     }
   };
 
-  const handleTripRefChange = async (ref: string) => {
-    setFetchingDetails(true);
-    try {
-      const res = await fetch(`/api/fleet/details?type=trip&ref=${ref}`);
-      const data = await res.json();
-      const d = data.details;
-
-      if (!d) {
-        setAlert({ type: 'error', message: 'Trip details not found.' });
-        return;
-      }
-
-      const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, '')) || 0;
-
-      const tripStart = parseNum(d[54]);
-      const tripEnd = parseNum(d[57]);
-      const distance = parseNum(d[58]);
-      const finalTripPriceRaw = d[67] || 0;
-      const miscValueRaw = d[66] || 0;
-      const numFinal = parseNum(finalTripPriceRaw);
-      const numMisc = parseNum(miscValueRaw);
-      const tripPrice = numFinal - numMisc;
-      const vehicle = d[17] || '';
-
-      const numericPrice = parseNum(tripPrice);
-      let percentage = 0.20;
-      const v = vehicle.toUpperCase();
-      if (v.includes('KDH') || v.includes('BUS')) {
-        percentage = 0.15;
-      }
-      const comms = Math.round(numericPrice * percentage);
-
-      const pkgKms = parseNum(d[33]);
-      const pkgBalance = pkgKms - distance;
-
-      setFormData((prev: any) => ({
-        ...prev,
-        tripRef: ref,
-        tripStartMeter: tripStart,
-        tripEndMeter: tripEnd,
-        drvComms: comms,
-        pkgBalanceMileage: pkgBalance,
-        tripPrice: tripPrice,
-      }));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setFetchingDetails(false);
-    }
+  const handleTripRefChange = (ref: string) => {
+    const matchedRef = tripRefs.find((t: any) => (t.ref || t) === ref);
+    setFormData((prev: any) => ({
+      ...prev,
+      tripRef: ref,
+      tripStartMeter: matchedRef?.startMeter || '',
+      tripEndMeter: matchedRef?.endMeter || ''
+    }));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -563,6 +610,16 @@ export default function FleetApp() {
       [id]: Array.isArray(prev[id]) ? prev[id].filter((_: any, i: number) => i !== index) : null
     }));
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (debouncedSearch !== accountSearch) {
+        setDebouncedSearch(accountSearch);
+        setAdminPage(1); // Reset to first page on search
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [accountSearch, debouncedSearch]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -1283,6 +1340,14 @@ export default function FleetApp() {
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{adminData.tables.fleetData.length} Records</span>
                       <Database className="w-4 h-4 text-emerald-500" />
+                      <button
+                        onClick={handleClearFleetData}
+                        disabled={clearingFleet}
+                        className="ml-4 px-3 py-1 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1"
+                      >
+                        {clearingFleet ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                        Clear Data
+                      </button>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
@@ -1295,7 +1360,8 @@ export default function FleetApp() {
                             'Fuel Cost', 'Comments', 'Repair Cost', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-                            'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price'
+                            'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price',
+                            'Actions'
                           ].map(h => (
                             <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
                           ))}
@@ -1320,7 +1386,14 @@ export default function FleetApp() {
                                   )}>
                                     {t.values[idx]}
                                   </span>
-                                ) : (idx === 20 || idx === 21) ? (
+                                ) : idx === 20 ? (
+                                  <button
+                                    onClick={() => setViewingImages({ rf: t.rf, images: t.images || [] })}
+                                    className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black border border-emerald-500/20 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all"
+                                  >
+                                    View
+                                  </button>
+                                ) : idx === 21 ? (
                                   <span className="text-slate-500 italic max-w-[100px] truncate block" title={t.values[idx]}>
                                     {t.values[idx] || '-'}
                                   </span>
@@ -1335,6 +1408,22 @@ export default function FleetApp() {
                                 )}
                               </td>
                             ))}
+                            <td className="px-6 py-4 text-[10px] whitespace-nowrap flex items-center gap-2">
+                              <button
+                                onClick={() => setEditingTrip(t)}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
+                              >
+                                <Edit className="w-3 h-3" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFleetRow(t.rf)}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Delete
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1400,10 +1489,22 @@ export default function FleetApp() {
               className="space-y-6"
             >
               <div className="glass-card overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-3">
                     <IdCard className="w-5 h-5 text-emerald-500" />
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Sheet Data</h3>
+                  </div>
+                  <div className="flex items-center gap-2 flex-1 max-w-md ml-auto">
+                    <div className="relative w-full">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text"
+                        placeholder="Search records..."
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                        value={accountSearch}
+                        onChange={(e) => setAccountSearch(e.target.value)}
+                      />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1447,7 +1548,8 @@ export default function FleetApp() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {accountSheetData.data.map((row: any, i: number) => (
+                        {accountSheetData.data
+                          .map((row: any, i: number) => (
                           <tr key={i} className="hover:bg-white/5 transition-colors group">
                             {(row.rawValues || []).map((val: any, idx: number) => (
                               <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
@@ -2024,7 +2126,7 @@ export default function FleetApp() {
                   </select>
                 </div>
 
-                {stage === 'update' && (
+                {stage === 'update' ? (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <p className="text-[10px] text-slate-400 uppercase">Trip Start</p>
@@ -2043,7 +2145,7 @@ export default function FleetApp() {
                       <p className="font-bold text-amber-400">{formData.pkgBalanceMileage} KM</p>
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
 
@@ -2223,7 +2325,7 @@ export default function FleetApp() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={loading || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && (!formData.tripRef || formData.tripPrice === ''))}
+                  disabled={loading || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef)}
                   className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
@@ -2277,6 +2379,263 @@ export default function FleetApp() {
                 </button>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Trip Modal */}
+      <AnimatePresence>
+        {editingTrip && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Edit className="w-5 h-5 text-emerald-500" />
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Edit Fleet Record ({editingTrip.rf})</h3>
+                </div>
+                <button
+                  onClick={() => setEditingTrip(null)}
+                  className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Status</label>
+                    <select
+                      value={editingTrip.status}
+                      onChange={(e) => setEditingTrip({ ...editingTrip, status: e.target.value })}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Approved">Approved</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Driver ID</label>
+                    <input
+                      type="text"
+                      value={editingTrip.driver}
+                      onChange={(e) => setEditingTrip({ ...editingTrip, driver: e.target.value })}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Vehicle Num</label>
+                    <input
+                      type="text"
+                      value={editingTrip.vehicle}
+                      onChange={(e) => setEditingTrip({ ...editingTrip, vehicle: e.target.value })}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Purpose</label>
+                    <select
+                      value={editingTrip.purpose}
+                      onChange={(e) => setEditingTrip({ ...editingTrip, purpose: e.target.value })}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="Hire">Hire</option>
+                      <option value="Repair">Repair</option>
+                      <option value="Personal">Personal</option>
+                      <option value="Fuel">Fuel</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Garage Start KM</label>
+                    <input
+                      type="number"
+                      value={editingTrip.values[6] || ''}
+                      onChange={(e) => {
+                        const newValues = [...editingTrip.values];
+                        newValues[6] = e.target.value;
+                        setEditingTrip({ ...editingTrip, values: newValues });
+                      }}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Garage End KM</label>
+                    <input
+                      type="number"
+                      value={editingTrip.values[8] || ''}
+                      onChange={(e) => {
+                        const newValues = [...editingTrip.values];
+                        newValues[8] = e.target.value;
+                        setEditingTrip({ ...editingTrip, values: newValues });
+                      }}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Fuel Cost</label>
+                    <input
+                      type="number"
+                      value={editingTrip.values[9] || ''}
+                      onChange={(e) => {
+                        const newValues = [...editingTrip.values];
+                        newValues[9] = e.target.value;
+                        setEditingTrip({ ...editingTrip, values: newValues });
+                      }}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Repair Cost</label>
+                    <input
+                      type="number"
+                      value={editingTrip.values[11] || ''}
+                      onChange={(e) => {
+                        const newValues = [...editingTrip.values];
+                        newValues[11] = e.target.value;
+                        setEditingTrip({ ...editingTrip, values: newValues });
+                      }}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Driver Comms</label>
+                    <input
+                      type="number"
+                      value={editingTrip.values[14] || ''}
+                      onChange={(e) => {
+                        const newValues = [...editingTrip.values];
+                        newValues[14] = e.target.value;
+                        setEditingTrip({ ...editingTrip, values: newValues });
+                      }}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Trip Ref (Booking Ref)</label>
+                    <input
+                      type="text"
+                      value={editingTrip.values[12] || ''}
+                      onChange={(e) => {
+                        const newValues = [...editingTrip.values];
+                        newValues[12] = e.target.value;
+                        setEditingTrip({ ...editingTrip, values: newValues });
+                      }}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Final Price</label>
+                    <input
+                      type="number"
+                      value={editingTrip.values[23] || ''}
+                      onChange={(e) => {
+                        const newValues = [...editingTrip.values];
+                        newValues[23] = e.target.value;
+                        setEditingTrip({ ...editingTrip, values: newValues });
+                      }}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setEditingTrip(null)}
+                  className="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5 text-xs text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEditedTrip}
+                  disabled={savingEdit}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                >
+                  {savingEdit && <Loader2 className="w-3 h-3 animate-spin" />}
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* View Images Modal */}
+      <AnimatePresence>
+        {viewingImages && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-emerald-500" />
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Uploaded Images ({viewingImages.rf})</h3>
+                </div>
+                <button
+                  onClick={() => setViewingImages(null)}
+                  className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-950/40">
+                {viewingImages.images && viewingImages.images.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {viewingImages.images.map((img: any, idx: number) => (
+                      <div key={idx} className="glass-card overflow-hidden border border-white/5 flex flex-col">
+                        <div className="p-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{img.name}</span>
+                          <span className="text-[9px] text-slate-500 font-bold">{idx + 1} of {viewingImages.images.length}</span>
+                        </div>
+                        <div className="relative flex-1 bg-black flex items-center justify-center min-h-[300px] p-2">
+                          <img
+                            src={img.dataUrl}
+                            alt={img.name}
+                            className="max-h-[400px] w-auto object-contain rounded-lg shadow-lg hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-20 flex flex-col items-center justify-center text-center space-y-3">
+                    <Camera className="w-12 h-12 text-slate-600 animate-pulse" />
+                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase">No images found in database</p>
+                    <p className="text-slate-500 text-[10px]">Images are stored in MongoDB when new records are submitted or updated.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end">
+                <button
+                  onClick={() => setViewingImages(null)}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20"
+                >
+                  Close Viewer
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

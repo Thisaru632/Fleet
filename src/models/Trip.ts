@@ -15,7 +15,13 @@ const TripSchema: Schema = new Schema({
   finalPrice: { type: Number, default: 0 },
   folderUrl: { type: String },
   folderId: { type: String },
+  images: { type: [{ name: String, dataUrl: String }], default: [] },
   rawValues: { type: [Schema.Types.Mixed] }, 
 }, { timestamps: true });
 
-export default mongoose.models.Trip || mongoose.model("Trip", TripSchema);
+if (mongoose.models.Trip) {
+  delete (mongoose.models as any).Trip;
+}
+
+const TripModel = mongoose.model("Trip", TripSchema);
+export default TripModel as any;

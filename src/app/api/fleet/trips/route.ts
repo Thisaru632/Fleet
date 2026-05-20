@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSheets } from "@/lib/google";
 import dbConnect from "@/lib/mongodb";
 import Trip from "@/models/Trip";
+import AccountSheet from "@/models/AccountSheet";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,44 +17,51 @@ export async function GET(request: Request) {
 
   try {
     await dbConnect();
-    let filteredTripRefs = [];
+    let filteredTripRefs: any[] = [];
+    let accountDocs: any[] = [];
     try {
-      const sheets = await getSheets();
-      const accountsResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId: "1lf0H2P34w03bapp31h2iOC4ypucKpS94qzlwqVtAkCs",
-        range: "account!A2:N",
-      });
-      const accountRows = accountsResponse.data.values || [];
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
       
-      const tripRefs = accountRows
-        .filter((row: any[]) => 
-          row[11] && 
-          row[9] === drvId && 
-          !row[0] && 
-          row[5] === "Assigned"
-        )
-        .map((row: any[]) => ({
-          ref: row[11],
-          vehicle: row[7]
-        }));
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+
+      accountDocs = await AccountSheet.find({ 
+        driverId: { $regex: /^dv1811$/i }, 
+        status: { $regex: /^Assigned$/i },
+        date: { $gte: startOfDay, $lte: endOfDay }
+      });
+      const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, '')) || '';
+      const tripRefs = accountDocs
+        .map(doc => {
+          const ref = doc.bookingRef || doc.rawValues?.[11];
+          const vehicle = doc.vehicle || doc.rawValues?.[7];
+          return {
+            ref: ref ? ref.toString().trim() : "",
+            vehicle: vehicle ? vehicle.toString().trim() : "",
+            startMeter: parseNum(doc.rawValues?.[54]),
+            endMeter: parseNum(doc.rawValues?.[57])
+          };
+        })
+        .filter(item => item.ref && item.ref !== "N/A" && item.ref !== "");
 
       const allTripsInDb = await Trip.find({}, { reference: 1 });
-      const usedTripRefs = new Set(allTripsInDb.map(t => t.reference.trim()));
+      const usedTripRefs = new Set(allTripsInDb.map((t: any) => t.reference.trim()));
       filteredTripRefs = tripRefs.filter((item: any) => !usedTripRefs.has(item.ref.toString().trim()));
-    } catch (sheetError) {
-      console.error("Google Sheets fetch failed, skipping tripRefs:", sheetError);
-      // Continue without tripRefs if sheets fail
+    } catch (accountError) {
+      console.error("AccountSheet fetch failed, skipping tripRefs:", accountError);
+      // Continue without tripRefs if fetch fails
     }
 
     const tripsInDb = await Trip.find({ driverId: drvId }).sort({ updatedAt: -1 });
 
     // Pending trips (FR refs) for this driver from MongoDB
     const frRefs = tripsInDb
-      .filter(t => t.status === "Pending" || !t.finalPrice)
-      .map(t => t.reference);
+      .filter((t: any) => t.status === "Pending" || !t.finalPrice)
+      .map((t: any) => t.reference);
 
     const historyFrRefs = tripsInDb
-      .map(t => t.reference)
+      .map((t: any) => t.reference)
       .reverse()
       .slice(0, 10);
 

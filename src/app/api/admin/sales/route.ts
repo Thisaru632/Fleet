@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     let hireCount = 0;
     let repairCount = 0;
 
-    trips.forEach((trip) => {
+    trips.forEach((trip: any) => {
       totalSales += trip.finalPrice || 0;
       totalCommission += trip.commission || 0;
       totalFuel += trip.fuel || 0;
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
     const purposeDataMap: any = { Hire: 0, Repair: 0, Other: 0 };
     const monthlyDataMap: any = {};
 
-    trips.forEach((trip) => {
+    trips.forEach((trip: any) => {
       const date = trip.timestamp ? trip.timestamp.split(" ")[0] : "Unknown";
       const month = date !== "Unknown" ? date.substring(0, 7) : "Unknown"; // YYYY-MM
       const vehicle = trip.vehicle || "Unknown";
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
     const purposeCount = Object.keys(purposeDataMap).map(purpose => ({ purpose, count: purposeDataMap[purpose] }));
 
     // Recent Trips (Last 10)
-    const recentTrips = trips.slice(-10).reverse().map((trip) => ({
+    const recentTrips = trips.slice(-10).reverse().map((trip: any) => ({
       rf: trip.reference,
       date: trip.timestamp,
       driver: trip.driverId,
@@ -115,14 +115,15 @@ export async function GET(request: Request) {
     const totalPages = Math.ceil(totalItems / limit);
 
     // Slice for fleetData (already sorted in memory if needed, but here we use the existing trips array)
-    const fleetData = trips.slice(skip, skip + limit).map((trip) => ({
+    const fleetData = trips.slice(skip, skip + limit).map((trip: any) => ({
       rf: trip.reference,
       date: trip.timestamp,
       driver: trip.driverId,
       vehicle: trip.vehicle,
       purpose: trip.purpose,
       status: trip.status,
-      values: trip.rawValues || []
+      values: trip.rawValues || [],
+      images: trip.images || []
     }));
 
     return NextResponse.json({

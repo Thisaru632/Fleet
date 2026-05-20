@@ -8,7 +8,9 @@ export const revalidate = 0;
 
 export async function POST(request: Request) {
   try {
-    const { timestamp, drvId } = await request.json();
+    const body = await request.json();
+    const timestamp = body.timestamp || new Date().toISOString();
+    const drvId = body.drvId || "Unknown";
     const drive = await getDrive();
 
     await dbConnect();

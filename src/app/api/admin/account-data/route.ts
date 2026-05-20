@@ -9,21 +9,29 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "50");
+  const search = searchParams.get("search") || "";
   const skip = (page - 1) * limit;
 
   try {
     await dbConnect();
     
+    let query: any = {};
+    if (search) {
+      query = {
+        rawValues: { $regex: new RegExp(search, "i") }
+      };
+    }
+
     const [totalItems, headersDoc] = await Promise.all([
-      AccountSheet.countDocuments(),
+      AccountSheet.countDocuments(query),
       SheetMetadata.findOne({ key: "account_sheet_headers" })
     ]);
     
     const totalPages = Math.ceil(totalItems / limit);
     const headers = headersDoc ? headersDoc.value : [];
     
-    const data = await AccountSheet.find()
-      .sort({ date: -1, _id: -1 })
+    const data = await AccountSheet.find(query)
+      .sort({ _id: -1 })
       .skip(skip)
       .limit(limit);
 

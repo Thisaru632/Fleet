@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSheets } from "@/lib/google";
 import dbConnect from "@/lib/mongodb";
 import Trip from "@/models/Trip";
+import AccountSheet from "@/models/AccountSheet";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,14 +20,13 @@ export async function GET(request: Request) {
     await dbConnect();
     
     if (type === "trip") {
-      // RESTORED: Google Sheets Account data
-      const sheets = await getSheets();
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: "1lf0H2P34w03bapp31h2iOC4ypucKpS94qzlwqVtAkCs",
-        range: "account!A2:BP",
+      const accountDoc = await AccountSheet.findOne({
+        $or: [
+          { bookingRef: ref.trim() },
+          { rawValues: ref.trim() }
+        ]
       });
-      const rows = response.data.values || [];
-      const details = rows.find((row: any[]) => row[11]?.toString().trim() === ref.trim());
+      const details = accountDoc ? accountDoc.rawValues : null;
       return NextResponse.json({ details });
     } else {
       // MOVED to MongoDB for "fr" (Fleet data)

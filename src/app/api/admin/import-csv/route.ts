@@ -47,28 +47,45 @@ export async function POST(request: Request) {
         const clean = (val: string) => val?.trim().replace(/^"|"$/g, "") || "";
         const parseNum = (val: string) => Number(val?.replace(/[^\d.]/g, "")) || 0;
 
+        const purpose = clean(row[5]);
+        const scDue = purpose === "Hire" ? parseNum(row[13]) : 0;
+        const rawValues = row.map(clean);
+        if (rawValues.length > 13) {
+          rawValues[13] = scDue.toString();
+        }
+
         // Map to our 24-column structure
         // The indices here should match the UI we just built
         return {
           status: clean(row[0]) || "Approved",
           reference: clean(row[1]),
-          timestamp: clean(row[2]),
-          driverId: clean(row[3]),
+          timestamp: clean(row[2]) || new Date().toISOString(),
+          driverId: clean(row[3]) || "Unknown",
           vehicle: clean(row[4]),
-          purpose: clean(row[5]),
+          purpose: purpose,
           fuel: parseNum(row[9]),
           repair: parseNum(row[11]),
-          scDue: parseNum(row[13]),
+          scDue: scDue,
           commission: parseNum(row[14]),
           mileage: parseNum(row[18]) || parseNum(row[22]), // Total or Start Loss
           finalPrice: parseNum(row[23]),
           folderUrl: clean(row[20]),
           folderId: clean(row[21]),
-          rawValues: row.map(clean)
+          rawValues: rawValues
         };
       });
 
-    if (tripsToInsert.length === 0) {
+    const uniqueTrips = [];
+    const seenRefs = new Set();
+    
+    for (const trip of tripsToInsert) {
+      if (!seenRefs.has(trip.reference)) {
+        seenRefs.add(trip.reference);
+        uniqueTrips.push(trip);
+      }
+    }
+
+    if (uniqueTrips.length === 0) {
       return NextResponse.json({ error: "No valid records found in CSV" }, { status: 400 });
     }
 
@@ -76,11 +93,11 @@ export async function POST(request: Request) {
     await Trip.deleteMany({});
     
     // Insert all new records from the CSV
-    const result = await Trip.insertMany(tripsToInsert);
+    const result = await Trip.insertMany(uniqueTrips);
 
     return NextResponse.json({ 
       success: true, 
-      message: `Successfully replaced database with ${tripsToInsert.length} new records.`,
+      message: `Successfully replaced database with ${uniqueTrips.length} new records. Ignored duplicates.`,
       details: {
         insertedCount: result.length
       }

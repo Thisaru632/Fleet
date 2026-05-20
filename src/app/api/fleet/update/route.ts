@@ -37,52 +37,74 @@ export async function POST(request: Request) {
     trip.mileage = parseNum(array[19]);
     trip.finalPrice = parseNum(array[20]);
     
+    // Recalculate scDue: only for Hire trips, else 0
+    const isHire = trip.purpose === "Hire";
+    const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission) : 0;
+    trip.scDue = scDue;
+    if (array.length > 10) {
+      array[10] = scDue;
+    }
+
     // Update rawValues to match the sheet structure
     // Column A and B and C are already in trip.status, trip.reference, trip.timestamp
     trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...array];
 
     // Handle file uploads
     if (files && files.length > 0) {
-      const drive = await getDrive();
-      const folderId = trip.folderId;
-
+      trip.images = trip.images || [];
       for (const file of files) {
-        const base64Data = file.dataUrl.split(",")[1];
-        
-        if (process.env.APPS_SCRIPT_WEB_APP_URL) {
-          const proxyRes = await fetch(process.env.APPS_SCRIPT_WEB_APP_URL, {
-            method: "POST",
-            body: JSON.stringify({
-              action: "uploadFile",
-              folderId: folderId,
-              fileName: file.name,
-              base64Data: base64Data,
-              mimeType: "image/jpeg"
-            })
-          });
-          
-          const proxyData = await proxyRes.json();
-          if (!proxyData.success) {
-            throw new Error("Apps Script Proxy Error: " + proxyData.error);
-          }
-        } else {
-          const buffer = Buffer.from(base64Data, "base64");
-          const stream = Readable.from(buffer);
-
-          await drive.files.create({
-            requestBody: {
-              name: file.name,
-              parents: [folderId!],
-            },
-            media: {
-              mimeType: "image/jpeg",
-              body: stream,
-            },
-          });
+        // Avoid adding duplicate images if same file name exists
+        const exists = trip.images.some((img: any) => img.name === file.name);
+        if (!exists) {
+          trip.images.push({ name: file.name, dataUrl: file.dataUrl });
         }
+      }
+
+      try {
+        const drive = await getDrive();
+        const folderId = trip.folderId;
+
+        for (const file of files) {
+          const base64Data = file.dataUrl.split(",")[1];
+          
+          if (process.env.APPS_SCRIPT_WEB_APP_URL) {
+            const proxyRes = await fetch(process.env.APPS_SCRIPT_WEB_APP_URL, {
+              method: "POST",
+              body: JSON.stringify({
+                action: "uploadFile",
+                folderId: folderId,
+                fileName: file.name,
+                base64Data: base64Data,
+                mimeType: "image/jpeg"
+              })
+            });
+            
+            const proxyData = await proxyRes.json();
+            if (!proxyData.success) {
+              throw new Error("Apps Script Proxy Error: " + proxyData.error);
+            }
+          } else {
+            const buffer = Buffer.from(base64Data, "base64");
+            const stream = Readable.from(buffer);
+
+            await drive.files.create({
+              requestBody: {
+                name: file.name,
+                parents: [folderId!],
+              },
+              media: {
+                mimeType: "image/jpeg",
+                body: stream,
+              },
+            });
+          }
+        }
+      } catch (driveError) {
+        console.error("Google Drive upload failed, image saved in DB:", driveError);
       }
     }
 
+    trip.markModified("images");
     await trip.save();
 
     return NextResponse.json({ success: true });

@@ -10,16 +10,16 @@ export async function GET() {
     await dbConnect();
     
     // Fetch unique vehicles and purposes from all existing trips in MongoDB
-    const vehicles = await Trip.distinct("vehicle", { vehicle: { $ne: null, $ne: "" } });
-    const purposes = await Trip.distinct("purpose", { purpose: { $ne: null, $ne: "" } });
+    const vehicles = await Trip.distinct("vehicle", { vehicle: { $nin: [null, ""] } });
+    const purposes = await Trip.distinct("purpose", { purpose: { $nin: [null, ""] } });
 
     // Sort alphabetically
     vehicles.sort();
     purposes.sort();
 
     return NextResponse.json({ 
-      vehicles: vehicles.length > 0 ? vehicles : ["V001", "V002"], 
-      purposes: purposes.length > 0 ? purposes : ["Hire", "Repair", "Personal", "Fuel"] 
+      vehicles: vehicles, 
+      purposes: purposes
     });
   } catch (error: any) {
     console.error("Error fetching options:", error);
