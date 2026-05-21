@@ -32,7 +32,8 @@ export async function getGoogleAuth() {
   // Fallback to Environment Variables
   let privateKey = process.env.GOOGLE_PRIVATE_KEY;
   if (process.env.GOOGLE_PRIVATE_KEY_B64) {
-    privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_B64, 'base64').toString('utf8');
+    const cleanedB64 = process.env.GOOGLE_PRIVATE_KEY_B64.replace(/\s+/g, '');
+    privateKey = Buffer.from(cleanedB64, 'base64').toString('utf8');
   }
 
   const formattedKey = privateKey
