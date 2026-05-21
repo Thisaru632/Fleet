@@ -276,6 +276,30 @@ export default function FleetApp() {
     }
   }, [stage, adminFilters, adminPage, user, adminTab, debouncedSearch]);
 
+  // Periodic polling to auto-update tables and views without manual refresh
+  useEffect(() => {
+    if (!user) return;
+
+    const role = user[2]?.toLowerCase();
+    const intervalTime = 30 * 1000; // 30 seconds
+
+    const interval = setInterval(() => {
+      if (role === 'admin' && stage === 'admin') {
+        if (adminTab === 'messages') {
+          fetchAdminMessages();
+        } else if (adminTab === 'accounts') {
+          fetchAccountSheetData();
+        } else {
+          fetchAdminSales();
+        }
+      } else if (role === 'driver' && stage !== 'admin' && stage !== 'salary') {
+        fetchInitialData(user[0]);
+      }
+    }, intervalTime);
+
+    return () => clearInterval(interval);
+  }, [stage, adminTab, user]);
+
   const fetchAccountSheetData = async () => {
     setFetchingAccountData(true);
     try {

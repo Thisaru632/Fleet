@@ -57,7 +57,10 @@ export async function GET(request: Request) {
 
     // Pending trips (FR refs) for this driver from MongoDB
     const frRefs = tripsInDb
-      .filter((t: any) => t.status === "Pending" || !t.finalPrice)
+      .filter((t: any) => {
+        const garageEnd = t.rawValues ? t.rawValues[8] : "";
+        return garageEnd === undefined || garageEnd === null || garageEnd === "";
+      })
       .map((t: any) => t.reference);
 
     const historyFrRefs = tripsInDb
