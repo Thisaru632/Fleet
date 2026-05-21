@@ -27,13 +27,13 @@ export async function GET(request: Request) {
     const endDateStr = `${y}-${String(m).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")} 23:59:59`;
 
     const trips = await Trip.find({
-      driverId: drvId,
-      purpose: "Hire",
+      driverId: { $regex: new RegExp(`^${drvId}$`, "i") },
+      purpose: { $regex: /^Hire$/i },
       timestamp: { $gte: startDateStr, $lte: endDateStr }
     }).sort({ timestamp: 1 });
 
     const salaryDetails = trips.map((trip: any) => ({
-      tripRef: trip.reference,
+      tripRef: (trip.rawValues && trip.rawValues[12]) || trip.reference,
       date: trip.timestamp,
       salary: trip.commission || 0
     }));

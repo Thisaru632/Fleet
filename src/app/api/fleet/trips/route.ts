@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       // Continue without tripRefs if fetch fails
     }
 
-    const tripsInDb = await Trip.find({ driverId: drvId }).sort({ updatedAt: -1 });
+    const tripsInDb = await Trip.find({ driverId: { $regex: new RegExp(`^${drvId}$`, "i") } }).sort({ updatedAt: -1 });
 
     // Pending trips (FR refs) for this driver from MongoDB
     const frRefs = tripsInDb
@@ -61,9 +61,9 @@ export async function GET(request: Request) {
       .map((t: any) => t.reference);
 
     const historyFrRefs = tripsInDb
-      .map((t: any) => t.reference)
-      .reverse()
-      .slice(0, 10);
+      .filter((t: any) => t.rawValues && t.rawValues[7] && t.rawValues[7] !== "")
+      .slice(0, 10)
+      .map((t: any) => t.reference);
 
     return NextResponse.json({ tripRefs: filteredTripRefs, frRefs, historyFrRefs });
   } catch (error: any) {

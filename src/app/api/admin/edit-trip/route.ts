@@ -82,6 +82,7 @@ export async function PUT(request: Request) {
     }
 
     trip.rawValues = raw;
+    trip.markModified("rawValues");
     await trip.save();
 
     return NextResponse.json({ success: true, message: "Trip successfully updated" });

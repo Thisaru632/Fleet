@@ -517,10 +517,10 @@ export default function FleetApp() {
         comments: details[10] || '',
         repairCost: details[11] || '',
         scDueAmount: details[13] || '',
-        drvComms: '',
-        tripStartMeter: '',
-        tripEndMeter: '',
-        pkgBalanceMileage: '',
+        drvComms: stage === 'last-trip' ? (details[14] || '') : '',
+        tripStartMeter: stage === 'last-trip' ? (details[15] || '') : '',
+        tripEndMeter: stage === 'last-trip' ? (details[16] || '') : '',
+        pkgBalanceMileage: stage === 'last-trip' ? (details[17] || '') : '',
         startLossMileage: details[18] || '',
         endLossMileage: details[19] || '',
         totalMileage: details[22] || '',
@@ -530,7 +530,7 @@ export default function FleetApp() {
       setCurrentRef(ref);
       setAlert(null);
 
-      if (fetchedTripRef && details[5] === 'Hire') {
+      if (stage !== 'last-trip' && fetchedTripRef && details[5] === 'Hire') {
         await handleTripRefChange(fetchedTripRef);
       }
     } catch (err) {
@@ -540,7 +540,7 @@ export default function FleetApp() {
     }
   };
 
-  const handleTripRefChange = (ref: string) => {
+  const handleTripRefChange = async (ref: string) => {
     const matchedRef = tripRefs.find((t: any) => (t.ref || t) === ref);
     setFormData((prev: any) => ({
       ...prev,
@@ -548,6 +548,46 @@ export default function FleetApp() {
       tripStartMeter: matchedRef?.startMeter || '',
       tripEndMeter: matchedRef?.endMeter || ''
     }));
+
+    if (!ref) return;
+
+    setFetchingDetails(true);
+    try {
+      const res = await fetch(`/api/fleet/details?type=trip&ref=${ref}`);
+      const data = await res.json();
+      const details = data.details;
+      if (details) {
+        const cleanNum = (val: any) => val ? val.toString().replace(/[^\d.]/g, '') : '';
+        const rawFinalPrice = cleanNum(details[4]);
+        const finalPriceNum = Number(rawFinalPrice) || 0;
+
+        // Calculate Driver Salary based on Vehicle Type
+        const vehicleType = details[17] ? details[17].toString().trim().toUpperCase() : '';
+        let rawSalary = '';
+        if (vehicleType === 'WAGON R | 3 SEATER' || vehicleType === 'MINI VAN | 6 SEATER') {
+          rawSalary = Math.round(finalPriceNum * 0.20).toString();
+        } else if (vehicleType === 'KDH HIGH ROOF VAN | 14 SEATER' || vehicleType === 'BUS | NON AC 32 SEATER') {
+          rawSalary = Math.round(finalPriceNum * 0.15).toString();
+        } else {
+          rawSalary = cleanNum(details[2]); // Fallback to default Driver Comm in account sheet
+        }
+
+        const pkgKms = Number(cleanNum(details[33])) || 0;
+        const distance = Number(cleanNum(details[58])) || 0;
+        const rawPkgBalance = (pkgKms - distance).toString();
+
+        setFormData((prev: any) => ({
+          ...prev,
+          drvComms: rawSalary,
+          tripPrice: rawFinalPrice,
+          pkgBalanceMileage: rawPkgBalance
+        }));
+      }
+    } catch (err) {
+      console.error("Error fetching trip details:", err);
+    } finally {
+      setFetchingDetails(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -1403,7 +1443,9 @@ export default function FleetApp() {
                                     (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
                                       (idx === 9 || idx === 11) ? "text-rose-400" : "text-white"
                                   )}>
-                                    {t.values[idx] !== undefined && t.values[idx] !== null ? t.values[idx].toString() : '-'}
+                                    {idx === 18 && (t.values[idx] === undefined || t.values[idx] === null || t.values[idx].toString().trim() === '')
+                                      ? '0'
+                                      : (t.values[idx] !== undefined && t.values[idx] !== null ? t.values[idx].toString() : '-')}
                                   </span>
                                 )}
                               </td>
@@ -2092,7 +2134,7 @@ export default function FleetApp() {
             )}
 
             {/* Stage Specific Cards */}
-            {formData.purpose === 'Hire' && stage !== 'last-trip' && stage !== 'contact-office' && (
+            {formData.purpose === 'Hire' && (stage === 'new' || stage === 'update') && (
               <div className="glass-card p-6 space-y-6 relative overflow-hidden">
                 {fetchingDetails && (
                   <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-20 flex flex-col items-center justify-center">
@@ -2138,33 +2180,21 @@ export default function FleetApp() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] text-slate-400 uppercase">Driver Salary</p>
-                      <p className="font-bold text-emerald-400">Rs. {formData.drvComms}</p>
+                      <p className="font-bold text-emerald-400">Rs. {formData.drvComms ? Number(formData.drvComms).toLocaleString() : ''}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] text-slate-400 uppercase">Pkg Balance</p>
-                      <p className="font-bold text-amber-400">{formData.pkgBalanceMileage} KM</p>
+                      <p className="font-bold text-amber-400">{formData.pkgBalanceMileage ? `${Number(formData.pkgBalanceMileage).toLocaleString()} KM` : ''}</p>
+                    </div>
+                    <div className="space-y-1 col-span-2 border-t border-white/5 pt-3 mt-1">
+                      <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Final Price</p>
+                      <p className="text-xl font-black text-white">Rs. {formData.tripPrice ? Number(formData.tripPrice).toLocaleString() : '0'}</p>
                     </div>
                   </div>
                 ) : null}
               </div>
             )}
 
-            {formData.purpose === 'Hire' && stage === 'update' && Number(formData.tripPrice) > 0 && (
-              <div className="glass-card p-6 border-blue-500/30 bg-blue-500/5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Final Trip Price</p>
-                    <p className="text-3xl font-black text-white">
-                      <span className="text-sm font-normal text-blue-400 mr-1">Rs.</span>
-                      {formData.tripPrice.toString().replace(/[^\d.,]/g, '')}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-blue-500/10">
-                    <Car className="w-6 h-6 text-blue-400" />
-                  </div>
-                </div>
-              </div>
-            )}
 
 
             {stage === 'update' && (

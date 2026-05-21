@@ -105,6 +105,7 @@ export async function POST(request: Request) {
     }
 
     trip.markModified("images");
+    trip.markModified("rawValues");
     await trip.save();
 
     return NextResponse.json({ success: true });
