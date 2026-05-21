@@ -244,8 +244,8 @@ export default function FleetApp() {
     }
   };
 
-  const fetchAdminSales = async () => {
-    setFetchingAdmin(true);
+  const fetchAdminSales = async (quiet = false) => {
+    if (!quiet) setFetchingAdmin(true);
     try {
       const params = new URLSearchParams({
         ...adminFilters,
@@ -258,9 +258,9 @@ export default function FleetApp() {
       setAdminData(data);
     } catch (err: any) {
       console.error('Error fetching admin sales:', err);
-      setAlert({ type: 'error', message: 'Failed to load dashboard data' });
+      if (!quiet) setAlert({ type: 'error', message: 'Failed to load dashboard data' });
     } finally {
-      setFetchingAdmin(false);
+      if (!quiet) setFetchingAdmin(false);
     }
   };
 
@@ -286,11 +286,11 @@ export default function FleetApp() {
     const interval = setInterval(() => {
       if (role === 'admin' && stage === 'admin') {
         if (adminTab === 'messages') {
-          fetchAdminMessages();
+          fetchAdminMessages(true);
         } else if (adminTab === 'accounts') {
-          fetchAccountSheetData();
+          fetchAccountSheetData(true);
         } else {
-          fetchAdminSales();
+          fetchAdminSales(true);
         }
       } else if (role === 'driver' && stage !== 'admin' && stage !== 'salary') {
         fetchInitialData(user[0]);
@@ -300,17 +300,17 @@ export default function FleetApp() {
     return () => clearInterval(interval);
   }, [stage, adminTab, user]);
 
-  const fetchAccountSheetData = async () => {
-    setFetchingAccountData(true);
+  const fetchAccountSheetData = async (quiet = false) => {
+    if (!quiet) setFetchingAccountData(true);
     try {
       const res = await fetch(`/api/admin/account-data?page=${adminPage}&limit=50&search=${encodeURIComponent(debouncedSearch)}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAccountSheetData(data);
     } catch (err: any) {
-      setAlert({ type: 'error', message: err.message || 'Failed to fetch account data' });
+      if (!quiet) setAlert({ type: 'error', message: err.message || 'Failed to fetch account data' });
     } finally {
-      setFetchingAccountData(false);
+      if (!quiet) setFetchingAccountData(false);
     }
   };
 
@@ -410,17 +410,17 @@ export default function FleetApp() {
     }
   };
 
-  const fetchAdminMessages = async () => {
-    setFetchingMessages(true);
+  const fetchAdminMessages = async (quiet = false) => {
+    if (!quiet) setFetchingMessages(true);
     try {
       const res = await fetch(`/api/admin/messages?page=${adminPage}&limit=50`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setMessagesData(data);
     } catch (err: any) {
-      setAlert({ type: 'error', message: err.message || 'Failed to fetch messages' });
+      if (!quiet) setAlert({ type: 'error', message: err.message || 'Failed to fetch messages' });
     } finally {
-      setFetchingMessages(false);
+      if (!quiet) setFetchingMessages(false);
     }
   };
 
