@@ -289,8 +289,6 @@ export default function FleetApp() {
           fetchAdminMessages(true);
         } else if (adminTab === 'accounts') {
           fetchAccountSheetData(true);
-        } else {
-          fetchAdminSales(true);
         }
       } else if (role === 'driver' && stage !== 'admin' && stage !== 'salary') {
         fetchInitialData(user[0]);
@@ -1404,6 +1402,13 @@ export default function FleetApp() {
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{adminData.tables.fleetData.length} Records</span>
                       <Database className="w-4 h-4 text-emerald-500" />
+                      <button
+                        onClick={() => fetchAdminSales()}
+                        className="p-2 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white"
+                        title="Refresh Data"
+                      >
+                        <RefreshCw className={cn("w-4 h-4", fetchingAdmin && "animate-spin")} />
+                      </button>
                       <button
                         onClick={handleClearFleetData}
                         disabled={clearingFleet}
