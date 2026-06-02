@@ -118,6 +118,8 @@ export default function FleetApp() {
     endTs: '',
     totalMileage: '',
     finalPrice: '',
+    fuelStationMeter: '',
+    fuelLiterCount: '',
   });
 
   const [files, setFiles] = useState<{ [key: string]: File | null }>({
@@ -125,7 +127,73 @@ export default function FleetApp() {
     garageEndImage: null,
     fuelReceipt: null,
     repairReceipt: null,
+    fuelStationMeterImage: null,
   });
+
+  const [isFuelSubmitted, setIsFuelSubmitted] = useState(false);
+
+  const handleFuelDetailsSubmit = async () => {
+    if (!formData.fuelStationMeter || !files.fuelStationMeterImage || !formData.fuelCost || !files.fuelReceipt || !formData.fuelLiterCount) {
+      setAlert({ type: 'error', message: 'Please fill all fields in the Fuel Station details section.' });
+      return;
+    }
+
+    setLoading(true);
+    setAlert({ type: 'warning', message: 'Submitting fuel details to database...' });
+
+    try {
+      let uploadFiles: any[] = [];
+      uploadFiles.push({ name: `${currentRef}_FuelReceipt`, dataUrl: await fileToBase64(files.fuelReceipt as File) });
+      uploadFiles.push({ name: `${currentRef}_FuelStationMeter`, dataUrl: await fileToBase64(files.fuelStationMeterImage as File) });
+
+      let array: any[] = new Array(21).fill('');
+      array[0] = user[0];
+      array[1] = formData.vehicle;
+      array[2] = formData.purpose;
+      array[3] = formData.garageStartMeter;
+      array[4] = formData.endTs || '';
+      array[5] = formData.garageEndMeter || '';
+      array[6] = formData.fuelCost;
+      
+      let finalComments = formData.comments || '';
+      if (formData.purpose === 'Fuel') {
+        let fuelDetails = [];
+        if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
+        if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
+        if (fuelDetails.length > 0) finalComments += ` (Fuel - ${fuelDetails.join(', ')})`;
+      }
+      array[7] = finalComments;
+      array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
+      array[9] = formData.tripRef || '';
+      array[10] = formData.scDueAmount || '';
+      array[11] = formData.drvComms || '';
+      array[12] = formData.tripStartMeter || '';
+      array[13] = formData.tripEndMeter || '';
+      array[14] = formData.pkgBalanceMileage || '';
+      array[15] = formData.purpose === 'Hire' ? (formData.startLossMileage || '') : '';
+      array[16] = formData.purpose === 'Hire' ? (formData.endLossMileage || '') : '';
+      array[17] = formData.folderUrl || '';
+      array[18] = formData.folderId || '';
+      array[19] = formData.totalMileage || '';
+      array[20] = formData.tripPrice || '';
+
+      const updateRes = await fetch('/api/fleet/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: 'fuel', ref: currentRef, array, files: uploadFiles }),
+      });
+      const updateData = await updateRes.json();
+      if (updateData.error) throw new Error(updateData.error);
+
+      setIsFuelSubmitted(true);
+      setAlert({ type: 'success', message: 'Fuel details saved to database successfully!' });
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to submit fuel details' });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
 
   useEffect(() => {
     const savedUser = localStorage.getItem('fleetUser');
@@ -361,6 +429,84 @@ export default function FleetApp() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (!adminData || !adminData.tables || !adminData.tables.fleetData || adminData.tables.fleetData.length === 0) {
+      setAlert({ type: 'warning', message: 'No fleet data available to export.' });
+      setTimeout(() => setAlert(null), 3000);
+      return;
+    }
+
+    const headers = [
+      'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
+      'Purpose', 'Garage Start', 'End TS', 'Garage End',
+      'Fuel Cost', 'Fuel Meter', 'Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
+      'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
+      'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
+      'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price'
+    ];
+
+    const csvRows = [];
+    csvRows.push(headers.join(','));
+
+    adminData.tables.fleetData.forEach((t: any) => {
+      const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((idx) => {
+        let val = '';
+        if (idx === 'fuel_meter' || idx === 'fuel_liters') {
+            if (t.values[5] === 'Fuel') {
+                const rawComments = t.values[10] || '';
+                const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+                if (fuelMatch) {
+                    const fuelStr = fuelMatch[1];
+                    if (idx === 'fuel_meter') {
+                        const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                        val = m ? m[1] : '-';
+                    } else {
+                        const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                        val = m ? m[1] : '-';
+                    }
+                } else {
+                    const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                    const oldFuelMatch = rawComments.match(oldFuelRegex);
+                    if (oldFuelMatch && idx === 'fuel_meter') val = oldFuelMatch[1];
+                    else val = '-';
+                }
+            } else {
+                val = '-';
+            }
+        } else if (idx === 10) {
+          val = (t.values[10] || '').toString();
+          if (t.values[5] === 'Fuel') {
+            val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+          }
+          if (!val) val = '-';
+        } else if (idx === 0) {
+          val = t.values[idx as number] || 'Pending';
+        } else if (idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || t.values[idx as number].toString().trim() === '')) {
+          val = '0';
+        } else if (t.values[idx as number] !== undefined && t.values[idx as number] !== null) {
+          val = t.values[idx as number].toString();
+        } else {
+          val = '-';
+        }
+        
+        // Escape for CSV
+        const escaped = val.replace(/"/g, '""');
+        return `"${escaped}"`;
+      });
+      csvRows.push(rowValues.join(','));
+    });
+
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `fleet_data_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDeleteFleetRow = async (ref: string) => {
     if (!confirm(`Are you sure you want to delete trip ${ref}?`)) return;
     try {
@@ -468,12 +614,13 @@ export default function FleetApp() {
       tripRef: '', tripStartMeter: '', tripEndMeter: '', fuelCost: '',
       repairCost: '', comments: '', scDueAmount: '', drvComms: '',
       startLossMileage: '', endLossMileage: '', pkgBalanceMileage: '',
-      tripPrice: '',
+      tripPrice: '', fuelStationMeter: '', fuelLiterCount: '',
     });
     setFiles({
       garageStartImage: null, garageEndImage: null,
-      fuelReceipt: null, repairReceipt: null,
+      fuelReceipt: null, repairReceipt: null, fuelStationMeterImage: null,
     });
+    setIsFuelSubmitted(false);
     window.history.pushState({ stage: 'new' }, '');
     setStage('new');
     setAlert({ type: 'success', message: 'Please fill details. The record will be created when you submit.' });
@@ -498,13 +645,17 @@ export default function FleetApp() {
       endLossMileage: '',
       pkgBalanceMileage: '',
       tripPrice: '',
+      fuelStationMeter: '',
+      fuelLiterCount: '',
     });
     setFiles({
       garageStartImage: null,
       garageEndImage: null,
       fuelReceipt: null,
       repairReceipt: null,
+      fuelStationMeterImage: null,
     });
+    setIsFuelSubmitted(false);
     window.history.pushState({ stage: 'update' }, '');
     setStage('update');
   };
@@ -525,6 +676,31 @@ export default function FleetApp() {
 
       const fetchedTripRef = details[12] || '';
 
+      let rawComments = details[10] || '';
+      let extractedMeter = '';
+      let extractedLiters = '';
+
+      if (details[5] === 'Fuel') {
+        const fuelRegex = /\(Fuel - (.*?)\)/;
+        const fuelMatch = rawComments.match(fuelRegex);
+        if (fuelMatch) {
+          const fuelStr = fuelMatch[1];
+          const meterMatch = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+          if (meterMatch) extractedMeter = meterMatch[1];
+          const literMatch = fuelStr.match(/Liters:\s*([\d.]+)/i);
+          if (literMatch) extractedLiters = literMatch[1];
+          rawComments = rawComments.replace(fuelMatch[0], '').trim();
+        } else {
+          // Backward compatibility for older formatting
+          const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+          const oldFuelMatch = rawComments.match(oldFuelRegex);
+          if (oldFuelMatch) {
+            extractedMeter = oldFuelMatch[1];
+            rawComments = rawComments.replace(oldFuelMatch[0], '').trim();
+          }
+        }
+      }
+
       setFormData((prev: any) => ({
         ...prev,
         vehicle: details[4] || '',
@@ -536,7 +712,9 @@ export default function FleetApp() {
         startTs: details[2] || '',
         endTs: details[7] || '',
         fuelCost: details[9] || '',
-        comments: details[10] || '',
+        comments: rawComments,
+        fuelStationMeter: extractedMeter,
+        fuelLiterCount: extractedLiters,
         repairCost: details[11] || '',
         scDueAmount: details[13] || '',
         drvComms: stage === 'last-trip' ? (details[14] || '') : '',
@@ -550,6 +728,14 @@ export default function FleetApp() {
         tripPrice: details[23] || '',
       }));
       setCurrentRef(ref);
+      
+      // Auto-disable Fuel section if it was already filled
+      if (details[5] === 'Fuel' && (extractedMeter || extractedLiters)) {
+        setIsFuelSubmitted(true);
+      } else {
+        setIsFuelSubmitted(false);
+      }
+
       setAlert(null);
 
       if (stage !== 'last-trip' && fetchedTripRef && details[5] === 'Hire') {
@@ -645,8 +831,8 @@ export default function FleetApp() {
       const tEnd = Number(formData.tripEndMeter);
       setFormData((prev: any) => ({
         ...prev,
-        startLossMileage: tStart - gStart,
-        endLossMileage: gEnd - tEnd,
+        startLossMileage: prev.purpose === 'Hire' ? tStart - gStart : '',
+        endLossMileage: prev.purpose === 'Hire' ? gEnd - tEnd : '',
       }));
     }
   };
@@ -764,7 +950,8 @@ export default function FleetApp() {
 
       } else {
         // Stage update
-        if (files.fuelReceipt) uploadFiles.push({ name: `${currentRef}_FuelReceipt`, dataUrl: await fileToBase64(files.fuelReceipt) });
+        if (files.fuelReceipt && !isFuelSubmitted) uploadFiles.push({ name: `${currentRef}_FuelReceipt`, dataUrl: await fileToBase64(files.fuelReceipt) });
+        if (files.fuelStationMeterImage && !isFuelSubmitted) uploadFiles.push({ name: `${currentRef}_FuelStationMeter`, dataUrl: await fileToBase64(files.fuelStationMeterImage) });
         if (files.garageEndImage) uploadFiles.push({ name: `${currentRef}_GarageEnd`, dataUrl: await fileToBase64(files.garageEndImage) });
         if (files.repairReceipt) {
           const repairFiles = Array.isArray(files.repairReceipt) ? files.repairReceipt : [files.repairReceipt];
@@ -787,7 +974,14 @@ export default function FleetApp() {
         array[4] = endTs;
         array[5] = formData.garageEndMeter;
         array[6] = formData.fuelCost;
-        array[7] = formData.comments;
+        let finalComments = formData.comments || '';
+        if (formData.purpose === 'Fuel') {
+          let fuelDetails = [];
+          if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
+          if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
+          if (fuelDetails.length > 0) finalComments += ` (Fuel - ${fuelDetails.join(', ')})`;
+        }
+        array[7] = finalComments;
         array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
         array[9] = formData.tripRef || '';
         array[10] = formData.scDueAmount || '';
@@ -795,8 +989,8 @@ export default function FleetApp() {
         array[12] = formData.tripStartMeter || '';
         array[13] = formData.tripEndMeter || '';
         array[14] = formData.pkgBalanceMileage || '';
-        array[15] = formData.startLossMileage || '';
-        array[16] = formData.endLossMileage || '';
+        array[15] = formData.purpose === 'Hire' ? (formData.startLossMileage || '') : '';
+        array[16] = formData.purpose === 'Hire' ? (formData.endLossMileage || '') : '';
         array[17] = formData.folderUrl || '';
         array[18] = formData.folderId || '';
         array[19] = totalMileage || '';
@@ -816,9 +1010,10 @@ export default function FleetApp() {
         setFormData({
           vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '', tripRef: '',
           tripStartMeter: '', tripEndMeter: '', fuelCost: '', repairCost: '', comments: '',
-          scDueAmount: '', drvComms: '', startLossMileage: '', endLossMileage: '', pkgBalanceMileage: '',
+          scDueAmount: '', drvComms: '', startLossMileage: '', endLossMileage: '', pkgBalanceMileage: '', fuelStationMeter: '', fuelLiterCount: '',
         });
-        setFiles({ garageStartImage: null, garageEndImage: null, fuelReceipt: null, repairReceipt: null });
+        setFiles({ garageStartImage: null, garageEndImage: null, fuelReceipt: null, repairReceipt: null, fuelStationMeterImage: null });
+        setIsFuelSubmitted(false);
         fetchInitialData(user[0]);
       }, 3000);
     } catch (err) {
@@ -1410,6 +1605,14 @@ export default function FleetApp() {
                         <RefreshCw className={cn("w-4 h-4", fetchingAdmin && "animate-spin")} />
                       </button>
                       <button
+                        onClick={handleExportCSV}
+                        className="px-3 py-1 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-black rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1"
+                        title="Export to CSV"
+                      >
+                        <Download className="w-3 h-3" />
+                        Export CSV
+                      </button>
+                      <button
                         onClick={handleClearFleetData}
                         disabled={clearingFleet}
                         className="ml-4 px-3 py-1 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1"
@@ -1425,8 +1628,8 @@ export default function FleetApp() {
                         <tr className="border-b border-white/5 bg-white/[0.02]">
                           {[
                             'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
-                            'Purpose', 'Garage Start', 'End TS', 'Garage End',
-                            'Fuel Cost', 'Comments', 'Repair Cost', 'Trip Ref',
+                            'Purpose', 'Garage Start', 'Garage End', 'End TS',
+                            'Fuel Cost', 'Fuel Meter', 'Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
                             'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price',
@@ -1437,23 +1640,80 @@ export default function FleetApp() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {adminData.tables.fleetData.map((t: any, i: number) => (
-                          <tr key={i} className="hover:bg-white/5 transition-colors group">
-                            {Array.from({ length: 24 }).map((_, idx) => (
-                              <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
-                                {idx === 0 ? (
+                        {adminData.tables.fleetData.map((t: any, i: number) => {
+                          const vehicleNum = t.values[4];
+                          const rawGarageStart = t.values[6];
+                          
+                          const prevTrip = vehicleNum ? adminData.tables.fleetData.slice(i + 1).find((pt: any) => pt.values[4] === vehicleNum) : null;
+                          const rawPrevGarageEnd = prevTrip ? prevTrip.values[8] : null;
+                          
+                          let mismatch = 0;
+                          let hasMismatch = false;
+                          
+                          if (
+                            rawGarageStart !== undefined && rawGarageStart !== null && String(rawGarageStart).trim() !== '' &&
+                            rawPrevGarageEnd !== undefined && rawPrevGarageEnd !== null && String(rawPrevGarageEnd).trim() !== ''
+                          ) {
+                            const garageStart = Number(String(rawGarageStart).replace(/[^\d.-]/g, ''));
+                            const prevGarageEnd = Number(String(rawPrevGarageEnd).replace(/[^\d.-]/g, ''));
+                            if (!isNaN(garageStart) && !isNaN(prevGarageEnd) && garageStart !== prevGarageEnd) {
+                              mismatch = Math.abs(garageStart - prevGarageEnd);
+                              hasMismatch = mismatch > 0;
+                            }
+                          }
+
+                          return (
+                            <tr 
+                              key={i} 
+                              className="transition-colors group hover:bg-white/5"
+                            >
+                            {[0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((idx) => (
+                              <td 
+                                key={idx} 
+                                className={cn(
+                                  "px-6 py-4 text-[10px] whitespace-nowrap",
+                                  hasMismatch && idx === 6 ? "animate-pulse bg-red-500/30 font-bold" : ""
+                                )}
+                                title={hasMismatch && idx === 6 ? `${mismatch} km mismatch with the last trip for this vehicle` : undefined}
+                              >
+                                {idx === 'fuel_meter' || idx === 'fuel_liters' ? (
+                                  <span className="text-white">
+                                    {(() => {
+                                      if (t.values[5] === 'Fuel') {
+                                        const rawComments = t.values[10] || '';
+                                        const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+                                        if (fuelMatch) {
+                                          const fuelStr = fuelMatch[1];
+                                          if (idx === 'fuel_meter') {
+                                            const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                            return m ? m[1] : '-';
+                                          } else {
+                                            const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                            return m ? m[1] : '-';
+                                          }
+                                        } else {
+                                          const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                                          const oldFuelMatch = rawComments.match(oldFuelRegex);
+                                          if (oldFuelMatch && idx === 'fuel_meter') return oldFuelMatch[1];
+                                          return '-';
+                                        }
+                                      }
+                                      return '-';
+                                    })()}
+                                  </span>
+                                ) : idx === 0 ? (
                                   <span className={cn(
                                     "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    t.values[idx] === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
+                                    t.values[idx as number] === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
                                   )}>
-                                    {t.values[idx] || 'Pending'}
+                                    {t.values[idx as number] || 'Pending'}
                                   </span>
                                 ) : idx === 5 ? (
                                   <span className={cn(
                                     "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    t.values[idx] === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
+                                    t.values[idx as number] === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
                                   )}>
-                                    {t.values[idx]}
+                                    {t.values[idx as number]}
                                   </span>
                                 ) : idx === 20 ? (
                                   <button
@@ -1463,18 +1723,28 @@ export default function FleetApp() {
                                     View
                                   </button>
                                 ) : idx === 21 ? (
-                                  <span className="text-slate-500 italic max-w-[100px] truncate block" title={t.values[idx]}>
-                                    {t.values[idx] || '-'}
+                                  <span className="text-slate-500 italic max-w-[100px] truncate block" title={t.values[idx as number]}>
+                                    {t.values[idx as number] || '-'}
+                                  </span>
+                                ) : idx === 10 ? (
+                                  <span className="font-sans font-normal text-white">
+                                    {(() => {
+                                      let val = (t.values[10] || '').toString();
+                                      if (t.values[5] === 'Fuel') {
+                                        val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+                                      }
+                                      return val || '-';
+                                    })()}
                                   </span>
                                 ) : (
                                   <span className={cn(
-                                    "font-bold",
+                                    "font-sans font-normal",
                                     (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
                                       (idx === 9 || idx === 11) ? "text-rose-400" : "text-white"
                                   )}>
-                                    {idx === 18 && (t.values[idx] === undefined || t.values[idx] === null || t.values[idx].toString().trim() === '')
+                                    {idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || t.values[idx as number].toString().trim() === '')
                                       ? '0'
-                                      : (t.values[idx] !== undefined && t.values[idx] !== null ? t.values[idx].toString() : '-')}
+                                      : (t.values[idx as number] !== undefined && t.values[idx as number] !== null ? t.values[idx as number].toString() : '-')}
                                   </span>
                                 )}
                               </td>
@@ -1496,7 +1766,8 @@ export default function FleetApp() {
                               </button>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1640,7 +1911,7 @@ export default function FleetApp() {
                                   </span>
                                 ) : (
                                   <span className={cn(
-                                    "font-bold",
+                                    "font-sans font-normal",
                                     (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
                                       (idx === 9 || idx === 11) ? "text-rose-400" : "text-white"
                                   )}>
@@ -2226,11 +2497,50 @@ export default function FleetApp() {
 
 
 
-            {stage === 'update' && (
-              <div className="glass-card p-6 space-y-6">
+            {formData.purpose === 'Fuel' && stage === 'update' && (
+              <div className="glass-card p-6 space-y-6 border-sky-500/20 bg-sky-500/5">
                 <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
-                  <ClipboardCheck className="w-5 h-5 text-emerald-500" />
-                  End Trip Details
+                  <Fuel className="w-5 h-5 text-sky-500" />
+                  Details in the Fuel Station
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Meter in the Fuel Station</label>
+                    <input
+                      id="fuelStationMeter"
+                      type="number"
+                      min="0"
+                      disabled={isFuelSubmitted}
+                      className="w-full input-field py-3 disabled:opacity-50"
+                      value={formData.fuelStationMeter || ''}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Meter Image Upload</label>
+                    <input
+                      id="fuelStationMeterImage"
+                      type="file"
+                      accept="image/*"
+                      disabled={isFuelSubmitted}
+                      className="w-full input-field py-2 text-[10px] disabled:opacity-50"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2 md:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Liter Count</label>
+                    <input
+                      id="fuelLiterCount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      disabled={isFuelSubmitted}
+                      className="w-full input-field py-3 disabled:opacity-50"
+                      value={formData.fuelLiterCount || ''}
+                      onChange={handleInputChange}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -2240,7 +2550,8 @@ export default function FleetApp() {
                       id="fuelCost"
                       type="number"
                       min="0"
-                      className="w-full input-field py-3"
+                      disabled={isFuelSubmitted}
+                      className="w-full input-field py-3 disabled:opacity-50"
                       value={formData.fuelCost}
                       onChange={handleInputChange}
                     />
@@ -2250,11 +2561,65 @@ export default function FleetApp() {
                     <input
                       id="fuelReceipt"
                       type="file"
-                      className="w-full input-field py-2 text-[10px]"
+                      accept="image/*"
+                      disabled={isFuelSubmitted}
+                      className="w-full input-field py-2 text-[10px] disabled:opacity-50"
                       onChange={handleFileChange}
                     />
                   </div>
                 </div>
+
+                <button
+                  onClick={handleFuelDetailsSubmit}
+                  disabled={isFuelSubmitted}
+                  className={cn(
+                    "w-full py-4 font-black rounded-xl transition-all shadow-lg uppercase tracking-widest text-xs flex items-center justify-center gap-2",
+                    isFuelSubmitted 
+                      ? "bg-slate-500/50 text-slate-400 cursor-not-allowed" 
+                      : "bg-sky-500 hover:bg-sky-400 text-black shadow-sky-500/20"
+                  )}
+                >
+                  {isFuelSubmitted ? 'Details Submitted' : 'Submit Fuel Details'}
+                </button>
+                {isFuelSubmitted && (
+                   <p className="text-center text-[10px] text-emerald-400 font-bold uppercase mt-2">
+                     Submitted details displayed above.
+                   </p>
+                )}
+              </div>
+            )}
+
+            {stage === 'update' && (
+              <div className="glass-card p-6 space-y-6">
+                <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
+                  <ClipboardCheck className="w-5 h-5 text-emerald-500" />
+                  End Trip Details
+                </div>
+
+                {formData.purpose !== 'Fuel' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Cost (Rs.)</label>
+                      <input
+                        id="fuelCost"
+                        type="number"
+                        min="0"
+                        className="w-full input-field py-3"
+                        value={formData.fuelCost}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Receipt</label>
+                      <input
+                        id="fuelReceipt"
+                        type="file"
+                        className="w-full input-field py-2 text-[10px]"
+                        onChange={handleFileChange}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
