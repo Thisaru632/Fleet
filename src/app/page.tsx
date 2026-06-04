@@ -34,7 +34,8 @@ import {
   Filter,
   Trash2,
   Edit,
-  Search
+  Search,
+  Eye
 } from 'lucide-react';
 
 import LoginModal from '@/components/LoginModal';
@@ -93,6 +94,7 @@ export default function FleetApp() {
   const [editingTrip, setEditingTrip] = useState<any>(null);
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
   const [viewingImages, setViewingImages] = useState<any>(null);
+  const [viewingTrip, setViewingTrip] = useState<any>(null);
 
   // Form states
   const [formData, setFormData] = useState<any>({
@@ -131,6 +133,26 @@ export default function FleetApp() {
   });
 
   const [isFuelSubmitted, setIsFuelSubmitted] = useState(false);
+  const [fuelSubmitCount, setFuelSubmitCount] = useState(0);
+
+  const handleAddMoreFuel = () => {
+    if (fuelSubmitCount >= 2) {
+      setAlert({ type: 'warning', message: 'You can only add up to 2 fuel records.' });
+      return;
+    }
+    setIsFuelSubmitted(false);
+    setFormData((prev: any) => ({
+      ...prev,
+      fuelStationMeter: '',
+      fuelLiterCount: '',
+      fuelCost: '',
+    }));
+    setFiles((prev: any) => ({
+      ...prev,
+      fuelStationMeterImage: null,
+      fuelReceipt: null,
+    }));
+  };
 
   const handleFuelDetailsSubmit = async () => {
     if (!formData.fuelStationMeter || !files.fuelStationMeterImage || !formData.fuelCost || !files.fuelReceipt || !formData.fuelLiterCount) {
@@ -142,27 +164,42 @@ export default function FleetApp() {
     setAlert({ type: 'warning', message: 'Submitting fuel details to database...' });
 
     try {
-      let uploadFiles: any[] = [];
-      uploadFiles.push({ name: `${currentRef}_FuelReceipt`, dataUrl: await fileToBase64(files.fuelReceipt as File) });
-      uploadFiles.push({ name: `${currentRef}_FuelStationMeter`, dataUrl: await fileToBase64(files.fuelStationMeterImage as File) });
+      const isSecondTime = fuelSubmitCount >= 1;
 
-      let array: any[] = new Array(21).fill('');
+      let uploadFiles: any[] = [];
+      const suffix = isSecondTime ? '_2' : '';
+      uploadFiles.push({ name: `${currentRef}_FuelReceipt${suffix}`, dataUrl: await fileToBase64(files.fuelReceipt as File) });
+      uploadFiles.push({ name: `${currentRef}_FuelStationMeter${suffix}`, dataUrl: await fileToBase64(files.fuelStationMeterImage as File) });
+
+      let array: any[] = new Array(24).fill('');
       array[0] = user[0];
       array[1] = formData.vehicle;
       array[2] = formData.purpose;
       array[3] = formData.garageStartMeter;
       array[4] = formData.endTs || '';
       array[5] = formData.garageEndMeter || '';
-      array[6] = formData.fuelCost;
-      
-      let finalComments = formData.comments || '';
-      if (formData.purpose === 'Fuel') {
-        let fuelDetails = [];
-        if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
-        if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
-        if (fuelDetails.length > 0) finalComments += ` (Fuel - ${fuelDetails.join(', ')})`;
+
+      if (isSecondTime) {
+        array[6] = formData.firstFuelCost || '';
+        array[7] = formData.firstFuelComments || formData.comments || '';
+        array[21] = formData.fuelCost;
+        array[22] = formData.fuelStationMeter;
+        array[23] = formData.fuelLiterCount;
+      } else {
+        array[6] = formData.fuelCost;
+        let finalComments = formData.comments || '';
+        if (formData.purpose === 'Fuel') {
+          let fuelDetails = [];
+          if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
+          if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
+          if (fuelDetails.length > 0) finalComments += ` (Fuel - ${fuelDetails.join(', ')})`;
+        }
+        array[7] = finalComments;
+        array[21] = '';
+        array[22] = '';
+        array[23] = '';
       }
-      array[7] = finalComments;
+
       array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
       array[9] = formData.tripRef || '';
       array[10] = formData.scDueAmount || '';
@@ -186,6 +223,7 @@ export default function FleetApp() {
       if (updateData.error) throw new Error(updateData.error);
 
       setIsFuelSubmitted(true);
+      setFuelSubmitCount(isSecondTime ? 2 : 1);
       setAlert({ type: 'success', message: 'Fuel details saved to database successfully!' });
     } catch (err: any) {
       setAlert({ type: 'error', message: err.message || 'Failed to submit fuel details' });
@@ -524,22 +562,24 @@ export default function FleetApp() {
     if (!editingTrip) return;
     setSavingEdit(true);
     try {
+      let finalValues = [...editingTrip.values];
+      if (editingTrip.values[5] === 'Fuel') {
+        let fuelDetails = [];
+        if (editingTrip.fMeter) fuelDetails.push(`Meter: ${editingTrip.fMeter} KM`);
+        if (editingTrip.fLiters) fuelDetails.push(`Liters: ${editingTrip.fLiters}`);
+        let finalComments = editingTrip.cleanComments || '';
+        if (fuelDetails.length > 0) finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')})`;
+        finalValues[10] = finalComments;
+      } else {
+        finalValues[10] = editingTrip.cleanComments || editingTrip.values[10];
+      }
+
       const res = await fetch('/api/admin/edit-trip', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reference: editingTrip.rf,
-          status: editingTrip.status,
-          driverId: editingTrip.driver,
-          vehicle: editingTrip.vehicle,
-          purpose: editingTrip.purpose,
-          garageStartMeter: editingTrip.values[6],
-          garageEndMeter: editingTrip.values[8],
-          fuel: editingTrip.values[9],
-          repair: editingTrip.values[11],
-          commission: editingTrip.values[14],
-          tripRef: editingTrip.values[12],
-          finalPrice: editingTrip.values[23]
+          rawValues: finalValues
         })
       });
       const data = await res.json();
@@ -701,6 +741,17 @@ export default function FleetApp() {
         }
       }
 
+      const firstFuelCost = details[9] || '';
+      const secondFuelCost = details[24] || '';
+
+      let count = 0;
+      if (details[5] === 'Fuel' && (extractedMeter || extractedLiters || firstFuelCost)) {
+        count = 1;
+      }
+      if (secondFuelCost) {
+        count = 2;
+      }
+
       setFormData((prev: any) => ({
         ...prev,
         vehicle: details[4] || '',
@@ -711,10 +762,17 @@ export default function FleetApp() {
         folderId: details[21] || '',
         startTs: details[2] || '',
         endTs: details[7] || '',
-        fuelCost: details[9] || '',
+        fuelCost: count === 2 ? secondFuelCost : firstFuelCost,
         comments: rawComments,
-        fuelStationMeter: extractedMeter,
-        fuelLiterCount: extractedLiters,
+        fuelStationMeter: count === 2 ? (details[25] || '') : extractedMeter,
+        fuelLiterCount: count === 2 ? (details[26] || '') : extractedLiters,
+        firstFuelCost: firstFuelCost,
+        firstFuelComments: details[10] || '',
+        firstFuelMeter: extractedMeter,
+        firstFuelLiters: extractedLiters,
+        secondFuelCost: secondFuelCost,
+        secondFuelMeter: details[25] || '',
+        secondFuelLiters: details[26] || '',
         repairCost: details[11] || '',
         scDueAmount: details[13] || '',
         drvComms: stage === 'last-trip' ? (details[14] || '') : '',
@@ -730,7 +788,8 @@ export default function FleetApp() {
       setCurrentRef(ref);
       
       // Auto-disable Fuel section if it was already filled
-      if (details[5] === 'Fuel' && (extractedMeter || extractedLiters)) {
+      setFuelSubmitCount(count);
+      if (count > 0) {
         setIsFuelSubmitted(true);
       } else {
         setIsFuelSubmitted(false);
@@ -1629,13 +1688,18 @@ export default function FleetApp() {
                           {[
                             'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
                             'Purpose', 'Garage Start', 'Garage End', 'End TS',
-                            'Fuel Cost', 'Fuel Meter', 'Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
+                            'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
                             'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price',
                             'Actions'
                           ].map(h => (
-                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                            <th key={h} className={cn(
+                              "px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                              h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5" : ""
+                            )}>
+                              {h}
+                            </th>
                           ))}
                         </tr>
                       </thead>
@@ -1667,7 +1731,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((idx) => (
+                            {[0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((idx) => (
                               <td 
                                 key={idx} 
                                 className={cn(
@@ -1740,7 +1804,7 @@ export default function FleetApp() {
                                   <span className={cn(
                                     "font-sans font-normal",
                                     (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
-                                      (idx === 9 || idx === 11) ? "text-rose-400" : "text-white"
+                                      (idx === 9 || idx === 11 || idx === 24) ? "text-rose-400" : "text-white"
                                   )}>
                                     {idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || t.values[idx as number].toString().trim() === '')
                                       ? '0'
@@ -1749,9 +1813,35 @@ export default function FleetApp() {
                                 )}
                               </td>
                             ))}
-                            <td className="px-6 py-4 text-[10px] whitespace-nowrap flex items-center gap-2">
+                            <td className="px-6 py-4 text-[10px] whitespace-nowrap flex items-center gap-2 sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
                               <button
-                                onClick={() => setEditingTrip(t)}
+                                onClick={() => setViewingTrip(t)}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500 text-sky-500 hover:text-black border border-sky-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
+                              >
+                                <Eye className="w-3 h-3" />
+                                View
+                              </button>
+                              <button
+                                onClick={() => {
+                                  let fMeter = '';
+                                  let fLiters = '';
+                                  let cleanComments = t.values[10] || '';
+                                  if (t.values[5] === 'Fuel') {
+                                    const fuelMatch = cleanComments.toString().match(/\(Fuel - (.*?)\)/);
+                                    if (fuelMatch) {
+                                      const fuelStr = fuelMatch[1];
+                                      const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                      if (m1) fMeter = m1[1];
+                                      const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                      if (m2) fLiters = m2[1];
+                                    } else {
+                                      const oldMatch = cleanComments.toString().match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
+                                      if (oldMatch) fMeter = oldMatch[1];
+                                    }
+                                    cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+                                  }
+                                  setEditingTrip({ ...t, fMeter, fLiters, cleanComments: cleanComments || t.values[10] });
+                                }}
                                 className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
                               >
                                 <Edit className="w-3 h-3" />
@@ -2458,7 +2548,7 @@ export default function FleetApp() {
                     <option value="">Select</option>
                     {(() => {
                       // Filter by vehicle if selected
-                      let filtered = (tripRefs || []).filter(t => !formData.vehicle || t.vehicle?.toString().trim().toUpperCase() === formData.vehicle.toString().trim().toUpperCase()).map(t => t.ref);
+                      let filtered = (tripRefs || []).map(t => t.ref);
                       // Ensure the current value is in the list (especially for the Update stage)
                       if (formData.tripRef && !filtered.includes(formData.tripRef)) {
                         filtered = [formData.tripRef, ...filtered];
@@ -2585,6 +2675,14 @@ export default function FleetApp() {
                    <p className="text-center text-[10px] text-emerald-400 font-bold uppercase mt-2">
                      Submitted details displayed above.
                    </p>
+                )}
+                {isFuelSubmitted && fuelSubmitCount === 1 && (
+                  <button
+                    onClick={handleAddMoreFuel}
+                    className="w-full py-3 mt-4 font-black rounded-xl border border-sky-500/50 text-sky-400 hover:bg-sky-500 hover:text-black transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                  >
+                    + Add More Details
+                  </button>
                 )}
               </div>
             )}
@@ -2820,7 +2918,7 @@ export default function FleetApp() {
               initial={{ scale: 0.95, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 15 }}
-              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
             >
               <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -2836,141 +2934,93 @@ export default function FleetApp() {
               </div>
 
               <div className="p-6 overflow-y-auto space-y-4 flex-1">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Status</label>
-                    <select
-                      value={editingTrip.status}
-                      onChange={(e) => setEditingTrip({ ...editingTrip, status: e.target.value })}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Approved">Approved</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Driver ID</label>
-                    <input
-                      type="text"
-                      value={editingTrip.driver}
-                      onChange={(e) => setEditingTrip({ ...editingTrip, driver: e.target.value })}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Vehicle Num</label>
-                    <input
-                      type="text"
-                      value={editingTrip.vehicle}
-                      onChange={(e) => setEditingTrip({ ...editingTrip, vehicle: e.target.value })}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Purpose</label>
-                    <select
-                      value={editingTrip.purpose}
-                      onChange={(e) => setEditingTrip({ ...editingTrip, purpose: e.target.value })}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    >
-                      <option value="Hire">Hire</option>
-                      <option value="Repair">Repair</option>
-                      <option value="Personal">Personal</option>
-                      <option value="Fuel">Fuel</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Garage Start KM</label>
-                    <input
-                      type="number"
-                      value={editingTrip.values[6] || ''}
-                      onChange={(e) => {
-                        const newValues = [...editingTrip.values];
-                        newValues[6] = e.target.value;
-                        setEditingTrip({ ...editingTrip, values: newValues });
-                      }}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Garage End KM</label>
-                    <input
-                      type="number"
-                      value={editingTrip.values[8] || ''}
-                      onChange={(e) => {
-                        const newValues = [...editingTrip.values];
-                        newValues[8] = e.target.value;
-                        setEditingTrip({ ...editingTrip, values: newValues });
-                      }}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Fuel Cost</label>
-                    <input
-                      type="number"
-                      value={editingTrip.values[9] || ''}
-                      onChange={(e) => {
-                        const newValues = [...editingTrip.values];
-                        newValues[9] = e.target.value;
-                        setEditingTrip({ ...editingTrip, values: newValues });
-                      }}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Repair Cost</label>
-                    <input
-                      type="number"
-                      value={editingTrip.values[11] || ''}
-                      onChange={(e) => {
-                        const newValues = [...editingTrip.values];
-                        newValues[11] = e.target.value;
-                        setEditingTrip({ ...editingTrip, values: newValues });
-                      }}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Driver Comms</label>
-                    <input
-                      type="number"
-                      value={editingTrip.values[14] || ''}
-                      onChange={(e) => {
-                        const newValues = [...editingTrip.values];
-                        newValues[14] = e.target.value;
-                        setEditingTrip({ ...editingTrip, values: newValues });
-                      }}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Trip Ref (Booking Ref)</label>
-                    <input
-                      type="text"
-                      value={editingTrip.values[12] || ''}
-                      onChange={(e) => {
-                        const newValues = [...editingTrip.values];
-                        newValues[12] = e.target.value;
-                        setEditingTrip({ ...editingTrip, values: newValues });
-                      }}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="space-y-1 col-span-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Final Price</label>
-                    <input
-                      type="number"
-                      value={editingTrip.values[23] || ''}
-                      onChange={(e) => {
-                        const newValues = [...editingTrip.values];
-                        newValues[23] = e.target.value;
-                        setEditingTrip({ ...editingTrip, values: newValues });
-                      }}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {[
+                    { label: 'Status', idx: 0, type: 'select', options: ['Pending', 'Approved', 'Cancelled'] },
+                    { label: 'FR Ref', idx: 1, type: 'text', readOnly: true },
+                    { label: 'Start TS', idx: 2, type: 'text', readOnly: true },
+                    { label: 'Driver', idx: 3, type: 'text' },
+                    { label: 'Vehicle Num', idx: 4, type: 'select', options: adminData?.filterOptions?.vehicles || [] },
+                    { label: 'Purpose', idx: 5, type: 'select', options: ['Hire', 'Repair', 'Personal', 'Fuel'] },
+                    { label: 'Garage Start', idx: 6, type: 'number' },
+                    { label: 'Garage End', idx: 8, type: 'number' },
+                    { label: 'End TS', idx: 7, type: 'text', readOnly: true },
+                    { label: 'Fuel Cost', idx: 9, type: 'number' },
+                    { label: 'Fuel Meter', idx: 'fuel_meter', type: 'number' },
+                    { label: 'Fuel Liters', idx: 'fuel_liters', type: 'number' },
+                    { label: '2nd Fuel Cost', idx: 24, type: 'number' },
+                    { label: '2nd Fuel Meter', idx: 25, type: 'number' },
+                    { label: '2nd Fuel Liters', idx: 26, type: 'number' },
+                    { label: 'Comments', idx: 10, type: 'text' },
+                    { label: 'Repair Cost', idx: 11, type: 'number' },
+                    { label: 'Trip Ref', idx: 12, type: 'text' },
+                    { label: 'SC Due Amount', idx: 13, type: 'number', readOnly: true },
+                    { label: 'Drv Comms', idx: 14, type: 'number' },
+                    { label: 'Trip Start Meter', idx: 15, type: 'number' },
+                    { label: 'Trip End Meter', idx: 16, type: 'number' },
+                    { label: 'Pkg Balance Mileage', idx: 17, type: 'number' },
+                    { label: 'Loss (Start)', idx: 18, type: 'number', readOnly: true },
+                    { label: 'Loss (End)', idx: 19, type: 'number', readOnly: true },
+                    { label: 'Folder URL', idx: 20, type: 'text' },
+                    { label: 'Folder ID', idx: 21, type: 'text' },
+                    { label: 'Total Mileage', idx: 22, type: 'number', readOnly: true },
+                    { label: 'Final Price', idx: 23, type: 'number' },
+                  ].map((field, i) => (
+                    <div key={i} className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{field.label}</label>
+                      {field.type === 'select' ? (
+                        <select
+                          disabled={field.readOnly}
+                          value={editingTrip.values[field.idx as number] || ''}
+                          onChange={(e) => {
+                            const newValues = [...editingTrip.values];
+                            newValues[field.idx as number] = e.target.value;
+                            setEditingTrip({ ...editingTrip, values: newValues });
+                          }}
+                          className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                        >
+                          <option value="">Select...</option>
+                          {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : field.idx === 'fuel_meter' ? (
+                         <input
+                            type="number"
+                            disabled={field.readOnly}
+                            value={editingTrip.fMeter || ''}
+                            onChange={(e) => setEditingTrip({ ...editingTrip, fMeter: e.target.value })}
+                            className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                         />
+                      ) : field.idx === 'fuel_liters' ? (
+                         <input
+                            type="number"
+                            disabled={field.readOnly}
+                            value={editingTrip.fLiters || ''}
+                            onChange={(e) => setEditingTrip({ ...editingTrip, fLiters: e.target.value })}
+                            className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                         />
+                      ) : field.idx === 10 ? (
+                         <input
+                            type="text"
+                            disabled={field.readOnly}
+                            value={editingTrip.cleanComments || ''}
+                            onChange={(e) => setEditingTrip({ ...editingTrip, cleanComments: e.target.value })}
+                            className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                         />
+                      ) : (
+                        <input
+                          type={field.type}
+                          disabled={field.readOnly}
+                          value={editingTrip.values[field.idx as number] || ''}
+                          onChange={(e) => {
+                            const newValues = [...editingTrip.values];
+                            newValues[field.idx as number] = e.target.value;
+                            setEditingTrip({ ...editingTrip, values: newValues });
+                          }}
+                          className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                        />
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -3055,6 +3105,143 @@ export default function FleetApp() {
                 <button
                   onClick={() => setViewingImages(null)}
                   className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20"
+                >
+                  Close Viewer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* View Trip Modal */}
+      <AnimatePresence>
+        {viewingTrip && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-5 h-5 text-sky-500" />
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">View Fleet Record ({viewingTrip.rf})</h3>
+                </div>
+                <button
+                  onClick={() => setViewingTrip(null)}
+                  className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {[
+                    { label: 'Status', idx: 0 },
+                    { label: 'FR Ref', idx: 1 },
+                    { label: 'Start TS', idx: 2 },
+                    { label: 'Driver', idx: 3 },
+                    { label: 'Vehicle Num', idx: 4 },
+                    { label: 'Purpose', idx: 5 },
+                    { label: 'Garage Start', idx: 6 },
+                    { label: 'Garage End', idx: 8 },
+                    { label: 'End TS', idx: 7 },
+                    { label: 'Fuel Cost', idx: 9 },
+                    { label: 'Fuel Meter', idx: 'fuel_meter' },
+                    { label: 'Fuel Liters', idx: 'fuel_liters' },
+                    { label: '2nd Fuel Cost', idx: 24 },
+                    { label: '2nd Fuel Meter', idx: 25 },
+                    { label: '2nd Fuel Liters', idx: 26 },
+                    { label: 'Comments', idx: 10 },
+                    { label: 'Repair Cost', idx: 11 },
+                    { label: 'Trip Ref', idx: 12 },
+                    { label: 'SC Due Amount', idx: 13 },
+                    { label: 'Drv Comms', idx: 14 },
+                    { label: 'Trip Start Meter', idx: 15 },
+                    { label: 'Trip End Meter', idx: 16 },
+                    { label: 'Pkg Balance Mileage', idx: 17 },
+                    { label: 'Loss (Start)', idx: 18 },
+                    { label: 'Loss (End)', idx: 19 },
+                    { label: 'Folder URL', idx: 20 },
+                    { label: 'Folder ID', idx: 21 },
+                    { label: 'Total Mileage', idx: 22 },
+                    { label: 'Final Price', idx: 23 },
+                  ].map((field, i) => (
+                    <div key={i} className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{field.label}</p>
+                      <p className="text-xs font-medium text-white truncate" title={String(field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
+                        (() => {
+                          if (viewingTrip.values[5] === 'Fuel') {
+                            const rawComments = viewingTrip.values[10] || '';
+                            const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+                            if (fuelMatch) {
+                              const fuelStr = fuelMatch[1];
+                              if (field.idx === 'fuel_meter') {
+                                const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                return m ? m[1] : '-';
+                              } else {
+                                const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                return m ? m[1] : '-';
+                              }
+                            } else {
+                              const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                              const oldFuelMatch = rawComments.match(oldFuelRegex);
+                              if (oldFuelMatch && field.idx === 'fuel_meter') return oldFuelMatch[1];
+                              return '-';
+                            }
+                          }
+                          return '-';
+                        })()
+                      ) : (
+                        viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
+                          ? (field.idx === 10 && viewingTrip.values[5] === 'Fuel' ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() : viewingTrip.values[field.idx as number])
+                          : (field.idx === 18 ? '0' : '-')
+                      ))}>
+                        {field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
+                          (() => {
+                            if (viewingTrip.values[5] === 'Fuel') {
+                              const rawComments = viewingTrip.values[10] || '';
+                              const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+                              if (fuelMatch) {
+                                const fuelStr = fuelMatch[1];
+                                if (field.idx === 'fuel_meter') {
+                                  const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                  return m ? m[1] : '-';
+                                } else {
+                                  const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                  return m ? m[1] : '-';
+                                }
+                              } else {
+                                const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                                const oldFuelMatch = rawComments.match(oldFuelRegex);
+                                if (oldFuelMatch && field.idx === 'fuel_meter') return oldFuelMatch[1];
+                                return '-';
+                              }
+                            }
+                            return '-';
+                          })()
+                        ) : (
+                          viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
+                            ? (field.idx === 10 && viewingTrip.values[5] === 'Fuel' ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() || '-' : viewingTrip.values[field.idx as number])
+                            : (field.idx === 18 ? '0' : '-')
+                        )}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end">
+                <button
+                  onClick={() => setViewingTrip(null)}
+                  className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-sky-500/20"
                 >
                   Close Viewer
                 </button>

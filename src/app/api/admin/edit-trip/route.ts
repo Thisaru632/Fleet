@@ -6,23 +6,10 @@ export const dynamic = "force-dynamic";
 
 export async function PUT(request: Request) {
   try {
-    const { 
-      reference,
-      status,
-      driverId,
-      vehicle,
-      purpose,
-      garageStartMeter,
-      garageEndMeter,
-      fuel,
-      repair,
-      commission,
-      tripRef,
-      finalPrice
-    } = await request.json();
+    const { reference, rawValues } = await request.json();
 
-    if (!reference) {
-      return NextResponse.json({ error: "Reference is required" }, { status: 400 });
+    if (!reference || !rawValues) {
+      return NextResponse.json({ error: "Reference and rawValues are required" }, { status: 400 });
     }
 
     await dbConnect();
@@ -34,54 +21,38 @@ export async function PUT(request: Request) {
 
     const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, "")) || 0;
 
-    trip.status = status || trip.status;
-    trip.driverId = driverId || trip.driverId;
-    trip.vehicle = vehicle || trip.vehicle;
-    trip.purpose = purpose || trip.purpose;
-    trip.fuel = parseNum(fuel);
-    trip.repair = parseNum(repair);
-    trip.commission = parseNum(commission);
-    trip.finalPrice = parseNum(finalPrice);
+    trip.status = rawValues[0] || trip.status;
+    trip.driverId = rawValues[3] || trip.driverId;
+    trip.vehicle = rawValues[4] || trip.vehicle;
+    trip.purpose = rawValues[5] || trip.purpose;
+    trip.fuel = parseNum(rawValues[9]) + (rawValues.length > 24 ? parseNum(rawValues[24]) : 0);
+    trip.repair = parseNum(rawValues[11]);
+    trip.commission = parseNum(rawValues[14]);
+    trip.finalPrice = parseNum(rawValues[23]);
     
     // Recalculate total mileage
-    const startMeter = parseNum(garageStartMeter);
-    const endMeter = parseNum(garageEndMeter);
+    const startMeter = parseNum(rawValues[6]);
+    const endMeter = parseNum(rawValues[8]);
     trip.mileage = endMeter - startMeter;
+    rawValues[22] = trip.mileage;
 
-    // Update rawValues array to match the sheet schema
-    let raw = [...(trip.rawValues || new Array(25).fill(""))];
-    raw[0] = trip.status;
-    raw[1] = trip.reference;
-    raw[2] = trip.timestamp;
-    raw[3] = trip.driverId;
-    raw[4] = trip.vehicle;
-    raw[5] = trip.purpose;
-    raw[6] = garageStartMeter;
-    raw[8] = garageEndMeter;
-    raw[9] = fuel;
-    raw[11] = repair;
-    raw[12] = tripRef || "";
-    raw[14] = commission;
-    raw[22] = trip.mileage;
-    raw[23] = finalPrice;
-    
-    // Auto-calculate scDueAmount: finalPrice - fuel - commission only if purpose is Hire
+    // Recalculate scDueAmount
     const isHire = trip.purpose === "Hire";
-    const scDue = isHire ? Math.round(parseNum(finalPrice) - parseNum(fuel) - parseNum(commission)) : 0;
+    const scDue = isHire ? Math.round(parseNum(rawValues[23]) - parseNum(rawValues[9]) - (rawValues.length > 24 ? parseNum(rawValues[24]) : 0) - parseNum(rawValues[14])) : 0;
     trip.scDue = scDue;
-    raw[13] = scDue;
+    rawValues[13] = scDue;
 
     // Recalculate loss mileages if start/end are set
-    const tStart = parseNum(raw[15]);
-    const tEnd = parseNum(raw[16]);
+    const tStart = parseNum(rawValues[15]);
+    const tEnd = parseNum(rawValues[16]);
     if (tStart > 0 && startMeter > 0) {
-      raw[18] = tStart - startMeter; // Loss (Start)
+      rawValues[18] = tStart - startMeter; // Loss (Start)
     }
     if (endMeter > 0 && tEnd > 0) {
-      raw[19] = endMeter - tEnd; // Loss (End)
+      rawValues[19] = endMeter - tEnd; // Loss (End)
     }
 
-    trip.rawValues = raw;
+    trip.rawValues = rawValues;
     trip.markModified("rawValues");
     await trip.save();
 

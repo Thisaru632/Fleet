@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     trip.driverId = array[0] || trip.driverId;
     trip.vehicle = array[1] || trip.vehicle;
     trip.purpose = array[2] || trip.purpose;
-    trip.fuel = parseNum(array[6]);
+    trip.fuel = parseNum(array[6]) + (array.length > 21 ? parseNum(array[21]) : 0);
     trip.repair = parseNum(array[8]);
     trip.commission = parseNum(array[11]);
     trip.mileage = parseNum(array[19]);

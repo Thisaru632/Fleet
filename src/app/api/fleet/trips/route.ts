@@ -27,7 +27,6 @@ export async function GET(request: Request) {
       endOfDay.setHours(23, 59, 59, 999);
 
       accountDocs = await AccountSheet.find({ 
-        driverId: { $regex: /^dv1811$/i }, 
         status: { $regex: /^Assigned$/i },
         date: { $gte: startOfDay, $lte: endOfDay }
       });
