@@ -79,7 +79,7 @@ export default function FleetApp() {
     vehicle: 'All',
     driver: 'All'
   });
-  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles'>('overview');
   const [accountSheetData, setAccountSheetData] = useState<any>(null);
   const [fetchingAccountData, setFetchingAccountData] = useState(false);
   const [accountSearch, setAccountSearch] = useState('');
@@ -95,6 +95,20 @@ export default function FleetApp() {
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
   const [viewingImages, setViewingImages] = useState<any>(null);
   const [viewingTrip, setViewingTrip] = useState<any>(null);
+  const [vehicleDrivers, setVehicleDrivers] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('fleet_vehicle_drivers');
+      if (saved) setVehicleDrivers(JSON.parse(saved));
+    } catch (e) {}
+  }, []);
+
+  const handleDriverAssign = (vehicle: string, driver: string) => {
+    const updated = { ...vehicleDrivers, [vehicle]: driver };
+    setVehicleDrivers(updated);
+    localStorage.setItem('fleet_vehicle_drivers', JSON.stringify(updated));
+  };
 
   // Form states
   const [formData, setFormData] = useState<any>({
@@ -1381,10 +1395,21 @@ export default function FleetApp() {
               <IdCard className="w-4 h-4" />
               ACCOUNT SHEET
             </button>
+            <button
+              onClick={() => setAdminTab('vehicles')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'vehicles' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <Car className="w-4 h-4" />
+              VEHICLES
+            </button>
           </div>
 
           {/* Filters */}
-          <div className="glass-card p-4 space-y-4">
+          {adminTab !== 'vehicles' && (
+            <div className="glass-card p-4 space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
@@ -1452,6 +1477,7 @@ export default function FleetApp() {
               </div>
             </div>
           </div>
+          )}
           {fetchingAdmin ? (
             <div className="glass-card p-20 flex flex-col items-center justify-center space-y-4">
               <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
@@ -1913,6 +1939,43 @@ export default function FleetApp() {
               )}
             </div>
           ) : null}
+
+          {adminTab === 'vehicles' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <Car className="w-5 h-5 text-emerald-500" />
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Vehicle to Driver Assignment</h3>
+                </div>
+                
+                {adminData?.filterOptions?.vehicles?.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {adminData.filterOptions.vehicles.map((vehicle: string) => (
+                      <div key={vehicle} className="bg-white/5 p-4 rounded-xl border border-white/5 flex items-center justify-between">
+                        <span className="text-white font-bold">{vehicle}</span>
+                        <select
+                          className="bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          value={vehicleDrivers[vehicle] || ""}
+                          onChange={(e) => handleDriverAssign(vehicle, e.target.value)}
+                        >
+                          <option value="">Unassigned</option>
+                          {adminData.filterOptions.drivers?.map((driver: string) => (
+                            <option key={driver} value={driver}>{driver}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-400 text-xs">No vehicles data available. Please refresh or load the dashboard.</p>
+                )}
+              </div>
+            </motion.div>
+          )}
 
           {adminTab === 'accounts' && (
             <motion.div
@@ -2980,7 +3043,7 @@ export default function FleetApp() {
                           className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
                         >
                           <option value="">Select...</option>
-                          {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          {field.options?.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
                         </select>
                       ) : field.idx === 'fuel_meter' ? (
                          <input
