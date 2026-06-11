@@ -12,13 +12,16 @@ export async function POST(request: Request) {
 
     if (user) {
       // Return the user data in the format the frontend expects (array)
-      const userData = user.rawValues || [
-        user.username, 
-        user.password, 
-        user.role, 
-        user.driverId, 
-        user.name
-      ];
+      let userData = user.rawValues;
+      if (!userData || userData.length === 0) {
+        userData = [
+          user.username, 
+          user.password, 
+          user.role, 
+          user.phone, 
+          user.name
+        ];
+      }
       
       return NextResponse.json({ success: true, user: userData });
     } else {

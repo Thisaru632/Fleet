@@ -1472,7 +1472,7 @@ export default function FleetApp() {
                   onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
                 >
                   <option value="All">All Drivers</option>
-                  {adminData?.filterOptions.drivers.map((d: string) => <option key={d} value={d}>{d}</option>)}
+                  {adminData?.filterOptions.drivers.map((d: string) => <option key={d} value={d}>{adminData.driverNames?.[d] || d}</option>)}
                 </select>
               </div>
             </div>
@@ -1555,7 +1555,7 @@ export default function FleetApp() {
                           <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
                             <div className="flex items-center gap-3">
                               <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                              <span className="text-xs font-bold text-white">{d.driver}</span>
+                              <span className="text-xs font-bold text-white">{adminData.driverNames?.[d.driver] || d.driver}</span>
                             </div>
                             <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
                           </div>
@@ -1606,7 +1606,7 @@ export default function FleetApp() {
                         <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
                           <div className="flex items-center gap-3">
                             <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                            <span className="text-xs font-bold text-white">{d.driver}</span>
+                            <span className="text-xs font-bold text-white">{adminData.driverNames?.[d.driver] || d.driver}</span>
                           </div>
                           <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
                         </div>
@@ -1640,7 +1640,7 @@ export default function FleetApp() {
                           <tr key={i} className="hover:bg-white/5 transition-colors group">
                             <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.rf}</td>
                             <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">{t.date.split(' ')[0]}</td>
-                            <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.driver}</td>
+                            <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{adminData.driverNames?.[t.driver] || t.driver}</td>
                             <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.vehicle}</td>
                             <td className="px-6 py-4">
                               <span className={cn(
@@ -1964,7 +1964,7 @@ export default function FleetApp() {
                         >
                           <option value="">Unassigned</option>
                           {adminData.filterOptions.drivers?.map((driver: string) => (
-                            <option key={driver} value={driver}>{driver}</option>
+                            <option key={driver} value={driver}>{adminData.driverNames?.[driver] || driver}</option>
                           ))}
                         </select>
                       </div>

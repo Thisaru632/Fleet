@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Trip from "@/models/Trip";
+import User from "@/models/User";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -106,6 +107,13 @@ export async function GET(request: Request) {
 
     // Filter Options
     const allTrips = await Trip.find({}, { vehicle: 1, driverId: 1 });
+    
+    // Fetch driver names for mapping in the UI
+    const users = await User.find({}, { username: 1, name: 1 });
+    const driverNames: Record<string, string> = {};
+    users.forEach(u => {
+      if (u.username) driverNames[u.username] = u.name;
+    });
 
     // Pagination
     const page = parseInt(searchParams.get("page") || "1");
@@ -156,6 +164,7 @@ export async function GET(request: Request) {
         totalItems,
         totalPages
       },
+      driverNames,
       filterOptions: {
         vehicles: Array.from(new Set(allTrips.map((t: any) => t.vehicle))).filter(Boolean),
         drivers: Array.from(new Set(allTrips.map((t: any) => t.driverId))).filter(Boolean),
