@@ -79,10 +79,11 @@ export default function FleetApp() {
     vehicle: 'All',
     driver: 'All'
   });
-  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage'>('overview');
   const [accountSheetData, setAccountSheetData] = useState<any>(null);
   const [fetchingAccountData, setFetchingAccountData] = useState(false);
   const [accountSearch, setAccountSearch] = useState('');
+  const [fleetSearch, setFleetSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [messagesData, setMessagesData] = useState<any>(null);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
@@ -95,7 +96,17 @@ export default function FleetApp() {
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
   const [viewingImages, setViewingImages] = useState<any>(null);
   const [viewingTrip, setViewingTrip] = useState<any>(null);
+  const [viewingDriver, setViewingDriver] = useState<any>(null);
+  const [editingDriver, setEditingDriver] = useState<any>(null);
+  const [addingDriver, setAddingDriver] = useState<any>(null);
+  const [savingDriver, setSavingDriver] = useState(false);
   const [vehicleDrivers, setVehicleDrivers] = useState<Record<string, string>>({});
+  const [driverManageFilters, setDriverManageFilters] = useState({
+    search: '',
+    driver: 'All',
+    status: 'All',
+    vehicle: 'All'
+  });
 
   useEffect(() => {
     try {
@@ -108,6 +119,23 @@ export default function FleetApp() {
     const updated = { ...vehicleDrivers, [vehicle]: driver };
     setVehicleDrivers(updated);
     localStorage.setItem('fleet_vehicle_drivers', JSON.stringify(updated));
+  };
+
+  const assignVehicleToDriver = (driver: string, newVehicle: string) => {
+    // We update vehicleDrivers locally and in localStorage
+    setVehicleDrivers(prev => {
+      let updated = { ...prev };
+      // First clear this driver from any existing vehicle
+      for (const [v, d] of Object.entries(updated)) {
+        if (d === driver) delete updated[v];
+      }
+      // Assign the new vehicle if not unassigned
+      if (newVehicle && newVehicle !== "Unassigned") {
+        updated[newVehicle] = driver;
+      }
+      localStorage.setItem('fleet_vehicle_drivers', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   // Form states
@@ -566,9 +594,86 @@ export default function FleetApp() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAlert({ type: 'success', message: 'Trip deleted successfully!' });
-      fetchAdminSales();
+      fetchAdminSales(true);
     } catch (err: any) {
       setAlert({ type: 'error', message: err.message || 'Failed to delete trip' });
+    }
+  };
+
+  const handleDeleteDriver = async (username: string) => {
+    if (!confirm(`Are you sure you want to delete driver ${username}?`)) return;
+    try {
+      const res = await fetch(`/api/admin/delete-driver`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAlert({ type: 'success', message: 'Driver deleted successfully!' });
+      fetchAdminSales(true);
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to delete driver' });
+    }
+  };
+
+  const handleEditDriverSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDriver) return;
+    setSavingDriver(true);
+    try {
+      const res = await fetch('/api/admin/edit-driver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingDriver)
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      
+      if (editingDriver.vehicle !== undefined) {
+        assignVehicleToDriver(editingDriver.username, editingDriver.vehicle);
+      }
+      
+      setAlert({ type: 'success', message: 'Driver updated successfully!' });
+      setEditingDriver(null);
+      fetchAdminSales(true);
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to update driver' });
+    } finally {
+      setSavingDriver(false);
+    }
+  };
+
+  const handleAddDriverSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addingDriver) return;
+
+    if (!addingDriver.username || !addingDriver.password) {
+      setAlert({ type: 'error', message: 'Username and password are required' });
+      return;
+    }
+
+    setSavingDriver(true);
+    try {
+      const res = await fetch('/api/admin/add-driver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(addingDriver)
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      if (addingDriver.vehicle !== undefined) {
+        assignVehicleToDriver(addingDriver.username, addingDriver.vehicle);
+      }
+
+      setAlert({ type: 'success', message: 'Driver added successfully!' });
+      setAddingDriver(null);
+      fetchAdminSales(true);
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to add driver' });
+    } finally {
+      setSavingDriver(false);
     }
   };
 
@@ -1315,22 +1420,7 @@ export default function FleetApp() {
                 <p className="text-[10px] text-emerald-500/60 font-black tracking-widest uppercase">Admin Control Panel</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-widest cursor-pointer transition-all">
-                {importingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                {importingCsv ? 'Importing...' : 'Import CSV'}
-                <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} disabled={importingCsv} />
-              </label>
-              <button
-                onClick={() => {
-                  setAlert(null);
-                  setStage('dashboard');
-                }}
-                className="px-4 py-2 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
-              >
-                Exit Admin
-              </button>
-            </div>
+
           </div>
 
           {/* Tabs Navigation */}
@@ -1395,20 +1485,33 @@ export default function FleetApp() {
               <IdCard className="w-4 h-4" />
               ACCOUNT SHEET
             </button>
+
             <button
-              onClick={() => setAdminTab('vehicles')}
+              onClick={() => setAdminTab('driver-manage')}
               className={cn(
                 "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'vehicles' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+                adminTab === 'driver-manage' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
               )}
             >
-              <Car className="w-4 h-4" />
-              VEHICLES
+              <Users className="w-4 h-4" />
+              DRIVER MANAGE
+            </button>
+
+            <div className="w-px h-8 bg-white/10 mx-2 self-center shrink-0"></div>
+            <button
+              onClick={() => {
+                setAlert(null);
+                setStage('dashboard');
+              }}
+              className="px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white shadow-lg shadow-red-500/10 border border-red-500/20"
+            >
+              <LogOut className="w-4 h-4" />
+              EXIT ADMIN
             </button>
           </div>
 
           {/* Filters */}
-          {adminTab !== 'vehicles' && (
+          {adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && (
             <div className="glass-card p-4 space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               <div className="space-y-1">
@@ -1680,15 +1783,29 @@ export default function FleetApp() {
                   <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Complete Fleet Data</h3>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{adminData.tables.fleetData.length} Records</span>
-                      <Database className="w-4 h-4 text-emerald-500" />
+                      <div className="relative mr-2 w-80 hidden sm:block">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search fleet data..."
+                          className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-1.5 pl-8 pr-3 text-[10px] text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                          value={fleetSearch}
+                          onChange={(e) => setFleetSearch(e.target.value)}
+                        />
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full hidden sm:inline-block">{adminData.tables.fleetData.length} Records</span>
                       <button
                         onClick={() => fetchAdminSales()}
-                        className="p-2 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white"
+                        className="p-1.5 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white"
                         title="Refresh Data"
                       >
-                        <RefreshCw className={cn("w-4 h-4", fetchingAdmin && "animate-spin")} />
+                        <RefreshCw className={cn("w-3.5 h-3.5", fetchingAdmin && "animate-spin")} />
                       </button>
+                      <label className="px-3 py-1 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer">
+                        {importingCsv ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                        <span className="hidden sm:inline">{importingCsv ? 'Importing...' : 'Import CSV'}</span>
+                        <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} disabled={importingCsv} />
+                      </label>
                       <button
                         onClick={handleExportCSV}
                         className="px-3 py-1 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-black rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1"
@@ -1721,7 +1838,7 @@ export default function FleetApp() {
                             'Actions'
                           ].map(h => (
                             <th key={h} className={cn(
-                              "px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                              "px-6 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
                               h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5" : ""
                             )}>
                               {h}
@@ -1730,11 +1847,17 @@ export default function FleetApp() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {adminData.tables.fleetData.map((t: any, i: number) => {
+                        {adminData.tables.fleetData.filter((t: any) => {
+                          if (!fleetSearch) return true;
+                          const searchLower = fleetSearch.toLowerCase();
+                          return (t.ref && String(t.ref).toLowerCase().includes(searchLower)) ||
+                                 (t.values && t.values.some((v: any) => v && String(v).toLowerCase().includes(searchLower)));
+                        }).map((t: any, i: number) => {
+                          const originalIndex = adminData.tables.fleetData.indexOf(t);
                           const vehicleNum = t.values[4];
                           const rawGarageStart = t.values[6];
                           
-                          const prevTrip = vehicleNum ? adminData.tables.fleetData.slice(i + 1).find((pt: any) => pt.values[4] === vehicleNum) : null;
+                          const prevTrip = vehicleNum ? adminData.tables.fleetData.slice(originalIndex + 1).find((pt: any) => pt.values[4] === vehicleNum) : null;
                           const rawPrevGarageEnd = prevTrip ? prevTrip.values[8] : null;
                           
                           let mismatch = 0;
@@ -1761,7 +1884,7 @@ export default function FleetApp() {
                               <td 
                                 key={idx} 
                                 className={cn(
-                                  "px-6 py-4 text-[10px] whitespace-nowrap",
+                                  "px-6 py-2 text-xs whitespace-nowrap",
                                   hasMismatch && idx === 6 ? "animate-pulse bg-red-500/30 font-bold" : ""
                                 )}
                                 title={hasMismatch && idx === 6 ? `${mismatch} km mismatch with the last trip for this vehicle` : undefined}
@@ -1839,7 +1962,7 @@ export default function FleetApp() {
                                 )}
                               </td>
                             ))}
-                            <td className="px-6 py-4 text-[10px] whitespace-nowrap flex items-center gap-2 sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
+                            <td className="px-6 py-2 text-xs whitespace-nowrap flex items-center gap-2 sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
                               <button
                                 onClick={() => setViewingTrip(t)}
                                 className="flex items-center gap-1 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500 text-sky-500 hover:text-black border border-sky-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
@@ -1940,38 +2063,173 @@ export default function FleetApp() {
             </div>
           ) : null}
 
-          {adminTab === 'vehicles' && (
+
+
+          {adminTab === 'driver-manage' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
               <div className="glass-card p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <Car className="w-5 h-5 text-emerald-500" />
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Vehicle to Driver Assignment</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <Users className="w-5 h-5 text-emerald-500" />
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Driver Management</h3>
+                  </div>
+                  <button
+                    onClick={() => setAddingDriver({ username: '', password: '', name: '', phone: '', role: 'driver', status: 'Active', vehicle: 'Unassigned' })}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-black transition-colors uppercase tracking-wider shadow-lg shadow-emerald-500/20"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Driver
+                  </button>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-4 mb-6">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search drivers..."
+                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                      value={driverManageFilters.search}
+                      onChange={(e) => setDriverManageFilters({ ...driverManageFilters, search: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-4">
+                    <select
+                      className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      value={driverManageFilters.driver}
+                      onChange={(e) => setDriverManageFilters({ ...driverManageFilters, driver: e.target.value })}
+                    >
+                      <option value="All">All Drivers</option>
+                      {adminData?.filterOptions?.drivers?.map((d: string) => (
+                        <option key={d} value={d}>{adminData.driverNames?.[d] || d}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      value={driverManageFilters.status}
+                      onChange={(e) => setDriverManageFilters({ ...driverManageFilters, status: e.target.value })}
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                    <select
+                      className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      value={driverManageFilters.vehicle}
+                      onChange={(e) => setDriverManageFilters({ ...driverManageFilters, vehicle: e.target.value })}
+                    >
+                      <option value="All">All Vehicles</option>
+                      <option value="Unassigned">Unassigned</option>
+                      {adminData?.filterOptions?.vehicles?.map((v: string) => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 
-                {adminData?.filterOptions?.vehicles?.length > 0 ? (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {adminData.filterOptions.vehicles.map((vehicle: string) => (
-                      <div key={vehicle} className="bg-white/5 p-4 rounded-xl border border-white/5 flex items-center justify-between">
-                        <span className="text-white font-bold">{vehicle}</span>
-                        <select
-                          className="bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                          value={vehicleDrivers[vehicle] || ""}
-                          onChange={(e) => handleDriverAssign(vehicle, e.target.value)}
-                        >
-                          <option value="">Unassigned</option>
-                          {adminData.filterOptions.drivers?.map((driver: string) => (
-                            <option key={driver} value={driver}>{adminData.driverNames?.[driver] || driver}</option>
+                {adminData?.tables?.driversList?.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-white/[0.02]">
+                          {['User Name', 'Password', 'Role', 'Name', 'Phone Number', 'Assigned Vehicle', 'Status', 'Actions'].map(h => (
+                            <th key={h} className={cn(
+                              "px-10 py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                              h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 w-[1%]" : "",
+                              h === 'Name' ? "w-full" : ""
+                            )}>
+                              {h}
+                            </th>
                           ))}
-                        </select>
-                      </div>
-                    ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {adminData.tables.driversList.filter((driver: any) => {
+                          const searchTerm = driverManageFilters.search.toLowerCase();
+                          if (searchTerm && !driver.username.toLowerCase().includes(searchTerm) && !(driver.name || '').toLowerCase().includes(searchTerm)) {
+                            return false;
+                          }
+                          if (driverManageFilters.driver !== 'All' && driver.username !== driverManageFilters.driver) {
+                            return false;
+                          }
+                          if (driverManageFilters.status !== 'All' && driver.status !== driverManageFilters.status) {
+                            return false;
+                          }
+                          let assignedVehicle = "Unassigned";
+                          Object.keys(vehicleDrivers).forEach(v => {
+                            if (vehicleDrivers[v] === driver.username) assignedVehicle = v;
+                          });
+                          if (driverManageFilters.vehicle !== 'All' && driverManageFilters.vehicle !== assignedVehicle) {
+                            return false;
+                          }
+                          return true;
+                        }).map((driver: any, i: number) => {
+                          // Find assigned vehicle
+                          let assignedVehicle = "Unassigned";
+                          Object.keys(vehicleDrivers).forEach(v => {
+                            if (vehicleDrivers[v] === driver.username) {
+                              assignedVehicle = v;
+                            }
+                          });
+
+                          return (
+                            <tr key={i} className="hover:bg-white/5 transition-colors group">
+                              <td className="px-10 py-2 text-xs font-bold text-emerald-500 whitespace-nowrap">{driver.username}</td>
+                              <td className="px-10 py-2 text-xs font-mono text-slate-400 whitespace-nowrap">{driver.password}</td>
+                              <td className="px-10 py-2 text-xs font-bold text-indigo-400 whitespace-nowrap">{driver.role}</td>
+                              <td className="px-10 py-2 text-xs font-bold text-white whitespace-nowrap">{driver.name || '-'}</td>
+                              <td className="px-10 py-2 text-xs text-slate-400 whitespace-nowrap">{driver.phone || '-'}</td>
+                              <td className="px-10 py-2 text-xs whitespace-nowrap">
+                                <span className={cn(
+                                  "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
+                                  assignedVehicle === 'Unassigned' ? "bg-white/5 text-slate-500" : "bg-sky-500/10 text-sky-500 border border-sky-500/20"
+                                )}>
+                                  {assignedVehicle}
+                                </span>
+                              </td>
+                              <td className="px-10 py-2 text-xs whitespace-nowrap">
+                                <span className={cn(
+                                  "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
+                                  driver.status === 'Active' ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+                                )}>
+                                  {driver.status}
+                                </span>
+                              </td>
+                              <td className="px-10 py-2 text-xs w-[1%] whitespace-nowrap flex items-center gap-2 sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
+                                <button
+                                  onClick={() => setViewingDriver(driver)}
+                                  className="flex items-center gap-1 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500 text-sky-500 hover:text-black border border-sky-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  View
+                                </button>
+                                <button
+                                  onClick={() => setEditingDriver({ ...driver, vehicle: assignedVehicle })}
+                                  className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
+                                >
+                                  <Edit className="w-3 h-3" />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDriver(driver.username)}
+                                  className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 ) : (
-                  <p className="text-slate-400 text-xs">No vehicles data available. Please refresh or load the dashboard.</p>
+                  <p className="text-slate-400 text-xs">No driver data available. Please refresh the dashboard.</p>
                 )}
               </div>
             </motion.div>
@@ -2724,15 +2982,24 @@ export default function FleetApp() {
 
                 <button
                   onClick={handleFuelDetailsSubmit}
-                  disabled={isFuelSubmitted}
+                  disabled={isFuelSubmitted || loading}
                   className={cn(
                     "w-full py-4 font-black rounded-xl transition-all shadow-lg uppercase tracking-widest text-xs flex items-center justify-center gap-2",
-                    isFuelSubmitted 
+                    (isFuelSubmitted || loading) 
                       ? "bg-slate-500/50 text-slate-400 cursor-not-allowed" 
                       : "bg-sky-500 hover:bg-sky-400 text-black shadow-sky-500/20"
                   )}
                 >
-                  {isFuelSubmitted ? 'Details Submitted' : 'Submit Fuel Details'}
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : isFuelSubmitted ? (
+                    'Details Submitted'
+                  ) : (
+                    'Submit Fuel Details'
+                  )}
                 </button>
                 {isFuelSubmitted && (
                    <p className="text-center text-[10px] text-emerald-400 font-bold uppercase mt-2">
@@ -3309,6 +3576,360 @@ export default function FleetApp() {
                   Close Viewer
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {viewingDriver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
+                    <Eye className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Driver Details</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">{viewingDriver.username}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setViewingDriver(null)}
+                  className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Username</p>
+                    <p className="text-xs font-bold text-emerald-500">{viewingDriver.username}</p>
+                  </div>
+                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Password</p>
+                    <p className="text-xs font-mono text-slate-300">{viewingDriver.password}</p>
+                  </div>
+                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Name</p>
+                    <p className="text-xs font-bold text-white">{viewingDriver.name || '-'}</p>
+                  </div>
+                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone</p>
+                    <p className="text-xs font-medium text-slate-300">{viewingDriver.phone || '-'}</p>
+                  </div>
+                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Role</p>
+                    <p className="text-xs font-bold text-indigo-400">{viewingDriver.role}</p>
+                  </div>
+                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</p>
+                    <span className={cn(
+                      "inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider",
+                      viewingDriver.status === 'Active' ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+                    )}>
+                      {viewingDriver.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-white/5 bg-white/5 flex justify-end">
+                <button
+                  onClick={() => setViewingDriver(null)}
+                  className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-sky-500/20"
+                >
+                  Close Viewer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {editingDriver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                    <Edit className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Edit Driver</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">{editingDriver.username}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingDriver(null)}
+                  className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditDriverSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Username (Read-Only)</label>
+                    <input
+                      type="text"
+                      className="w-full bg-black/20 border border-white/5 rounded-xl py-3 px-4 text-xs font-bold text-emerald-500 opacity-70 cursor-not-allowed"
+                      value={editingDriver.username}
+                      readOnly
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                      value={editingDriver.password}
+                      onChange={(e) => setEditingDriver({ ...editingDriver, password: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                      value={editingDriver.name || ''}
+                      onChange={(e) => setEditingDriver({ ...editingDriver, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                      value={editingDriver.phone || ''}
+                      onChange={(e) => setEditingDriver({ ...editingDriver, phone: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</label>
+                      <select
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={editingDriver.role}
+                        onChange={(e) => setEditingDriver({ ...editingDriver, role: e.target.value })}
+                      >
+                        <option value="driver">Driver</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+                      <select
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={editingDriver.status}
+                        onChange={(e) => setEditingDriver({ ...editingDriver, status: e.target.value })}
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vehicle</label>
+                      <select
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={editingDriver.vehicle || "Unassigned"}
+                        onChange={(e) => setEditingDriver({ ...editingDriver, vehicle: e.target.value })}
+                      >
+                        <option value="Unassigned">Unassigned</option>
+                        {adminData?.filterOptions?.vehicles?.map((v: string) => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border-t border-white/5 bg-white/5 flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setEditingDriver(null)}
+                    className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all"
+                    disabled={savingDriver}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                    disabled={savingDriver}
+                  >
+                    {savingDriver && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {savingDriver ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {addingDriver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Add New Driver</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">Create a new system user</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAddingDriver(null)}
+                  className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddDriverSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Username</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-emerald-500 focus:border-emerald-500 focus:outline-none transition-colors"
+                      value={addingDriver.username}
+                      onChange={(e) => setAddingDriver({ ...addingDriver, username: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                      value={addingDriver.password}
+                      onChange={(e) => setAddingDriver({ ...addingDriver, password: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                      value={addingDriver.name || ''}
+                      onChange={(e) => setAddingDriver({ ...addingDriver, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone</label>
+                    <input
+                      type="text"
+                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                      value={addingDriver.phone || ''}
+                      onChange={(e) => setAddingDriver({ ...addingDriver, phone: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</label>
+                      <select
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={addingDriver.role}
+                        onChange={(e) => setAddingDriver({ ...addingDriver, role: e.target.value })}
+                      >
+                        <option value="driver">Driver</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+                      <select
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={addingDriver.status}
+                        onChange={(e) => setAddingDriver({ ...addingDriver, status: e.target.value })}
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vehicle</label>
+                      <select
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={addingDriver.vehicle || "Unassigned"}
+                        onChange={(e) => setAddingDriver({ ...addingDriver, vehicle: e.target.value })}
+                      >
+                        <option value="Unassigned">Unassigned</option>
+                        {adminData?.filterOptions?.vehicles?.map((v: string) => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border-t border-white/5 bg-white/5 flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setAddingDriver(null)}
+                    className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all"
+                    disabled={savingDriver}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                    disabled={savingDriver}
+                  >
+                    {savingDriver && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {savingDriver ? 'Saving...' : 'Create Driver'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </motion.div>
         )}

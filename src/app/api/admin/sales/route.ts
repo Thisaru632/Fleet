@@ -108,12 +108,21 @@ export async function GET(request: Request) {
     // Filter Options
     const allTrips = await Trip.find({}, { vehicle: 1, driverId: 1 });
     
-    // Fetch driver names for mapping in the UI
-    const users = await User.find({}, { username: 1, name: 1 });
+    // Fetch driver details for mapping in the UI and driver management
+    const users = await User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 });
     const driverNames: Record<string, string> = {};
-    users.forEach(u => {
+    const driversList = users.map(u => {
       if (u.username) driverNames[u.username] = u.name;
+      return {
+        username: u.username,
+        password: u.password,
+        name: u.name,
+        phone: u.phone,
+        role: u.role || 'Driver',
+        status: u.status || 'Active'
+      };
     });
+
 
     // Pagination
     const page = parseInt(searchParams.get("page") || "1");
@@ -156,7 +165,8 @@ export async function GET(request: Request) {
         topVehicles: vehicleSales.slice(0, 10),
         topDrivers: driverSales.slice(0, 10),
         recentTrips,
-        fleetData
+        fleetData,
+        driversList
       },
       pagination: {
         page,
