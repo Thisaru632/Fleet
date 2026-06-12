@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
     if (user) {
       // Return the user data in the format the frontend expects (array)
-      let userData = user.rawValues;
+      let userData: any = user.rawValues;
       if (!userData || userData.length === 0) {
         userData = [
           user.username, 

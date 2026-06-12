@@ -111,7 +111,7 @@ export async function GET(request: Request) {
     // Fetch driver details for mapping in the UI and driver management
     const users = await User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 });
     const driverNames: Record<string, string> = {};
-    const driversList = users.map(u => {
+    const driversList = users.map((u: any) => {
       if (u.username) driverNames[u.username] = u.name;
       return {
         username: u.username,

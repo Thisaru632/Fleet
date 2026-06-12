@@ -15,7 +15,7 @@ const UserSchema: Schema = new Schema({
 if (mongoose.models.User) {
   delete mongoose.models.User;
 }
-if (mongoose.connection && mongoose.connection.models && mongoose.connection.models.User) {
-  delete mongoose.connection.models.User;
+if (mongoose.connection && mongoose.connection.models && (mongoose.connection.models as any).User) {
+  delete (mongoose.connection.models as any).User;
 }
 export default mongoose.model("User", UserSchema);
