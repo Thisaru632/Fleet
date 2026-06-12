@@ -3285,41 +3285,59 @@ export default function FleetApp() {
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto space-y-4 flex-1">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {[
-                    { label: 'Status', idx: 0, type: 'select', options: ['Pending', 'Approved', 'Cancelled'] },
-                    { label: 'FR Ref', idx: 1, type: 'text', readOnly: true },
-                    { label: 'Start TS', idx: 2, type: 'text', readOnly: true },
-                    { label: 'Driver', idx: 3, type: 'text' },
-                    { label: 'Vehicle Num', idx: 4, type: 'select', options: adminData?.filterOptions?.vehicles || [] },
-                    { label: 'Purpose', idx: 5, type: 'select', options: ['Hire', 'Repair', 'Personal', 'Fuel'] },
-                    { label: 'Garage Start', idx: 6, type: 'number' },
-                    { label: 'Garage End', idx: 8, type: 'number' },
-                    { label: 'End TS', idx: 7, type: 'text', readOnly: true },
-                    { label: 'Fuel Cost', idx: 9, type: 'number' },
-                    { label: 'Fuel Meter', idx: 'fuel_meter', type: 'number' },
-                    { label: 'Fuel Liters', idx: 'fuel_liters', type: 'number' },
-                    { label: '2nd Fuel Cost', idx: 24, type: 'number' },
-                    { label: '2nd Fuel Meter', idx: 25, type: 'number' },
-                    { label: '2nd Fuel Liters', idx: 26, type: 'number' },
-                    { label: 'Comments', idx: 10, type: 'text' },
-                    { label: 'Repair Cost', idx: 11, type: 'number' },
-                    { label: 'Trip Ref', idx: 12, type: 'text' },
-                    { label: 'SC Due Amount', idx: 13, type: 'number', readOnly: true },
-                    { label: 'Drv Comms', idx: 14, type: 'number' },
-                    { label: 'Trip Start Meter', idx: 15, type: 'number' },
-                    { label: 'Trip End Meter', idx: 16, type: 'number' },
-                    { label: 'Pkg Balance Mileage', idx: 17, type: 'number' },
-                    { label: 'Loss (Start)', idx: 18, type: 'number', readOnly: true },
-                    { label: 'Loss (End)', idx: 19, type: 'number', readOnly: true },
-                    { label: 'Folder URL', idx: 20, type: 'text' },
-                    { label: 'Folder ID', idx: 21, type: 'text' },
-                    { label: 'Total Mileage', idx: 22, type: 'number', readOnly: true },
-                    { label: 'Final Price', idx: 23, type: 'number' },
-                  ].map((field, i) => (
-                    <div key={i} className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{field.label}</label>
+              <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                {[
+                  {
+                    title: 'Start Details',
+                    fields: [
+                      { label: 'Status', idx: 0, type: 'select', options: ['Pending', 'Approved', 'Cancelled'] },
+                      { label: 'FR Ref', idx: 1, type: 'text', readOnly: true },
+                      { label: 'Start TS', idx: 2, type: 'text', readOnly: true },
+                      { label: 'Driver', idx: 3, type: 'text' },
+                      { label: 'Vehicle Num', idx: 4, type: 'select', options: adminData?.filterOptions?.vehicles || [] },
+                      { label: 'Purpose', idx: 5, type: 'select', options: ['Hire', 'Repair', 'Personal', 'Fuel'] },
+                      { label: 'Garage Start', idx: 6, type: 'number' },
+                    ]
+                  },
+                  {
+                    title: 'Fuel / Repair Details',
+                    fields: [
+                      { label: 'Fuel Cost', idx: 9, type: 'number' },
+                      { label: 'Fuel Meter', idx: 'fuel_meter', type: 'number' },
+                      { label: 'Fuel Liters', idx: 'fuel_liters', type: 'number' },
+                      { label: '2nd Fuel Cost', idx: 24, type: 'number' },
+                      { label: '2nd Fuel Meter', idx: 25, type: 'number' },
+                      { label: '2nd Fuel Liters', idx: 26, type: 'number' },
+                      { label: 'Comments', idx: 10, type: 'text' },
+                      { label: 'Repair Cost', idx: 11, type: 'number' },
+                      { label: 'Folder URL', idx: 20, type: 'text' },
+                      { label: 'Folder ID', idx: 21, type: 'text' },
+                    ]
+                  },
+                  {
+                    title: 'End Details',
+                    fields: [
+                      { label: 'Garage End', idx: 8, type: 'number' },
+                      { label: 'End TS', idx: 7, type: 'text', readOnly: true },
+                      { label: 'Trip Ref', idx: 12, type: 'text' },
+                      { label: 'SC Due Amount', idx: 13, type: 'number', readOnly: true },
+                      { label: 'Drv Comms', idx: 14, type: 'number' },
+                      { label: 'Trip Start Meter', idx: 15, type: 'number' },
+                      { label: 'Trip End Meter', idx: 16, type: 'number' },
+                      { label: 'Pkg Balance Mileage', idx: 17, type: 'number' },
+                      { label: 'Loss (Start)', idx: 18, type: 'number', readOnly: true },
+                      { label: 'Loss (End)', idx: 19, type: 'number', readOnly: true },
+                      { label: 'Total Mileage', idx: 22, type: 'number', readOnly: true },
+                      { label: 'Final Price', idx: 23, type: 'number' },
+                    ]
+                  }
+                ].map((section, sIdx) => (
+                  <div key={sIdx} className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                    <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">{section.title}</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
+                      {section.fields.map((field: any, i) => (
+                        <div key={i} className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{field.label}</label>
                       {field.type === 'select' ? (
                         <select
                           disabled={field.readOnly}
@@ -3373,7 +3391,9 @@ export default function FleetApp() {
                       )}
                     </div>
                   ))}
+                  </div>
                 </div>
+                ))}
               </div>
 
               <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end gap-2">
@@ -3493,40 +3513,58 @@ export default function FleetApp() {
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto space-y-4 flex-1">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {[
-                    { label: 'Status', idx: 0 },
-                    { label: 'FR Ref', idx: 1 },
-                    { label: 'Start TS', idx: 2 },
-                    { label: 'Driver', idx: 3 },
-                    { label: 'Vehicle Num', idx: 4 },
-                    { label: 'Purpose', idx: 5 },
-                    { label: 'Garage Start', idx: 6 },
-                    { label: 'Garage End', idx: 8 },
-                    { label: 'End TS', idx: 7 },
-                    { label: 'Fuel Cost', idx: 9 },
-                    { label: 'Fuel Meter', idx: 'fuel_meter' },
-                    { label: 'Fuel Liters', idx: 'fuel_liters' },
-                    { label: '2nd Fuel Cost', idx: 24 },
-                    { label: '2nd Fuel Meter', idx: 25 },
-                    { label: '2nd Fuel Liters', idx: 26 },
-                    { label: 'Comments', idx: 10 },
-                    { label: 'Repair Cost', idx: 11 },
-                    { label: 'Trip Ref', idx: 12 },
-                    { label: 'SC Due Amount', idx: 13 },
-                    { label: 'Drv Comms', idx: 14 },
-                    { label: 'Trip Start Meter', idx: 15 },
-                    { label: 'Trip End Meter', idx: 16 },
-                    { label: 'Pkg Balance Mileage', idx: 17 },
-                    { label: 'Loss (Start)', idx: 18 },
-                    { label: 'Loss (End)', idx: 19 },
-                    { label: 'Folder URL', idx: 20 },
-                    { label: 'Folder ID', idx: 21 },
-                    { label: 'Total Mileage', idx: 22 },
-                    { label: 'Final Price', idx: 23 },
-                  ].map((field, i) => (
-                    <div key={i} className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+              <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                {[
+                  {
+                    title: 'Start Details',
+                    fields: [
+                      { label: 'Status', idx: 0 },
+                      { label: 'FR Ref', idx: 1 },
+                      { label: 'Start TS', idx: 2 },
+                      { label: 'Driver', idx: 3 },
+                      { label: 'Vehicle Num', idx: 4 },
+                      { label: 'Purpose', idx: 5 },
+                      { label: 'Garage Start', idx: 6 },
+                    ]
+                  },
+                  {
+                    title: 'Fuel / Repair Details',
+                    fields: [
+                      { label: 'Fuel Cost', idx: 9 },
+                      { label: 'Fuel Meter', idx: 'fuel_meter' },
+                      { label: 'Fuel Liters', idx: 'fuel_liters' },
+                      { label: '2nd Fuel Cost', idx: 24 },
+                      { label: '2nd Fuel Meter', idx: 25 },
+                      { label: '2nd Fuel Liters', idx: 26 },
+                      { label: 'Comments', idx: 10 },
+                      { label: 'Repair Cost', idx: 11 },
+                      { label: 'Folder URL', idx: 20 },
+                      { label: 'Folder ID', idx: 21 },
+                    ]
+                  },
+                  {
+                    title: 'End Details',
+                    fields: [
+                      { label: 'Garage End', idx: 8 },
+                      { label: 'End TS', idx: 7 },
+                      { label: 'Trip Ref', idx: 12 },
+                      { label: 'SC Due Amount', idx: 13 },
+                      { label: 'Drv Comms', idx: 14 },
+                      { label: 'Trip Start Meter', idx: 15 },
+                      { label: 'Trip End Meter', idx: 16 },
+                      { label: 'Pkg Balance Mileage', idx: 17 },
+                      { label: 'Loss (Start)', idx: 18 },
+                      { label: 'Loss (End)', idx: 19 },
+                      { label: 'Total Mileage', idx: 22 },
+                      { label: 'Final Price', idx: 23 },
+                    ]
+                  }
+                ].map((section, sIdx) => (
+                  <div key={sIdx} className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                    <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">{section.title}</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
+                      {section.fields.map((field, i) => (
+                        <div key={i} className="space-y-1">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{field.label}</p>
                       <p className="text-xs font-medium text-white truncate" title={String(field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
                         (() => {
@@ -3587,7 +3625,9 @@ export default function FleetApp() {
                       </p>
                     </div>
                   ))}
+                  </div>
                 </div>
+                ))}
               </div>
 
               <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end">

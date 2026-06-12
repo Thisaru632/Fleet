@@ -7,8 +7,15 @@ const UserSchema: Schema = new Schema({
   driverId: { type: String },
   name: { type: String },
   phone: { type: String },
+  status: { type: String, default: "Active" },
   // Store the raw array just in case
   rawValues: { type: [Schema.Types.Mixed] },
 }, { timestamps: true });
 
-export default mongoose.models.User || mongoose.model("User", UserSchema);
+if (mongoose.models.User) {
+  delete mongoose.models.User;
+}
+if (mongoose.connection && mongoose.connection.models && mongoose.connection.models.User) {
+  delete mongoose.connection.models.User;
+}
+export default mongoose.model("User", UserSchema);
