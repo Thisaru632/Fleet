@@ -19,6 +19,8 @@ const TripSchema: Schema = new Schema({
   rawValues: { type: [Schema.Types.Mixed] }, 
 }, { timestamps: true });
 
+TripSchema.index({ timestamp: -1 });
+
 if (mongoose.models.Trip) {
   delete (mongoose.models as any).Trip;
 }

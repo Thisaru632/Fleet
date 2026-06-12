@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     if (vehicleFilter && vehicleFilter !== "All") query.vehicle = vehicleFilter;
     if (driverFilter && driverFilter !== "All") query.driverId = driverFilter;
 
-    const trips = await Trip.find(query).sort({ timestamp: -1 });
+    const trips = await Trip.find(query, null, { sort: { timestamp: -1 }, allowDiskUse: true });
 
     // KPI Calculations
     let totalSales = 0;

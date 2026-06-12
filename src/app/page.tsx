@@ -185,9 +185,12 @@ export default function FleetApp() {
     setIsFuelSubmitted(false);
     setFormData((prev: any) => ({
       ...prev,
+      firstFuelCost: prev.firstFuelCost || prev.fuelCost,
+      firstFuelComments: prev.firstFuelComments || prev.comments,
       fuelStationMeter: '',
       fuelLiterCount: '',
       fuelCost: '',
+      comments: '',
     }));
     setFiles((prev: any) => ({
       ...prev,
@@ -267,6 +270,8 @@ export default function FleetApp() {
       setIsFuelSubmitted(true);
       setFuelSubmitCount(isSecondTime ? 2 : 1);
       setAlert({ type: 'success', message: 'Fuel details saved to database successfully!' });
+      window.history.pushState({ stage: 'dashboard' }, '');
+      setStage('dashboard');
     } catch (err: any) {
       setAlert({ type: 'error', message: err.message || 'Failed to submit fuel details' });
     } finally {
@@ -519,7 +524,7 @@ export default function FleetApp() {
     const headers = [
       'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
       'Purpose', 'Garage Start', 'End TS', 'Garage End',
-      'Fuel Cost', 'Fuel Meter', 'Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
+      'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
       'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
       'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
       'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price'
@@ -529,7 +534,7 @@ export default function FleetApp() {
     csvRows.push(headers.join(','));
 
     adminData.tables.fleetData.forEach((t: any) => {
-      const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((idx) => {
+      const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((idx) => {
         let val = '';
         if (idx === 'fuel_meter' || idx === 'fuel_liters') {
             if (t.values[5] === 'Fuel') {
@@ -1108,7 +1113,7 @@ export default function FleetApp() {
         const fileData = await fileToBase64(files.garageStartImage!);
         uploadFiles.push({ name: `${actualRef} Garage Start`, dataUrl: fileData });
 
-        let array: any[] = new Array(21).fill('');
+        let array: any[] = new Array(24).fill('');
         array[0] = user[0]; // Driver
         array[1] = formData.vehicle;
         array[2] = formData.purpose;
@@ -1144,22 +1149,30 @@ export default function FleetApp() {
         // Calculate Total Mileage
         const totalMileage = Number(formData.garageEndMeter) - Number(formData.garageStartMeter);
 
-        let array: any[] = new Array(21).fill('');
+        let array: any[] = new Array(24).fill('');
         array[0] = user[0];
         array[1] = formData.vehicle;
         array[2] = formData.purpose;
         array[3] = formData.garageStartMeter;
         array[4] = endTs;
         array[5] = formData.garageEndMeter;
-        array[6] = formData.fuelCost;
-        let finalComments = formData.comments || '';
-        if (formData.purpose === 'Fuel') {
-          let fuelDetails = [];
-          if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
-          if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
-          if (fuelDetails.length > 0) finalComments += ` (Fuel - ${fuelDetails.join(', ')})`;
+        if (fuelSubmitCount >= 1) {
+          array[6] = formData.firstFuelCost || (fuelSubmitCount === 1 ? formData.fuelCost : '');
+          array[7] = formData.firstFuelComments || formData.comments || '';
+          array[21] = formData.secondFuelCost || (fuelSubmitCount === 2 ? formData.fuelCost : '');
+          array[22] = formData.secondFuelMeter || (fuelSubmitCount === 2 ? formData.fuelStationMeter : '');
+          array[23] = formData.secondFuelLiters || (fuelSubmitCount === 2 ? formData.fuelLiterCount : '');
+        } else {
+          array[6] = formData.fuelCost;
+          let finalComments = formData.comments || '';
+          if (formData.purpose === 'Fuel') {
+            let fuelDetails = [];
+            if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
+            if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
+            if (fuelDetails.length > 0) finalComments += ` (Fuel - ${fuelDetails.join(', ')})`;
+          }
+          array[7] = finalComments;
         }
-        array[7] = finalComments;
         array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
         array[9] = formData.tripRef || '';
         array[10] = formData.scDueAmount || '';
@@ -1582,9 +1595,18 @@ export default function FleetApp() {
           </div>
           )}
           {fetchingAdmin ? (
-            <div className="glass-card p-20 flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
-              <p className="text-slate-400 font-black tracking-widest text-xs uppercase animate-pulse">Calculating Stats...</p>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+              <div className="relative">
+                <div className="w-24 h-24 border-4 border-emerald-500/10 rounded-full"></div>
+                <div className="w-24 h-24 border-4 border-emerald-500 rounded-full animate-spin border-t-transparent absolute inset-0"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <TrendingUp className="w-10 h-10 text-emerald-500 animate-pulse" />
+                </div>
+              </div>
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-black text-white tracking-widest uppercase shadow-emerald-500/50 drop-shadow-md">Admin Dashboard</h3>
+                <p className="text-emerald-500 font-black tracking-[0.25em] text-[10px] uppercase animate-pulse">Synchronizing Data...</p>
+              </div>
             </div>
           ) : adminData ? (
             <div className="space-y-8">
@@ -2065,7 +2087,7 @@ export default function FleetApp() {
 
 
 
-          {adminTab === 'driver-manage' && (
+          {!fetchingAdmin && adminTab === 'driver-manage' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2235,7 +2257,7 @@ export default function FleetApp() {
             </motion.div>
           )}
 
-          {adminTab === 'accounts' && (
+          {!fetchingAdmin && adminTab === 'accounts' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2370,7 +2392,7 @@ export default function FleetApp() {
             </motion.div>
           )}
 
-          {adminTab === 'messages' && (
+          {!fetchingAdmin && adminTab === 'messages' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

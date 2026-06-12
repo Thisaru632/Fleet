@@ -26,11 +26,15 @@ export async function GET(request: Request) {
     const lastDayOfMonth = new Date(y, m, 0).getDate();
     const endDateStr = `${y}-${String(m).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")} 23:59:59`;
 
-    const trips = await Trip.find({
-      driverId: { $regex: new RegExp(`^${drvId}$`, "i") },
-      purpose: { $regex: /^Hire$/i },
-      timestamp: { $gte: startDateStr, $lte: endDateStr }
-    }).sort({ timestamp: 1 });
+    const trips = await Trip.find(
+      {
+        driverId: { $regex: new RegExp(`^${drvId}$`, "i") },
+        purpose: { $regex: /^Hire$/i },
+        timestamp: { $gte: startDateStr, $lte: endDateStr }
+      },
+      null,
+      { sort: { timestamp: 1 }, allowDiskUse: true }
+    );
 
     const salaryDetails = trips.map((trip: any) => ({
       tripRef: (trip.rawValues && trip.rawValues[12]) || trip.reference,

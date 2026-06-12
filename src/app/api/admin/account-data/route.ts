@@ -30,8 +30,7 @@ export async function GET(request: Request) {
     const totalPages = Math.ceil(totalItems / limit);
     const headers = headersDoc ? headersDoc.value : [];
     
-    const data = await AccountSheet.find(query)
-      .sort({ _id: -1 })
+    const data = await AccountSheet.find(query, null, { sort: { _id: -1 }, allowDiskUse: true })
       .skip(skip)
       .limit(limit);
 

@@ -52,7 +52,11 @@ export async function GET(request: Request) {
       // Continue without tripRefs if fetch fails
     }
 
-    const tripsInDb = await Trip.find({ driverId: { $regex: new RegExp(`^${drvId}$`, "i") } }).sort({ updatedAt: -1 });
+    const tripsInDb = await Trip.find(
+      { driverId: { $regex: new RegExp(`^${drvId}$`, "i") } },
+      null,
+      { sort: { updatedAt: -1 }, allowDiskUse: true }
+    );
 
     // Pending trips (FR refs) for this driver from MongoDB
     const frRefs = tripsInDb
