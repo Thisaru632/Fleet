@@ -1952,7 +1952,16 @@ export default function FleetApp() {
                                   </span>
                                 ) : idx === 20 ? (
                                   <button
-                                    onClick={() => setViewingImages({ rf: t.rf, images: t.images || [] })}
+                                    onClick={async () => {
+                                      setViewingImages({ rf: t.rf, images: null, loading: true });
+                                      try {
+                                        const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
+                                        const data = await res.json();
+                                        setViewingImages({ rf: t.rf, images: data.images || [], loading: false });
+                                      } catch (err) {
+                                        setViewingImages({ rf: t.rf, images: [], loading: false });
+                                      }
+                                    }}
                                     className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black border border-emerald-500/20 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all"
                                   >
                                     View
@@ -3446,7 +3455,12 @@ export default function FleetApp() {
               </div>
 
               <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-950/40">
-                {viewingImages.images && viewingImages.images.length > 0 ? (
+                {viewingImages.loading ? (
+                  <div className="p-20 flex flex-col items-center justify-center text-center space-y-3">
+                    <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Fetching Images...</p>
+                  </div>
+                ) : viewingImages.images && viewingImages.images.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {viewingImages.images.map((img: any, idx: number) => (
                       <div key={idx} className="glass-card overflow-hidden border border-white/5 flex flex-col">

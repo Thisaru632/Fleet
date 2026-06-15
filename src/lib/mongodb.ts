@@ -35,9 +35,17 @@ async function startBackgroundSync() {
 }
 
 async function dbConnect() {
+  // If we have a cached connection, check if it's actually connected
   if (cached.conn) {
-    startBackgroundSync();
-    return cached.conn;
+    const readyState = cached.conn.connection.readyState;
+    if (readyState === 1) {
+      startBackgroundSync();
+      return cached.conn;
+    } else {
+      console.log(`[MongoDB] Connection state is ${readyState}. Forcing reconnect...`);
+      cached.conn = null;
+      cached.promise = null;
+    }
   }
 
   if (!cached.promise) {
@@ -46,6 +54,8 @@ async function dbConnect() {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
+      maxIdleTimeMS: 10000, // close idle connections early to prevent Atlas timeouts
+      family: 4, // Force IPv4 to prevent IPv6 resolution timeouts
     };
 
     console.log("Connecting to MongoDB...");

@@ -8,11 +8,11 @@ export async function POST(request: Request) {
     
     await dbConnect();
 
-    const user = await User.findOne({ username, password });
+    const user = await User.findOne({ username, password }).lean() as any;
 
     if (user) {
       // Return the user data in the format the frontend expects (array)
-      let userData: any = user.rawValues;
+      let userData = user.rawValues;
       if (!userData || userData.length === 0) {
         userData = [
           user.username, 

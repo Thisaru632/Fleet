@@ -12,10 +12,4 @@ const UserSchema: Schema = new Schema({
   rawValues: { type: [Schema.Types.Mixed] },
 }, { timestamps: true });
 
-if (mongoose.models.User) {
-  delete mongoose.models.User;
-}
-if (mongoose.connection && mongoose.connection.models && (mongoose.connection.models as any).User) {
-  delete (mongoose.connection.models as any).User;
-}
-export default mongoose.model("User", UserSchema);
+export default mongoose.models.User || mongoose.model("User", UserSchema);

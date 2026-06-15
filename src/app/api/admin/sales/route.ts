@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     if (vehicleFilter && vehicleFilter !== "All") query.vehicle = vehicleFilter;
     if (driverFilter && driverFilter !== "All") query.driverId = driverFilter;
 
-    const trips = await Trip.find(query, null, { sort: { timestamp: -1 }, allowDiskUse: true });
+    const trips = await Trip.find(query, { images: 0, rawValues: 0 }, { sort: { timestamp: -1 }, allowDiskUse: true }).lean() as any[];
 
     // KPI Calculations
     let totalSales = 0;
@@ -106,13 +106,13 @@ export async function GET(request: Request) {
     }));
 
     // Filter Options
-    const allTrips = await Trip.find({}, { vehicle: 1, driverId: 1 });
+    const allTrips = await Trip.find({}, { vehicle: 1, driverId: 1 }).lean() as any[];
     
     // Fetch driver details for mapping in the UI and driver management
-    const users = await User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 });
+    const users = await User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 }).lean() as any[];
     const driverNames: Record<string, string> = {};
-    const driversList = users.map((u: any) => {
-      if (u.username) driverNames[u.username] = u.name;
+    const driversList = users.map(u => {
+      if (u.username) driverNames[String(u.username)] = String(u.name);
       return {
         username: u.username,
         password: u.password,
@@ -131,17 +131,27 @@ export async function GET(request: Request) {
     const totalItems = trips.length;
     const totalPages = Math.ceil(totalItems / limit);
 
-    // Slice for fleetData (already sorted in memory if needed, but here we use the existing trips array)
-    const fleetData = trips.slice(skip, skip + limit).map((trip: any) => ({
-      rf: trip.reference,
-      date: trip.timestamp,
-      driver: trip.driverId,
-      vehicle: trip.vehicle,
-      purpose: trip.purpose,
-      status: trip.status,
-      values: trip.rawValues || [],
-      images: trip.images || []
-    }));
+    const paginatedTripsSubset = trips.slice(skip, skip + limit);
+    const paginatedRefs = paginatedTripsSubset.map((t: any) => t.reference);
+
+    // Fetch full data (excluding images to prevent MongoDB SystemOverloadedError) just for the current page
+    const fullTripsForPage = await Trip.find({ reference: { $in: paginatedRefs } }, { images: 0 }).lean() as any[];
+    const fullTripsMap = new Map(fullTripsForPage.map((t: any) => [t.reference, t]));
+
+    // Slice for fleetData
+    const fleetData = paginatedTripsSubset.map((trip: any) => {
+      const fullTrip = fullTripsMap.get(trip.reference) || trip;
+      return {
+        rf: fullTrip.reference,
+        date: fullTrip.timestamp,
+        driver: fullTrip.driverId,
+        vehicle: fullTrip.vehicle,
+        purpose: fullTrip.purpose,
+        status: fullTrip.status,
+        values: fullTrip.rawValues || [],
+        // images: fullTrip.images || [] // EXCLUDED: fetching images via a separate API on-demand
+      };
+    });
 
     return NextResponse.json({
       kpis: {

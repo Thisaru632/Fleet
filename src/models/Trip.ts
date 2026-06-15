@@ -21,9 +21,4 @@ const TripSchema: Schema = new Schema({
 
 TripSchema.index({ timestamp: -1 });
 
-if (mongoose.models.Trip) {
-  delete (mongoose.models as any).Trip;
-}
-
-const TripModel = mongoose.model("Trip", TripSchema);
-export default TripModel as any;
+export default mongoose.models.Trip || mongoose.model("Trip", TripSchema);

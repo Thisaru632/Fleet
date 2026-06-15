@@ -54,9 +54,9 @@ export async function GET(request: Request) {
 
     const tripsInDb = await Trip.find(
       { driverId: { $regex: new RegExp(`^${drvId}$`, "i") } },
-      null,
+      { images: 0 },
       { sort: { updatedAt: -1 }, allowDiskUse: true }
-    );
+    ).lean() as any[];
 
     // Pending trips (FR refs) for this driver from MongoDB
     const frRefs = tripsInDb
