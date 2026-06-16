@@ -108,6 +108,22 @@ export default function FleetApp() {
     vehicle: 'All'
   });
 
+  const [debouncedFleetSearch, setDebouncedFleetSearch] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(accountSearch);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [accountSearch]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedFleetSearch(fleetSearch);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [fleetSearch]);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('fleet_vehicle_drivers');
@@ -403,7 +419,8 @@ export default function FleetApp() {
       const params = new URLSearchParams({
         ...adminFilters,
         page: adminPage.toString(),
-        limit: '50'
+        limit: '50',
+        ...(debouncedFleetSearch ? { search: debouncedFleetSearch } : {})
       });
       const res = await fetch(`/api/admin/sales?${params.toString()}`);
       const data = await res.json();
@@ -427,7 +444,7 @@ export default function FleetApp() {
         fetchAdminSales();
       }
     }
-  }, [stage, adminFilters, adminPage, user, adminTab, debouncedSearch]);
+  }, [stage, adminFilters, adminPage, user, adminTab, debouncedSearch, debouncedFleetSearch]);
 
   // Periodic polling to auto-update tables and views without manual refresh
   useEffect(() => {
@@ -1869,12 +1886,7 @@ export default function FleetApp() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {adminData.tables.fleetData.filter((t: any) => {
-                          if (!fleetSearch) return true;
-                          const searchLower = fleetSearch.toLowerCase();
-                          return (t.ref && String(t.ref).toLowerCase().includes(searchLower)) ||
-                                 (t.values && t.values.some((v: any) => v && String(v).toLowerCase().includes(searchLower)));
-                        }).map((t: any, i: number) => {
+                        {adminData.tables.fleetData.map((t: any, i: number) => {
                           const originalIndex = adminData.tables.fleetData.indexOf(t);
                           const vehicleNum = t.values[4];
                           const rawGarageStart = t.values[6];

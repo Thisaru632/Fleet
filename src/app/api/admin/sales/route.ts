@@ -8,12 +8,13 @@ export const revalidate = 0;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const startDate = searchParams.get("startDate"); // YYYY-MM-DD
-  const endDate = searchParams.get("endDate");     // YYYY-MM-DD
-  const purposeFilter = searchParams.get("purpose"); // All, Hire, Repair
-  const statusFilter = searchParams.get("status");   // All, Approved, Pending
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
+  const purposeFilter = searchParams.get("purpose");
+  const statusFilter = searchParams.get("status");
   const vehicleFilter = searchParams.get("vehicle");
   const driverFilter = searchParams.get("driver");
+  const search = searchParams.get("search");
 
   try {
     await dbConnect();
@@ -30,67 +31,156 @@ export async function GET(request: Request) {
     if (vehicleFilter && vehicleFilter !== "All") query.vehicle = vehicleFilter;
     if (driverFilter && driverFilter !== "All") query.driverId = driverFilter;
 
-    const trips = await Trip.find(query, { images: 0, rawValues: 0 }, { sort: { timestamp: -1 }, allowDiskUse: true }).lean() as any[];
+    if (search) {
+      const searchRegex = new RegExp(search, "i");
+      query.$or = [
+        { reference: searchRegex },
+        { vehicle: searchRegex },
+        { driverId: searchRegex },
+        { status: searchRegex },
+        { purpose: searchRegex },
+        { rawValues: searchRegex }
+      ];
 
-    // KPI Calculations
-    let totalSales = 0;
-    let totalCommission = 0;
-    let totalFuel = 0;
-    let totalRepairCost = 0;
-    let totalMileage = 0;
-    let hireCount = 0;
-    let repairCount = 0;
-
-    trips.forEach((trip: any) => {
-      totalSales += trip.finalPrice || 0;
-      totalCommission += trip.commission || 0;
-      totalFuel += trip.fuel || 0;
-      totalRepairCost += trip.repair || 0;
-      
-      if (trip.purpose === "Hire") {
-        totalMileage += trip.mileage || 0;
-        hireCount++;
+      const searchNum = Number(search);
+      if (!isNaN(searchNum)) {
+        query.$or.push({ rawValues: searchNum });
       }
-      if (trip.purpose === "Repair") repairCount++;
-    });
+    }
 
-    const netIncome = totalSales - totalCommission - totalFuel - totalRepairCost;
+    // Pagination setup
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const skip = (page - 1) * limit;
 
-    // Chart Data Preparation
-    const dailyDataMap: any = {};
-    const vehicleDataMap: any = {};
-    const driverDataMap: any = {};
+    // Run parallel queries to optimize performance
+    const [
+      totalItems,
+      tripsForPage,
+      recentTripsRaw,
+      kpiAggregation,
+      chartsAggregation,
+      uniqueVehicles,
+      uniqueDrivers,
+      users
+    ] = await Promise.all([
+      Trip.countDocuments(query),
+      Trip.find(query, { images: 0 }).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
+      Trip.find(query, { images: 0, rawValues: 0 }).sort({ timestamp: -1 }).limit(10).lean(),
+      Trip.aggregate([
+        { $match: query },
+        { $group: {
+            _id: null,
+            totalSales: { $sum: "$finalPrice" },
+            totalCommission: { $sum: "$commission" },
+            totalFuel: { $sum: "$fuel" },
+            totalRepairCost: { $sum: "$repair" },
+            totalMileage: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, "$mileage", 0] } },
+            hireCount: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, 1, 0] } },
+            repairCount: { $sum: { $cond: [{ $eq: ["$purpose", "Repair"] }, 1, 0] } }
+          }
+        }
+      ]),
+      Trip.aggregate([
+        { $match: query },
+        {
+          $facet: {
+            byDate: [
+              {
+                $group: {
+                  _id: { $substrBytes: [{ $ifNull: ["$timestamp", "Unknown   "] }, 0, 10] },
+                  sales: { $sum: "$finalPrice" }
+                }
+              },
+              { $sort: { _id: 1 } }
+            ],
+            byVehicle: [
+              {
+                $group: {
+                  _id: { $ifNull: ["$vehicle", "Unknown"] },
+                  sales: { $sum: "$finalPrice" }
+                }
+              },
+              { $sort: { sales: -1 } }
+            ],
+            byDriver: [
+              {
+                $group: {
+                  _id: { $ifNull: ["$driverId", "Unknown"] },
+                  sales: { $sum: "$finalPrice" }
+                }
+              },
+              { $sort: { sales: -1 } }
+            ],
+            byMonth: [
+              {
+                $group: {
+                  _id: { $substrBytes: [{ $ifNull: ["$timestamp", "Unknown   "] }, 0, 7] },
+                  sales: { $sum: "$finalPrice" }
+                }
+              },
+              { $sort: { _id: 1 } }
+            ],
+            byPurpose: [
+              {
+                $group: {
+                  _id: {
+                    $cond: [
+                      { $in: ["$purpose", ["Hire", "Repair"]] },
+                      "$purpose",
+                      "Other"
+                    ]
+                  },
+                  count: { $sum: 1 }
+                }
+              }
+            ]
+          }
+        }
+      ]),
+      Trip.distinct("vehicle"),
+      Trip.distinct("driverId"),
+      User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 }).lean()
+    ]);
+
+    // KPI mapping
+    const kpis = kpiAggregation[0] || {
+      totalSales: 0,
+      totalCommission: 0,
+      totalFuel: 0,
+      totalRepairCost: 0,
+      totalMileage: 0,
+      hireCount: 0,
+      repairCount: 0
+    };
+    const netIncome = (kpis.totalSales || 0) - (kpis.totalCommission || 0) - (kpis.totalFuel || 0) - (kpis.totalRepairCost || 0);
+
+    // Charts mapping
+    const chartsData = chartsAggregation[0];
+    const dailySales = chartsData.byDate.map((d: any) => ({ date: d._id, sales: d.sales }));
+    const vehicleSales = chartsData.byVehicle.map((d: any) => ({ vehicle: d._id, sales: d.sales }));
+    const driverSales = chartsData.byDriver.map((d: any) => ({ driver: d._id, sales: d.sales }));
+    const monthlySales = chartsData.byMonth.map((d: any) => ({ month: d._id, sales: d.sales }));
+    
     const purposeDataMap: any = { Hire: 0, Repair: 0, Other: 0 };
-    const monthlyDataMap: any = {};
-
-    trips.forEach((trip: any) => {
-      const date = trip.timestamp ? trip.timestamp.split(" ")[0] : "Unknown";
-      const month = date !== "Unknown" ? date.substring(0, 7) : "Unknown"; // YYYY-MM
-      const vehicle = trip.vehicle || "Unknown";
-      const driver = trip.driverId || "Unknown";
-      const purpose = trip.purpose;
-      const sales = trip.finalPrice || 0;
-
-      if (date !== "Unknown") dailyDataMap[date] = (dailyDataMap[date] || 0) + sales;
-      vehicleDataMap[vehicle] = (vehicleDataMap[vehicle] || 0) + sales;
-      driverDataMap[driver] = (driverDataMap[driver] || 0) + sales;
-      if (month !== "Unknown") monthlyDataMap[month] = (monthlyDataMap[month] || 0) + sales;
-
-      if (purpose === "Hire") purposeDataMap.Hire++;
-      else if (purpose === "Repair") purposeDataMap.Repair++;
-      else purposeDataMap.Other++;
+    chartsData.byPurpose.forEach((d: any) => {
+        if (d._id) purposeDataMap[d._id] = d.count;
     });
-
-    const dailySales = Object.keys(dailyDataMap).sort().map(date => ({ date, sales: dailyDataMap[date] }));
-    const vehicleSales = Object.keys(vehicleDataMap).map(vehicle => ({ vehicle, sales: vehicleDataMap[vehicle] }))
-      .sort((a, b) => b.sales - a.sales);
-    const driverSales = Object.keys(driverDataMap).map(driver => ({ driver, sales: driverDataMap[driver] }))
-      .sort((a, b) => b.sales - a.sales);
-    const monthlySales = Object.keys(monthlyDataMap).sort().map(month => ({ month, sales: monthlyDataMap[month] }));
     const purposeCount = Object.keys(purposeDataMap).map(purpose => ({ purpose, count: purposeDataMap[purpose] }));
 
-    // Recent Trips (Last 10)
-    const recentTrips = trips.slice(-10).reverse().map((trip: any) => ({
+    // Format Fleet Data for the current page
+    const fleetData = tripsForPage.map((trip: any) => ({
+      rf: trip.reference,
+      date: trip.timestamp,
+      driver: trip.driverId,
+      vehicle: trip.vehicle,
+      purpose: trip.purpose,
+      status: trip.status,
+      values: trip.rawValues || [],
+    }));
+
+    // Format Recent Trips
+    const recentTrips = recentTripsRaw.map((trip: any) => ({
       rf: trip.reference,
       date: trip.timestamp,
       driver: trip.driverId,
@@ -105,13 +195,9 @@ export async function GET(request: Request) {
       finalPrice: trip.finalPrice
     }));
 
-    // Filter Options
-    const allTrips = await Trip.find({}, { vehicle: 1, driverId: 1 }).lean() as any[];
-    
-    // Fetch driver details for mapping in the UI and driver management
-    const users = await User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 }).lean() as any[];
+    // Format Drivers
     const driverNames: Record<string, string> = {};
-    const driversList = users.map(u => {
+    const driversList = users.map((u: any) => {
       if (u.username) driverNames[String(u.username)] = String(u.name);
       return {
         username: u.username,
@@ -123,46 +209,18 @@ export async function GET(request: Request) {
       };
     });
 
-
-    // Pagination
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const skip = (page - 1) * limit;
-    const totalItems = trips.length;
     const totalPages = Math.ceil(totalItems / limit);
-
-    const paginatedTripsSubset = trips.slice(skip, skip + limit);
-    const paginatedRefs = paginatedTripsSubset.map((t: any) => t.reference);
-
-    // Fetch full data (excluding images to prevent MongoDB SystemOverloadedError) just for the current page
-    const fullTripsForPage = await Trip.find({ reference: { $in: paginatedRefs } }, { images: 0 }).lean() as any[];
-    const fullTripsMap = new Map(fullTripsForPage.map((t: any) => [t.reference, t]));
-
-    // Slice for fleetData
-    const fleetData = paginatedTripsSubset.map((trip: any) => {
-      const fullTrip = fullTripsMap.get(trip.reference) || trip;
-      return {
-        rf: fullTrip.reference,
-        date: fullTrip.timestamp,
-        driver: fullTrip.driverId,
-        vehicle: fullTrip.vehicle,
-        purpose: fullTrip.purpose,
-        status: fullTrip.status,
-        values: fullTrip.rawValues || [],
-        // images: fullTrip.images || [] // EXCLUDED: fetching images via a separate API on-demand
-      };
-    });
 
     return NextResponse.json({
       kpis: {
-        totalSales,
-        totalCommission,
+        totalSales: kpis.totalSales || 0,
+        totalCommission: kpis.totalCommission || 0,
         netIncome,
-        hireCount,
-        repairCount,
-        totalMileage,
-        totalFuel,
-        totalRepairCost
+        hireCount: kpis.hireCount || 0,
+        repairCount: kpis.repairCount || 0,
+        totalMileage: kpis.totalMileage || 0,
+        totalFuel: kpis.totalFuel || 0,
+        totalRepairCost: kpis.totalRepairCost || 0
       },
       charts: {
         dailySales,
@@ -186,8 +244,8 @@ export async function GET(request: Request) {
       },
       driverNames,
       filterOptions: {
-        vehicles: Array.from(new Set(allTrips.map((t: any) => t.vehicle))).filter(Boolean),
-        drivers: Array.from(new Set(allTrips.map((t: any) => t.driverId))).filter(Boolean),
+        vehicles: uniqueVehicles.filter(Boolean),
+        drivers: uniqueDrivers.filter(Boolean),
         purposes: ["All", "Hire", "Repair", "Personal", "Fuel"],
         statuses: ["All", "Approved", "Pending"]
       }
