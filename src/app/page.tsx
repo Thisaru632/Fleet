@@ -79,7 +79,8 @@ export default function FleetApp() {
     vehicle: 'All',
     driver: 'All'
   });
-  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission'>('overview');
+  const [vehicleCommissions, setVehicleCommissions] = useState<Record<string, number>>({});
   const [accountSheetData, setAccountSheetData] = useState<any>(null);
   const [fetchingAccountData, setFetchingAccountData] = useState(false);
   const [accountSearch, setAccountSearch] = useState('');
@@ -1236,11 +1237,34 @@ export default function FleetApp() {
   return (
     <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full" : "max-w-xl")}>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-10">
-        <img src="/logo.jpg" alt="Logo" className="w-16 h-16 object-contain" />
-        <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white uppercase">
-          SC FLEET MANAGEMENT
-        </h1>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+        <div className="flex items-center gap-3">
+          <img src="/logo.jpg" alt="Logo" className="w-10 h-10 object-contain rounded-md" />
+          <h1 className="text-xl md:text-2xl font-black tracking-tight text-white uppercase">
+            SC FLEET MANAGEMENT
+          </h1>
+        </div>
+        
+        {stage === 'admin' && (
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <TrendingUp className="w-4 h-4 text-emerald-500" />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-white uppercase tracking-tight">
+                {adminTab === 'overview' ? 'Sales Dashboard' : 
+                 adminTab === 'trips' ? 'Recent Trips' : 
+                 adminTab === 'rankings' ? 'Rankings' : 
+                 adminTab === 'fleet' ? 'Fleet Data' : 
+                 adminTab === 'messages' ? 'Messages' : 
+                 adminTab === 'accounts' ? 'Account Sheet' : 
+                 adminTab === 'vehicles' ? 'Vehicles' : 
+                 adminTab === 'driver-manage' ? 'Driver Manage' : 'Admin Control Panel'}
+              </h2>
+              <p className="text-[8px] text-emerald-500/60 font-black tracking-widest uppercase mt-0.5">Admin Control Panel</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Logout Confirmation Modal */}
@@ -1439,20 +1463,7 @@ export default function FleetApp() {
 
       {stage === 'admin' && (
         <div className="space-y-8 pb-20">
-          {/* Header & Back */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <TrendingUp className="w-6 h-6 text-emerald-500" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-black text-white uppercase tracking-tight">Sales Dashboard</h2>
-                <p className="text-[10px] text-emerald-500/60 font-black tracking-widest uppercase">Admin Control Panel</p>
-              </div>
-            </div>
-
-          </div>
-
+          {/* Header & Back section removed */}
           {/* Tabs Navigation */}
           <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10 w-fit">
             <button
@@ -1527,6 +1538,17 @@ export default function FleetApp() {
               DRIVER MANAGE
             </button>
 
+            <button
+              onClick={() => setAdminTab('commission')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'commission' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <Activity className="w-4 h-4" />
+              DRIVER COMMISSION
+            </button>
+
             <div className="w-px h-8 bg-white/10 mx-2 self-center shrink-0"></div>
             <button
               onClick={() => {
@@ -1541,16 +1563,16 @@ export default function FleetApp() {
           </div>
 
           {/* Filters */}
-          {adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && (
-            <div className="glass-card p-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+          {adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && (
+            <div className="glass-card p-2.5">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                   <Calendar className="w-2.5 h-2.5" /> From
                 </label>
                 <input
                   type="date"
-                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  className="w-full input-field py-0 text-[10px] text-white h-7"
                   value={adminFilters.startDate}
                   onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
                 />
@@ -1561,7 +1583,7 @@ export default function FleetApp() {
                 </label>
                 <input
                   type="date"
-                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  className="w-full input-field py-0 text-[10px] text-white h-7"
                   value={adminFilters.endDate}
                   onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
                 />
@@ -1569,7 +1591,7 @@ export default function FleetApp() {
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
                 <select
-                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  className="w-full input-field py-0 text-[10px] text-white h-7"
                   value={adminFilters.purpose}
                   onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
                 >
@@ -1579,7 +1601,7 @@ export default function FleetApp() {
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
                 <select
-                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  className="w-full input-field py-0 text-[10px] text-white h-7"
                   value={adminFilters.status}
                   onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
                 >
@@ -1589,7 +1611,7 @@ export default function FleetApp() {
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
                 <select
-                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  className="w-full input-field py-0 text-[10px] text-white h-7"
                   value={adminFilters.vehicle}
                   onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
                 >
@@ -1600,7 +1622,7 @@ export default function FleetApp() {
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
                 <select
-                  className="w-full input-field py-2 text-[10px] text-white h-9"
+                  className="w-full input-field py-0 text-[10px] text-white h-7"
                   value={adminFilters.driver}
                   onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
                 >
@@ -1819,9 +1841,34 @@ export default function FleetApp() {
                   animate={{ opacity: 1, y: 0 }}
                   className="glass-card overflow-hidden"
                 >
-                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Complete Fleet Data</h3>
-                    <div className="flex items-center gap-2">
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex flex-col 2xl:flex-row items-start 2xl:items-center justify-between gap-4">
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 w-full 2xl:w-auto justify-between 2xl:justify-start">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:block whitespace-nowrap">Complete Fleet Data</h3>
+                      
+                      {/* Pagination Controls */}
+                      {adminData.pagination && adminData.pagination.totalPages > 1 && (
+                        <div className="flex items-center gap-3">
+                          <p className="text-[9px] text-slate-500 font-medium whitespace-nowrap">
+                            Showing <span className="text-white font-bold">{((adminData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(adminData.pagination.page * 50, adminData.pagination.totalItems)}</span> of <span className="text-white font-bold">{adminData.pagination.totalItems}</span>
+                          </p>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setAdminPage(prev => Math.max(1, prev - 1))} disabled={adminData.pagination.page === 1} className="p-1 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 transition-all"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                            {Array.from({ length: Math.min(5, adminData.pagination.totalPages) }).map((_, i) => {
+                              let pageNum = 1;
+                              if (adminData.pagination.totalPages <= 5) pageNum = i + 1;
+                              else if (adminData.pagination.page <= 3) pageNum = i + 1;
+                              else if (adminData.pagination.page >= adminData.pagination.totalPages - 2) pageNum = adminData.pagination.totalPages - 4 + i;
+                              else pageNum = adminData.pagination.page - 2 + i;
+                              return (
+                                <button key={i} onClick={() => setAdminPage(pageNum)} className={cn("w-6 h-6 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center", adminData.pagination.page === pageNum ? "bg-emerald-500 text-black" : "text-slate-400 hover:text-white hover:bg-white/5")}>{pageNum}</button>
+                              );
+                            })}
+                            <button onClick={() => setAdminPage(prev => Math.min(adminData.pagination.totalPages, prev + 1))} disabled={adminData.pagination.page === adminData.pagination.totalPages} className="p-1 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 transition-all"><ChevronRight className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <div className="relative mr-2 w-80 hidden sm:block">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                         <input
@@ -1863,9 +1910,9 @@ export default function FleetApp() {
                       </button>
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
+                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+                    <table className="w-full text-left relative">
+                      <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                         <tr className="border-b border-white/5 bg-white/[0.02]">
                           {[
                             'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
@@ -2054,53 +2101,7 @@ export default function FleetApp() {
                     </table>
                   </div>
 
-                  {/* Pagination Controls */}
-                  {adminData.pagination && adminData.pagination.totalPages > 1 && (
-                    <div className="p-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
-                      <p className="text-[10px] text-slate-500 font-medium">
-                        Showing <span className="text-white font-bold">{((adminData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(adminData.pagination.page * 50, adminData.pagination.totalItems)}</span> of <span className="text-white font-bold">{adminData.pagination.totalItems}</span> records
-                      </p>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setAdminPage(prev => Math.max(1, prev - 1))}
-                          disabled={adminData.pagination.page === 1}
-                          className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-
-                        {/* Page Numbers */}
-                        {Array.from({ length: Math.min(5, adminData.pagination.totalPages) }).map((_, i) => {
-                          let pageNum = 1;
-                          if (adminData.pagination.totalPages <= 5) pageNum = i + 1;
-                          else if (adminData.pagination.page <= 3) pageNum = i + 1;
-                          else if (adminData.pagination.page >= adminData.pagination.totalPages - 2) pageNum = adminData.pagination.totalPages - 4 + i;
-                          else pageNum = adminData.pagination.page - 2 + i;
-
-                          return (
-                            <button
-                              key={i}
-                              onClick={() => setAdminPage(pageNum)}
-                              className={cn(
-                                "w-8 h-8 rounded-lg text-[10px] font-bold transition-all",
-                                adminData.pagination.page === pageNum ? "bg-emerald-500 text-black" : "text-slate-400 hover:text-white hover:bg-white/5"
-                              )}
-                            >
-                              {pageNum}
-                            </button>
-                          );
-                        })}
-
-                        <button
-                          onClick={() => setAdminPage(prev => Math.min(adminData.pagination.totalPages, prev + 1))}
-                          disabled={adminData.pagination.page === adminData.pagination.totalPages}
-                          className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Pagination Controls moved to top */}
                 </motion.div>
               )}
             </div>
@@ -2327,9 +2328,9 @@ export default function FleetApp() {
                     <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Account Data...</p>
                   </div>
                 ) : accountSheetData?.data?.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
+                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+                    <table className="w-full text-left relative">
+                      <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                         <tr className="border-b border-white/5 bg-white/[0.02]">
                           {(accountSheetData?.headers || [
                             'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
@@ -2562,6 +2563,80 @@ export default function FleetApp() {
                   </div>
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {/* DRIVER COMMISSION TAB */}
+          {!fetchingAdmin && adminTab === 'commission' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="glass-card overflow-hidden">
+                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Commission Rates</h3>
+                  <button
+                    onClick={() => {
+                      setAlert({ type: 'success', message: 'Commission rates saved successfully!' });
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
+                  >
+                    SAVE ALL
+                  </button>
+                </div>
+                
+                {adminData?.filterOptions?.vehicles && adminData.filterOptions.vehicles.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-white/[0.02]">
+                          <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest w-1/2">Vehicle Number</th>
+                          <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest w-1/4">Commission Rate (%)</th>
+                          <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest w-1/4">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {adminData.filterOptions.vehicles.map((vehicle: string) => (
+                          <tr key={vehicle} className="hover:bg-white/5 transition-colors group">
+                            <td className="px-6 py-4 text-sm font-bold text-white">
+                              {vehicle}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="relative w-32">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  placeholder="e.g. 10"
+                                  value={vehicleCommissions[vehicle] !== undefined ? vehicleCommissions[vehicle] : ''}
+                                  onChange={(e) => setVehicleCommissions(prev => ({ ...prev, [vehicle]: parseFloat(e.target.value) || 0 }))}
+                                  className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors pr-8"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <button
+                                onClick={() => {
+                                  setAlert({ type: 'success', message: `Commission rate for ${vehicle} updated to ${vehicleCommissions[vehicle] || 0}%` });
+                                }}
+                                className="px-4 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black text-[10px] font-black uppercase tracking-widest transition-all border border-emerald-500/20"
+                              >
+                                Update
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-20 text-center">
+                    <p className="text-slate-500 font-bold">No vehicles found. Please refresh the dashboard.</p>
+                  </div>
+                )}
+              </div>
             </motion.div>
           )}
         </div>

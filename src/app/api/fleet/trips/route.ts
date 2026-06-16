@@ -32,6 +32,13 @@ export async function GET(request: Request) {
       });
       const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, '')) || '';
       const tripRefs = accountDocs
+        .filter(doc => {
+          const status = (doc.status || '').toLowerCase();
+          if (status.includes('cnx') || status.includes('complete')) return false;
+          const startMeterRaw = doc.rawValues?.[54];
+          if (startMeterRaw !== undefined && startMeterRaw !== null && String(startMeterRaw).trim() !== '') return false;
+          return true;
+        })
         .map(doc => {
           const ref = doc.bookingRef || doc.rawValues?.[11];
           const vehicle = doc.vehicle || doc.rawValues?.[7];
@@ -61,6 +68,8 @@ export async function GET(request: Request) {
     // Pending trips (FR refs) for this driver from MongoDB
     const frRefs = tripsInDb
       .filter((t: any) => {
+        const status = (t.status || '').toLowerCase();
+        if (status === 'cancelled' || status === 'approved') return false;
         const garageEnd = t.rawValues ? t.rawValues[8] : "";
         return garageEnd === undefined || garageEnd === null || garageEnd === "";
       })
