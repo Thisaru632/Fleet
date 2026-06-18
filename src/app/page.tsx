@@ -35,7 +35,9 @@ import {
   Trash2,
   Edit,
   Search,
-  Eye
+  Eye,
+  MoreVertical,
+  Image as ImageIcon
 } from 'lucide-react';
 
 import LoginModal from '@/components/LoginModal';
@@ -250,7 +252,7 @@ export default function FleetApp() {
       } else {
         array[6] = formData.fuelCost;
         let finalComments = formData.comments || '';
-        if (formData.purpose === 'Fuel') {
+        if (formData.purpose === 'Fuel' || formData.purpose === 'Hire') {
           let fuelDetails = [];
           if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
           if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
@@ -545,17 +547,17 @@ export default function FleetApp() {
       'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
       'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
       'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-      'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price'
+      'Loss (End)', 'Total Mileage', 'Final Price'
     ];
 
     const csvRows = [];
     csvRows.push(headers.join(','));
 
     adminData.tables.fleetData.forEach((t: any) => {
-      const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((idx) => {
+      const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => {
         let val = '';
         if (idx === 'fuel_meter' || idx === 'fuel_liters') {
-            if (t.values[5] === 'Fuel') {
+            if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
                 const rawComments = t.values[10] || '';
                 const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
                 if (fuelMatch) {
@@ -578,7 +580,7 @@ export default function FleetApp() {
             }
         } else if (idx === 10) {
           val = (t.values[10] || '').toString();
-          if (t.values[5] === 'Fuel') {
+          if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
             val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
           }
           if (!val) val = '-';
@@ -694,7 +696,7 @@ export default function FleetApp() {
       setAddingDriver(null);
       fetchAdminSales(true);
     } catch (err: any) {
-      setAlert({ type: 'error', message: err.message || 'Failed to add driver' });
+      setAlert({ type: 'error', message: 'Failed to add driver' });
     } finally {
       setSavingDriver(false);
     }
@@ -705,7 +707,7 @@ export default function FleetApp() {
     setSavingEdit(true);
     try {
       let finalValues = [...editingTrip.values];
-      if (editingTrip.values[5] === 'Fuel') {
+      if (editingTrip.values[5] === 'Fuel' || editingTrip.values[5] === 'Hire') {
         let fuelDetails = [];
         if (editingTrip.fMeter) fuelDetails.push(`Meter: ${editingTrip.fMeter} KM`);
         if (editingTrip.fLiters) fuelDetails.push(`Liters: ${editingTrip.fLiters}`);
@@ -862,7 +864,7 @@ export default function FleetApp() {
       let extractedMeter = '';
       let extractedLiters = '';
 
-      if (details[5] === 'Fuel') {
+      if (details[5] === 'Fuel' || details[5] === 'Hire') {
         const fuelRegex = /\(Fuel - (.*?)\)/;
         const fuelMatch = rawComments.match(fuelRegex);
         if (fuelMatch) {
@@ -887,7 +889,7 @@ export default function FleetApp() {
       const secondFuelCost = details[24] || '';
 
       let count = 0;
-      if (details[5] === 'Fuel' && (extractedMeter || extractedLiters || firstFuelCost)) {
+      if ((details[5] === 'Fuel' || details[5] === 'Hire') && (extractedMeter || extractedLiters || firstFuelCost)) {
         count = 1;
       }
       if (secondFuelCost) {
@@ -1183,7 +1185,7 @@ export default function FleetApp() {
         } else {
           array[6] = formData.fuelCost;
           let finalComments = formData.comments || '';
-          if (formData.purpose === 'Fuel') {
+          if (formData.purpose === 'Fuel' || formData.purpose === 'Hire') {
             let fuelDetails = [];
             if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
             if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
@@ -1817,9 +1819,11 @@ export default function FleetApp() {
                             <td className="px-6 py-4">
                               <span className={cn(
                                 "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                t.status === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
+                                (t.status || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
+                                (t.status || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
+                                "bg-yellow-200 text-yellow-900"
                               )}>
-                                {t.status}
+                                {t.status || 'Pending'}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-[10px] font-black text-emerald-500 whitespace-nowrap">Rs. {t.finalPrice?.toLocaleString()}</td>
@@ -1920,7 +1924,7 @@ export default function FleetApp() {
                             'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-                            'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price',
+                            'Loss (End)', 'Total Mileage', 'Final Price',
                             'Actions'
                           ].map(h => (
                             <th key={h} className={cn(
@@ -1961,7 +1965,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((idx) => (
+                            {[0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => (
                               <td 
                                 key={idx} 
                                 className={cn(
@@ -1973,7 +1977,7 @@ export default function FleetApp() {
                                 {idx === 'fuel_meter' || idx === 'fuel_liters' ? (
                                   <span className="text-white">
                                     {(() => {
-                                      if (t.values[5] === 'Fuel') {
+                                      if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
                                         const rawComments = t.values[10] || '';
                                         const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
                                         if (fuelMatch) {
@@ -1998,7 +2002,9 @@ export default function FleetApp() {
                                 ) : idx === 0 ? (
                                   <span className={cn(
                                     "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    t.values[idx as number] === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
+                                    (t.values[idx as number] || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
+                                    (t.values[idx as number] || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
+                                    "bg-yellow-200 text-yellow-900"
                                   )}>
                                     {t.values[idx as number] || 'Pending'}
                                   </span>
@@ -2009,36 +2015,33 @@ export default function FleetApp() {
                                   )}>
                                     {t.values[idx as number]}
                                   </span>
-                                ) : idx === 20 ? (
-                                  <button
-                                    onClick={async () => {
-                                      setViewingImages({ rf: t.rf, images: null, loading: true });
-                                      try {
-                                        const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
-                                        const data = await res.json();
-                                        setViewingImages({ rf: t.rf, images: data.images || [], loading: false });
-                                      } catch (err) {
-                                        setViewingImages({ rf: t.rf, images: [], loading: false });
-                                      }
-                                    }}
-                                    className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black border border-emerald-500/20 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all"
-                                  >
-                                    View
-                                  </button>
-                                ) : idx === 21 ? (
-                                  <span className="text-slate-500 italic max-w-[100px] truncate block" title={t.values[idx as number]}>
-                                    {t.values[idx as number] || '-'}
-                                  </span>
                                 ) : idx === 10 ? (
                                   <span className="font-sans font-normal text-white">
                                     {(() => {
                                       let val = (t.values[10] || '').toString();
-                                      if (t.values[5] === 'Fuel') {
+                                      if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
                                         val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
                                       }
                                       return val || '-';
                                     })()}
                                   </span>
+                                ) : idx === 1 ? (
+                                  <div className="flex items-center gap-2">
+                                    {(() => {
+                                      const sLossRaw = t.values[18];
+                                      const eLossRaw = t.values[19];
+                                      if (sLossRaw !== undefined && sLossRaw !== null && String(sLossRaw).trim() !== '' &&
+                                          eLossRaw !== undefined && eLossRaw !== null && String(eLossRaw).trim() !== '') {
+                                        const sLoss = Number(String(sLossRaw).replace(/[^\d.-]/g, ''));
+                                        const eLoss = Number(String(eLossRaw).replace(/[^\d.-]/g, ''));
+                                        if (!isNaN(sLoss) && !isNaN(eLoss) && sLoss !== eLoss) {
+                                          return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Start and End Loss mismatch"></span>;
+                                        }
+                                      }
+                                      return null;
+                                    })()}
+                                    <span className="text-white">{t.values[idx as number] !== undefined && t.values[idx as number] !== null ? t.values[idx as number].toString() : '-'}</span>
+                                  </div>
                                 ) : (
                                   <span className={cn(
                                     "font-sans font-normal",
@@ -2052,47 +2055,66 @@ export default function FleetApp() {
                                 )}
                               </td>
                             ))}
-                            <td className="px-6 py-2 text-xs whitespace-nowrap flex items-center gap-2 sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
-                              <button
-                                onClick={() => setViewingTrip(t)}
-                                className="flex items-center gap-1 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500 text-sky-500 hover:text-black border border-sky-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
-                              >
-                                <Eye className="w-3 h-3" />
-                                View
-                              </button>
-                              <button
-                                onClick={() => {
-                                  let fMeter = '';
-                                  let fLiters = '';
-                                  let cleanComments = t.values[10] || '';
-                                  if (t.values[5] === 'Fuel') {
-                                    const fuelMatch = cleanComments.toString().match(/\(Fuel - (.*?)\)/);
-                                    if (fuelMatch) {
-                                      const fuelStr = fuelMatch[1];
-                                      const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                      if (m1) fMeter = m1[1];
-                                      const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                      if (m2) fLiters = m2[1];
-                                    } else {
-                                      const oldMatch = cleanComments.toString().match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
-                                      if (oldMatch) fMeter = oldMatch[1];
-                                    }
-                                    cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
-                                  }
-                                  setEditingTrip({ ...t, fMeter, fLiters, cleanComments: cleanComments || t.values[10] });
-                                }}
-                                className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
-                              >
-                                <Edit className="w-3 h-3" />
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleDeleteFleetRow(t.rf)}
-                                className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                Delete
-                              </button>
+                            <td className="px-6 py-2 text-xs whitespace-nowrap sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
+                              <div className="relative group/action">
+                                <button className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer outline-none">
+                                  <MoreVertical className="w-4 h-4 text-slate-400" />
+                                </button>
+                                <div className="absolute right-full top-0 mr-2 w-32 bg-slate-800 border border-slate-700/50 rounded-xl shadow-xl opacity-0 invisible group-hover/action:opacity-100 group-hover/action:visible transition-all flex flex-col gap-1 p-1 z-[60]">
+                                  <button
+                                    onClick={() => setViewingTrip(t)}
+                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sky-400 rounded-lg w-full text-left text-xs font-bold transition-colors"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" /> View Trip
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      setViewingImages({ rf: t.rf, images: null, loading: true });
+                                      try {
+                                        const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
+                                        const data = await res.json();
+                                        setViewingImages({ rf: t.rf, images: data.images || [], loading: false });
+                                      } catch (err) {
+                                        setViewingImages({ rf: t.rf, images: [], loading: false });
+                                      }
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors"
+                                  >
+                                    <ImageIcon className="w-3.5 h-3.5" /> Proofs
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      let fMeter = '';
+                                      let fLiters = '';
+                                      let cleanComments = t.values[10] || '';
+                                      if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
+                                        const fuelMatch = cleanComments.toString().match(/\(Fuel - (.*?)\)/);
+                                        if (fuelMatch) {
+                                          const fuelStr = fuelMatch[1];
+                                          const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                          if (m1) fMeter = m1[1];
+                                          const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                          if (m2) fLiters = m2[1];
+                                        } else {
+                                          const oldMatch = cleanComments.toString().match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
+                                          if (oldMatch) fMeter = oldMatch[1];
+                                        }
+                                        cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+                                      }
+                                      setEditingTrip({ ...t, fMeter, fLiters, cleanComments: cleanComments || t.values[10] });
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors"
+                                  >
+                                    <Edit className="w-3.5 h-3.5" /> Edit Trip
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteFleetRow(t.rf)}
+                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-red-400 rounded-lg w-full text-left text-xs font-bold transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" /> Delete Trip
+                                  </button>
+                                </div>
+                              </div>
                             </td>
                           </tr>
                           );
@@ -2353,7 +2375,9 @@ export default function FleetApp() {
                                 {idx === 0 ? (
                                   <span className={cn(
                                     "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    val === 'Approved' ? "bg-emerald-500 text-black" : "bg-amber-500 text-black"
+                                    (val || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
+                                    (val || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
+                                    "bg-yellow-200 text-yellow-900"
                                   )}>
                                     {val || 'Pending'}
                                   </span>
@@ -2364,6 +2388,23 @@ export default function FleetApp() {
                                   )}>
                                     {val}
                                   </span>
+                                ) : idx === 1 ? (
+                                  <div className="flex items-center gap-2">
+                                    {(() => {
+                                      const sLossRaw = row.rawValues[18];
+                                      const eLossRaw = row.rawValues[19];
+                                      if (sLossRaw !== undefined && sLossRaw !== null && String(sLossRaw).trim() !== '' &&
+                                          eLossRaw !== undefined && eLossRaw !== null && String(eLossRaw).trim() !== '') {
+                                        const sLoss = Number(String(sLossRaw).replace(/[^\d.-]/g, ''));
+                                        const eLoss = Number(String(eLossRaw).replace(/[^\d.-]/g, ''));
+                                        if (!isNaN(sLoss) && !isNaN(eLoss) && sLoss !== eLoss) {
+                                          return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Start and End Loss mismatch"></span>;
+                                        }
+                                      }
+                                      return null;
+                                    })()}
+                                    <span className="text-white">{val !== undefined && val !== null ? val.toString() : '-'}</span>
+                                  </div>
                                 ) : (
                                   <span className={cn(
                                     "font-sans font-normal",
@@ -2644,7 +2685,7 @@ export default function FleetApp() {
 
       {/* Alert Component */}
       <AnimatePresence>
-        {alert && (
+        {alert && stage !== 'new' && stage !== 'update' && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -3026,7 +3067,7 @@ export default function FleetApp() {
 
 
 
-            {formData.purpose === 'Fuel' && stage === 'update' && (
+            {(formData.purpose === 'Fuel' || formData.purpose === 'Hire') && stage === 'update' && (
               <div className="glass-card p-6 space-y-6 border-sky-500/20 bg-sky-500/5">
                 <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
                   <Fuel className="w-5 h-5 text-sky-500" />
@@ -3124,7 +3165,7 @@ export default function FleetApp() {
                      Submitted details displayed above.
                    </p>
                 )}
-                {isFuelSubmitted && fuelSubmitCount === 1 && (
+                {isFuelSubmitted && fuelSubmitCount === 1 && formData.purpose === 'Hire' && (
                   <button
                     onClick={handleAddMoreFuel}
                     className="w-full py-3 mt-4 font-black rounded-xl border border-sky-500/50 text-sky-400 hover:bg-sky-500 hover:text-black transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
@@ -3142,7 +3183,7 @@ export default function FleetApp() {
                   End Trip Details
                 </div>
 
-                {formData.purpose !== 'Fuel' && (
+                {formData.purpose !== 'Fuel' && formData.purpose !== 'Hire' && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Cost (Rs.)</label>
@@ -3286,21 +3327,41 @@ export default function FleetApp() {
 
             {/* Footer Buttons */}
             {(stage === 'new' || stage === 'update') && (
-              <div className="flex gap-4">
-                <button
-                  onClick={() => window.history.back()}
-                  className="flex-1 py-4 glass-card font-bold hover:bg-white/5 transition-colors"
-                >
-                  CANCEL
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={loading || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef)}
-                  className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
-                  SUBMIT RECORD
-                </button>
+              <div className="flex flex-col gap-4">
+                <AnimatePresence>
+                  {alert && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className={cn(
+                        "p-4 rounded-2xl flex items-center gap-3 border shadow-lg",
+                        alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
+                        alert.type === 'warning' && "bg-amber-500/10 border-amber-500/20 text-amber-400",
+                        alert.type === 'error' && "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                      )}
+                    >
+                      {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                      <p className="text-sm font-medium">{alert.message}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => window.history.back()}
+                    className="flex-1 py-4 glass-card font-bold hover:bg-white/5 transition-colors"
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef)}
+                    className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
+                    SUBMIT RECORD
+                  </button>
+                </div>
               </div>
             )}
           </motion.div>
