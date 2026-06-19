@@ -28,26 +28,48 @@ export async function POST(request: Request) {
     // D: 0, E: 1, F: 2, G: 3, H: 4, I: 5, J: 6 (Fuel), K: 7, L: 8 (Repair), M: 9, N: 10, O: 11 (Comms), ...
     const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, "")) || 0;
 
-    trip.driverId = array[0] || trip.driverId;
-    trip.vehicle = array[1] || trip.vehicle;
-    trip.purpose = array[2] || trip.purpose;
-    trip.fuel = parseNum(array[6]) + (array.length > 21 ? parseNum(array[21]) : 0);
-    trip.repair = parseNum(array[8]);
-    trip.commission = parseNum(array[11]);
-    trip.mileage = parseNum(array[19]);
-    trip.finalPrice = parseNum(array[20]);
-    
-    // Recalculate scDue: only for Hire trips, else 0
-    const isHire = trip.purpose === "Hire";
-    const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission) : 0;
-    trip.scDue = scDue;
-    if (array.length > 10) {
-      array[10] = scDue;
-    }
+    if (stage === 'fuel') {
+      trip.fuel = parseNum(array[6]) + (array.length > 21 ? parseNum(array[21]) : 0);
+      
+      const isHire = trip.purpose === "Hire";
+      const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission) : 0;
+      trip.scDue = scDue;
 
-    // Update rawValues to match the sheet structure
-    // Column A and B and C are already in trip.status, trip.reference, trip.timestamp
-    trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...array];
+      const existingArray = trip.rawValues.slice(3);
+      existingArray[6] = array[6];
+      existingArray[7] = array[7];
+      if (array.length > 21) {
+        existingArray[21] = array[21] || existingArray[21] || '';
+        existingArray[22] = array[22] || existingArray[22] || '';
+        existingArray[23] = array[23] || existingArray[23] || '';
+      }
+      if (existingArray.length > 10) {
+        existingArray[10] = scDue;
+      }
+      
+      trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...existingArray];
+    } else {
+      trip.driverId = array[0] || trip.driverId;
+      trip.vehicle = array[1] || trip.vehicle;
+      trip.purpose = array[2] || trip.purpose;
+      trip.fuel = parseNum(array[6]) + (array.length > 21 ? parseNum(array[21]) : 0);
+      trip.repair = parseNum(array[8]);
+      trip.commission = parseNum(array[11]);
+      trip.mileage = parseNum(array[19]);
+      trip.finalPrice = parseNum(array[20]);
+      
+      // Recalculate scDue: only for Hire trips, else 0
+      const isHire = trip.purpose === "Hire";
+      const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission) : 0;
+      trip.scDue = scDue;
+      if (array.length > 10) {
+        array[10] = scDue;
+      }
+
+      // Update rawValues to match the sheet structure
+      // Column A and B and C are already in trip.status, trip.reference, trip.timestamp
+      trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...array];
+    }
 
     // Handle file uploads
     if (files && files.length > 0) {

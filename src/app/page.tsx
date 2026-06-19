@@ -219,8 +219,16 @@ export default function FleetApp() {
   };
 
   const handleFuelDetailsSubmit = async () => {
-    if (!formData.fuelStationMeter || !files.fuelStationMeterImage || !formData.fuelCost || !files.fuelReceipt || !formData.fuelLiterCount) {
-      setAlert({ type: 'error', message: 'Please fill all fields in the Fuel Station details section.' });
+    if (!formData.fuelStationMeter && !formData.fuelCost && !formData.fuelLiterCount) {
+      setAlert({ type: 'error', message: 'Please enter some fuel details to submit.' });
+      return;
+    }
+    if (formData.fuelStationMeter && !files.fuelStationMeterImage) {
+      setAlert({ type: 'error', message: 'Please upload the Meter Image.' });
+      return;
+    }
+    if (formData.fuelCost && !files.fuelReceipt) {
+      setAlert({ type: 'error', message: 'Please upload the Fuel Receipt.' });
       return;
     }
 
@@ -232,8 +240,12 @@ export default function FleetApp() {
 
       let uploadFiles: any[] = [];
       const suffix = isSecondTime ? '_2' : '';
-      uploadFiles.push({ name: `${currentRef}_FuelReceipt${suffix}`, dataUrl: await fileToBase64(files.fuelReceipt as File) });
-      uploadFiles.push({ name: `${currentRef}_FuelStationMeter${suffix}`, dataUrl: await fileToBase64(files.fuelStationMeterImage as File) });
+      if (files.fuelReceipt) {
+        uploadFiles.push({ name: `${currentRef}_FuelReceipt${suffix}`, dataUrl: await fileToBase64(files.fuelReceipt as File) });
+      }
+      if (files.fuelStationMeterImage) {
+        uploadFiles.push({ name: `${currentRef}_FuelStationMeter${suffix}`, dataUrl: await fileToBase64(files.fuelStationMeterImage as File) });
+      }
 
       let array: any[] = new Array(24).fill('');
       array[0] = user[0];
@@ -243,21 +255,26 @@ export default function FleetApp() {
       array[4] = formData.endTs || '';
       array[5] = formData.garageEndMeter || '';
 
+      let finalComments = formData.comments ? formData.comments.trim() : '';
+      let fuelDetails = [];
+      const meterToAppend = formData.firstFuelMeter || formData.fuelStationMeter;
+      const litersToAppend = formData.firstFuelLiters || formData.fuelLiterCount;
+      
+      if (meterToAppend) fuelDetails.push(`Meter: ${meterToAppend} KM`);
+      if (litersToAppend) fuelDetails.push(`Liters: ${litersToAppend}`);
+      
+      if (fuelDetails.length > 0) {
+          finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')})`;
+      }
+
       if (isSecondTime) {
         array[6] = formData.firstFuelCost || '';
-        array[7] = formData.firstFuelComments || formData.comments || '';
+        array[7] = finalComments;
         array[21] = formData.fuelCost;
         array[22] = formData.fuelStationMeter;
         array[23] = formData.fuelLiterCount;
       } else {
         array[6] = formData.fuelCost;
-        let finalComments = formData.comments || '';
-        if (formData.purpose === 'Fuel' || formData.purpose === 'Hire') {
-          let fuelDetails = [];
-          if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
-          if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
-          if (fuelDetails.length > 0) finalComments += ` (Fuel - ${fuelDetails.join(', ')})`;
-        }
         array[7] = finalComments;
         array[21] = '';
         array[22] = '';
@@ -557,32 +574,26 @@ export default function FleetApp() {
       const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => {
         let val = '';
         if (idx === 'fuel_meter' || idx === 'fuel_liters') {
-            if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
-                const rawComments = t.values[10] || '';
-                const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
-                if (fuelMatch) {
-                    const fuelStr = fuelMatch[1];
-                    if (idx === 'fuel_meter') {
-                        const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                        val = m ? m[1] : '-';
-                    } else {
-                        const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                        val = m ? m[1] : '-';
-                    }
+            const rawComments = t.values[10] || '';
+            const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+            if (fuelMatch) {
+                const fuelStr = fuelMatch[1];
+                if (idx === 'fuel_meter') {
+                    const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                    val = m ? m[1] : '-';
                 } else {
-                    const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-                    const oldFuelMatch = rawComments.match(oldFuelRegex);
-                    if (oldFuelMatch && idx === 'fuel_meter') val = oldFuelMatch[1];
-                    else val = '-';
+                    const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                    val = m ? m[1] : '-';
                 }
             } else {
-                val = '-';
+                const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                const oldFuelMatch = rawComments.match(oldFuelRegex);
+                if (oldFuelMatch && idx === 'fuel_meter') val = oldFuelMatch[1];
+                else val = '-';
             }
         } else if (idx === 10) {
           val = (t.values[10] || '').toString();
-          if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
-            val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
-          }
+          val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
           if (!val) val = '-';
         } else if (idx === 0) {
           val = t.values[idx as number] || 'Pending';
@@ -707,16 +718,12 @@ export default function FleetApp() {
     setSavingEdit(true);
     try {
       let finalValues = [...editingTrip.values];
-      if (editingTrip.values[5] === 'Fuel' || editingTrip.values[5] === 'Hire') {
-        let fuelDetails = [];
-        if (editingTrip.fMeter) fuelDetails.push(`Meter: ${editingTrip.fMeter} KM`);
-        if (editingTrip.fLiters) fuelDetails.push(`Liters: ${editingTrip.fLiters}`);
-        let finalComments = editingTrip.cleanComments || '';
-        if (fuelDetails.length > 0) finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')})`;
-        finalValues[10] = finalComments;
-      } else {
-        finalValues[10] = editingTrip.cleanComments || editingTrip.values[10];
-      }
+      let fuelDetails = [];
+      if (editingTrip.fMeter) fuelDetails.push(`Meter: ${editingTrip.fMeter} KM`);
+      if (editingTrip.fLiters) fuelDetails.push(`Liters: ${editingTrip.fLiters}`);
+      let finalComments = editingTrip.cleanComments || '';
+      if (fuelDetails.length > 0) finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')})`;
+      finalValues[10] = finalComments;
 
       const res = await fetch('/api/admin/edit-trip', {
         method: 'PUT',
@@ -864,24 +871,22 @@ export default function FleetApp() {
       let extractedMeter = '';
       let extractedLiters = '';
 
-      if (details[5] === 'Fuel' || details[5] === 'Hire') {
-        const fuelRegex = /\(Fuel - (.*?)\)/;
-        const fuelMatch = rawComments.match(fuelRegex);
-        if (fuelMatch) {
-          const fuelStr = fuelMatch[1];
-          const meterMatch = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-          if (meterMatch) extractedMeter = meterMatch[1];
-          const literMatch = fuelStr.match(/Liters:\s*([\d.]+)/i);
-          if (literMatch) extractedLiters = literMatch[1];
-          rawComments = rawComments.replace(fuelMatch[0], '').trim();
-        } else {
-          // Backward compatibility for older formatting
-          const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-          const oldFuelMatch = rawComments.match(oldFuelRegex);
-          if (oldFuelMatch) {
-            extractedMeter = oldFuelMatch[1];
-            rawComments = rawComments.replace(oldFuelMatch[0], '').trim();
-          }
+      const fuelRegex = /\(Fuel - (.*?)\)/;
+      const fuelMatch = rawComments.match(fuelRegex);
+      if (fuelMatch) {
+        const fuelStr = fuelMatch[1];
+        const meterMatch = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+        if (meterMatch) extractedMeter = meterMatch[1];
+        const literMatch = fuelStr.match(/Liters:\s*([\d.]+)/i);
+        if (literMatch) extractedLiters = literMatch[1];
+        rawComments = rawComments.replace(fuelMatch[0], '').trim();
+      } else {
+        // Backward compatibility for older formatting
+        const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+        const oldFuelMatch = rawComments.match(oldFuelRegex);
+        if (oldFuelMatch) {
+          extractedMeter = oldFuelMatch[1];
+          rawComments = rawComments.replace(oldFuelMatch[0], '').trim();
         }
       }
 
@@ -889,7 +894,7 @@ export default function FleetApp() {
       const secondFuelCost = details[24] || '';
 
       let count = 0;
-      if ((details[5] === 'Fuel' || details[5] === 'Hire') && (extractedMeter || extractedLiters || firstFuelCost)) {
+      if (extractedMeter || extractedLiters || firstFuelCost) {
         count = 1;
       }
       if (secondFuelCost) {
@@ -920,8 +925,8 @@ export default function FleetApp() {
         repairCost: details[11] || '',
         scDueAmount: details[13] || '',
         drvComms: stage === 'last-trip' ? (details[14] || '') : '',
-        tripStartMeter: stage === 'last-trip' ? (details[15] || '') : '',
-        tripEndMeter: stage === 'last-trip' ? (details[16] || '') : '',
+        tripStartMeter: details[15] || '',
+        tripEndMeter: details[16] || '',
         pkgBalanceMileage: stage === 'last-trip' ? (details[17] || '') : '',
         startLossMileage: details[18] || '',
         endLossMileage: details[19] || '',
@@ -956,8 +961,8 @@ export default function FleetApp() {
     setFormData((prev: any) => ({
       ...prev,
       tripRef: ref,
-      tripStartMeter: matchedRef?.startMeter || '',
-      tripEndMeter: matchedRef?.endMeter || ''
+      tripStartMeter: matchedRef?.startMeter || prev.tripStartMeter,
+      tripEndMeter: matchedRef?.endMeter || prev.tripEndMeter
     }));
 
     if (!ref) return;
@@ -969,6 +974,8 @@ export default function FleetApp() {
       const details = data.details;
       if (details) {
         const cleanNum = (val: any) => val ? val.toString().replace(/[^\d.]/g, '') : '';
+        const accStartMeter = cleanNum(details[54]);
+        const accEndMeter = cleanNum(details[57]);
         const rawFinalPrice = cleanNum(details[4]);
         const finalPriceNum = Number(rawFinalPrice) || 0;
 
@@ -989,6 +996,8 @@ export default function FleetApp() {
 
         setFormData((prev: any) => ({
           ...prev,
+          tripStartMeter: prev.tripStartMeter || accStartMeter,
+          tripEndMeter: prev.tripEndMeter || accEndMeter,
           drvComms: rawSalary,
           tripPrice: rawFinalPrice,
           pkgBalanceMileage: rawPkgBalance
@@ -1176,21 +1185,26 @@ export default function FleetApp() {
         array[3] = formData.garageStartMeter;
         array[4] = endTs;
         array[5] = formData.garageEndMeter;
+        let finalComments = formData.comments ? formData.comments.trim() : '';
+        let fuelDetails = [];
+        const meterToAppend = formData.firstFuelMeter || formData.fuelStationMeter;
+        const litersToAppend = formData.firstFuelLiters || formData.fuelLiterCount;
+        
+        if (meterToAppend) fuelDetails.push(`Meter: ${meterToAppend} KM`);
+        if (litersToAppend) fuelDetails.push(`Liters: ${litersToAppend}`);
+        
+        if (fuelDetails.length > 0) {
+            finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')})`;
+        }
+
         if (fuelSubmitCount >= 1) {
           array[6] = formData.firstFuelCost || (fuelSubmitCount === 1 ? formData.fuelCost : '');
-          array[7] = formData.firstFuelComments || formData.comments || '';
+          array[7] = finalComments;
           array[21] = formData.secondFuelCost || (fuelSubmitCount === 2 ? formData.fuelCost : '');
           array[22] = formData.secondFuelMeter || (fuelSubmitCount === 2 ? formData.fuelStationMeter : '');
           array[23] = formData.secondFuelLiters || (fuelSubmitCount === 2 ? formData.fuelLiterCount : '');
         } else {
           array[6] = formData.fuelCost;
-          let finalComments = formData.comments || '';
-          if (formData.purpose === 'Fuel' || formData.purpose === 'Hire') {
-            let fuelDetails = [];
-            if (formData.fuelStationMeter) fuelDetails.push(`Meter: ${formData.fuelStationMeter} KM`);
-            if (formData.fuelLiterCount) fuelDetails.push(`Liters: ${formData.fuelLiterCount}`);
-            if (fuelDetails.length > 0) finalComments += ` (Fuel - ${fuelDetails.join(', ')})`;
-          }
           array[7] = finalComments;
         }
         array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
@@ -1977,26 +1991,23 @@ export default function FleetApp() {
                                 {idx === 'fuel_meter' || idx === 'fuel_liters' ? (
                                   <span className="text-white">
                                     {(() => {
-                                      if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
-                                        const rawComments = t.values[10] || '';
-                                        const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
-                                        if (fuelMatch) {
-                                          const fuelStr = fuelMatch[1];
-                                          if (idx === 'fuel_meter') {
-                                            const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                            return m ? m[1] : '-';
-                                          } else {
-                                            const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                            return m ? m[1] : '-';
-                                          }
+                                      const rawComments = t.values[10] || '';
+                                      const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+                                      if (fuelMatch) {
+                                        const fuelStr = fuelMatch[1];
+                                        if (idx === 'fuel_meter') {
+                                          const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                          return m ? m[1] : '-';
                                         } else {
-                                          const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-                                          const oldFuelMatch = rawComments.match(oldFuelRegex);
-                                          if (oldFuelMatch && idx === 'fuel_meter') return oldFuelMatch[1];
-                                          return '-';
+                                          const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                          return m ? m[1] : '-';
                                         }
+                                      } else {
+                                        const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                                        const oldFuelMatch = rawComments.match(oldFuelRegex);
+                                        if (oldFuelMatch && idx === 'fuel_meter') return oldFuelMatch[1];
+                                        return '-';
                                       }
-                                      return '-';
                                     })()}
                                   </span>
                                 ) : idx === 0 ? (
@@ -2019,9 +2030,7 @@ export default function FleetApp() {
                                   <span className="font-sans font-normal text-white">
                                     {(() => {
                                       let val = (t.values[10] || '').toString();
-                                      if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
-                                        val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
-                                      }
+                                      val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
                                       return val || '-';
                                     })()}
                                   </span>
@@ -2087,20 +2096,18 @@ export default function FleetApp() {
                                       let fMeter = '';
                                       let fLiters = '';
                                       let cleanComments = t.values[10] || '';
-                                      if (t.values[5] === 'Fuel' || t.values[5] === 'Hire') {
-                                        const fuelMatch = cleanComments.toString().match(/\(Fuel - (.*?)\)/);
-                                        if (fuelMatch) {
-                                          const fuelStr = fuelMatch[1];
-                                          const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                          if (m1) fMeter = m1[1];
-                                          const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                          if (m2) fLiters = m2[1];
-                                        } else {
-                                          const oldMatch = cleanComments.toString().match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
-                                          if (oldMatch) fMeter = oldMatch[1];
-                                        }
-                                        cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+                                      const fuelMatch = cleanComments.toString().match(/\(Fuel - (.*?)\)/);
+                                      if (fuelMatch) {
+                                        const fuelStr = fuelMatch[1];
+                                        const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                        if (m1) fMeter = m1[1];
+                                        const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                        if (m2) fLiters = m2[1];
+                                      } else {
+                                        const oldMatch = cleanComments.toString().match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
+                                        if (oldMatch) fMeter = oldMatch[1];
                                       }
+                                      cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
                                       setEditingTrip({ ...t, fMeter, fLiters, cleanComments: cleanComments || t.values[10] });
                                     }}
                                     className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors"
@@ -2381,36 +2388,8 @@ export default function FleetApp() {
                                   )}>
                                     {val || 'Pending'}
                                   </span>
-                                ) : idx === 5 ? (
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    val === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
-                                  )}>
-                                    {val}
-                                  </span>
-                                ) : idx === 1 ? (
-                                  <div className="flex items-center gap-2">
-                                    {(() => {
-                                      const sLossRaw = row.rawValues[18];
-                                      const eLossRaw = row.rawValues[19];
-                                      if (sLossRaw !== undefined && sLossRaw !== null && String(sLossRaw).trim() !== '' &&
-                                          eLossRaw !== undefined && eLossRaw !== null && String(eLossRaw).trim() !== '') {
-                                        const sLoss = Number(String(sLossRaw).replace(/[^\d.-]/g, ''));
-                                        const eLoss = Number(String(eLossRaw).replace(/[^\d.-]/g, ''));
-                                        if (!isNaN(sLoss) && !isNaN(eLoss) && sLoss !== eLoss) {
-                                          return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Start and End Loss mismatch"></span>;
-                                        }
-                                      }
-                                      return null;
-                                    })()}
-                                    <span className="text-white">{val !== undefined && val !== null ? val.toString() : '-'}</span>
-                                  </div>
                                 ) : (
-                                  <span className={cn(
-                                    "font-sans font-normal",
-                                    (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
-                                      (idx === 9 || idx === 11) ? "text-rose-400" : "text-white"
-                                  )}>
+                                  <span className="font-sans font-normal text-white">
                                     {val !== undefined && val !== null ? val.toString() : '-'}
                                   </span>
                                 )}
@@ -2931,6 +2910,14 @@ export default function FleetApp() {
                     <option key={`${ref}-${idx}`} value={ref}>{ref}</option>
                   ))}
                 </select>
+                {!currentRef && (
+                  <button
+                    onClick={() => setStage('dashboard')}
+                    className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+                  >
+                    Back to Dashboard
+                  </button>
+                )}
               </div>
             )}
 
@@ -3067,7 +3054,7 @@ export default function FleetApp() {
 
 
 
-            {(formData.purpose === 'Fuel' || formData.purpose === 'Hire') && stage === 'update' && (
+            {stage === 'update' && currentRef && (
               <div className="glass-card p-6 space-y-6 border-sky-500/20 bg-sky-500/5">
                 <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
                   <Fuel className="w-5 h-5 text-sky-500" />
@@ -3176,37 +3163,14 @@ export default function FleetApp() {
               </div>
             )}
 
-            {stage === 'update' && (
+            {stage === 'update' && currentRef && (
               <div className="glass-card p-6 space-y-6">
                 <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
                   <ClipboardCheck className="w-5 h-5 text-emerald-500" />
                   End Trip Details
                 </div>
 
-                {formData.purpose !== 'Fuel' && formData.purpose !== 'Hire' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Cost (Rs.)</label>
-                      <input
-                        id="fuelCost"
-                        type="number"
-                        min="0"
-                        className="w-full input-field py-3"
-                        value={formData.fuelCost}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Receipt</label>
-                      <input
-                        id="fuelReceipt"
-                        type="file"
-                        className="w-full input-field py-2 text-[10px]"
-                        onChange={handleFileChange}
-                      />
-                    </div>
-                  </div>
-                )}
+
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -3290,7 +3254,7 @@ export default function FleetApp() {
               </div>
             )}
 
-            {formData.purpose === 'Hire' && stage === 'update' && (
+            {formData.purpose === 'Hire' && stage === 'update' && currentRef && (
               <div className="glass-card p-6 border-rose-500/30 bg-rose-500/5">
                 <div className="flex items-center gap-3 text-white font-bold text-lg mb-4">
                   <AlertCircle className="w-5 h-5 text-rose-500" />
@@ -3326,7 +3290,7 @@ export default function FleetApp() {
             )}
 
             {/* Footer Buttons */}
-            {(stage === 'new' || stage === 'update') && (
+            {(stage === 'new' || (stage === 'update' && currentRef)) && (
               <div className="flex flex-col gap-4">
                 <AnimatePresence>
                   {alert && (
@@ -3355,7 +3319,7 @@ export default function FleetApp() {
                   </button>
                   <button
                     onClick={handleSubmit}
-                    disabled={loading || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef)}
+                    disabled={loading || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef) || (formData.purpose === 'Fuel' && stage === 'update' && !isFuelSubmitted)}
                     className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}

@@ -21,15 +21,6 @@ export async function PUT(request: Request) {
 
     const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, "")) || 0;
 
-    trip.status = rawValues[0] || trip.status;
-    trip.driverId = rawValues[3] || trip.driverId;
-    trip.vehicle = rawValues[4] || trip.vehicle;
-    trip.purpose = rawValues[5] || trip.purpose;
-    trip.fuel = parseNum(rawValues[9]) + (rawValues.length > 24 ? parseNum(rawValues[24]) : 0);
-    trip.repair = parseNum(rawValues[11]);
-    trip.commission = parseNum(rawValues[14]);
-    trip.finalPrice = parseNum(rawValues[23]);
-    
     // Recalculate total mileage
     const startMeter = parseNum(rawValues[6]);
     const endMeter = parseNum(rawValues[8]);
@@ -52,9 +43,24 @@ export async function PUT(request: Request) {
       rawValues[19] = endMeter - tEnd; // Loss (End)
     }
 
-    trip.rawValues = rawValues;
-    trip.markModified("rawValues");
-    await trip.save();
+    await Trip.updateOne(
+      { reference: reference.trim() },
+      {
+        $set: {
+          status: rawValues[0] || trip.status,
+          driverId: rawValues[3] || trip.driverId,
+          vehicle: rawValues[4] || trip.vehicle,
+          purpose: rawValues[5] || trip.purpose,
+          fuel: parseNum(rawValues[9]) + (rawValues.length > 24 ? parseNum(rawValues[24]) : 0),
+          repair: parseNum(rawValues[11]),
+          commission: parseNum(rawValues[14]),
+          finalPrice: parseNum(rawValues[23]),
+          mileage: trip.mileage,
+          scDue: scDue,
+          rawValues: rawValues
+        }
+      }
+    );
 
     return NextResponse.json({ success: true, message: "Trip successfully updated" });
   } catch (error: any) {
