@@ -1085,7 +1085,39 @@ export default function FleetApp() {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1024;
+          const MAX_HEIGHT = 1024;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height *= MAX_WIDTH / width));
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width *= MAX_HEIGHT / height));
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Compress with 0.7 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
+        };
+        img.onerror = (err) => reject(err);
+      };
       reader.onerror = error => reject(error);
     });
   };
@@ -1123,24 +1155,10 @@ export default function FleetApp() {
       let actualRef = currentRef;
 
       if (stage === 'new') {
-        setAlert({ type: 'warning', message: 'Generating new Reference...' });
-        const createRes = await fetch('/api/fleet/create-ref', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ timestamp: endTs, drvId: user[0] }),
-        });
-        const createData = await createRes.json();
-
-        if (createData.error) {
-          throw new Error(createData.error);
-        }
-
-        actualRef = createData.reference;
-        setCurrentRef(actualRef);
-
-        setAlert({ type: 'warning', message: 'Uploading data...' });
+        setAlert({ type: 'warning', message: 'Creating record and uploading data...' });
         const fileData = await fileToBase64(files.garageStartImage!);
-        uploadFiles.push({ name: `${actualRef} Garage Start`, dataUrl: fileData });
+        // We use TBD so the backend can replace it with the generated FR number
+        uploadFiles.push({ name: `TBD Garage Start`, dataUrl: fileData });
 
         let array: any[] = new Array(24).fill('');
         array[0] = user[0]; // Driver
@@ -1152,14 +1170,16 @@ export default function FleetApp() {
         if (formData.purpose === 'Repair') array[8] = formData.repairCost;
         if (formData.purpose === 'Fuel') array[6] = formData.fuelCost;
 
-        const updateRes = await fetch('/api/fleet/update', {
+        const createRes = await fetch('/api/fleet/create-record', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stage: 'start', ref: actualRef, array, files: uploadFiles }),
+          body: JSON.stringify({ timestamp: endTs, drvId: user[0], array, files: uploadFiles }),
         });
-        const updateData = await updateRes.json();
-        if (updateData.error) throw new Error(updateData.error);
+        const createData = await createRes.json();
+        if (createData.error) throw new Error(createData.error);
 
+        actualRef = createData.reference;
+        setCurrentRef(actualRef);
       } else {
         // Stage update
         if (files.fuelReceipt && !isFuelSubmitted) uploadFiles.push({ name: `${currentRef}_FuelReceipt`, dataUrl: await fileToBase64(files.fuelReceipt) });
