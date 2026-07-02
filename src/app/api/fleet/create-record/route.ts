@@ -28,84 +28,18 @@ export async function POST(request: Request) {
 
     const newReference = `FR${String(nextNumber).padStart(5, "0")}`;
 
-    // 2. Create Drive Folder
-    let folderId, folderUrl;
+    // 2. Drive upload removed as requested, images will only be stored in Database
+    let folderId = "";
+    let folderUrl = "";
 
-    if (process.env.APPS_SCRIPT_WEB_APP_URL) {
-      const proxyRes = await fetch(process.env.APPS_SCRIPT_WEB_APP_URL, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "createFolder",
-          parentId: process.env.DRIVE_PARENT_FOLDER_ID,
-          folderName: `${newReference} ${drvId}`
-        })
-      });
-      
-      const proxyData = await proxyRes.json();
-      if (!proxyData.success) {
-        throw new Error("Apps Script Proxy Error (Folder): " + proxyData.error);
-      }
-      folderId = proxyData.folderId;
-      folderUrl = proxyData.folderUrl;
-    } else {
-      const folderMetadata = {
-        name: `${newReference} ${drvId}`,
-        parents: [process.env.DRIVE_PARENT_FOLDER_ID!],
-        mimeType: "application/vnd.google-apps.folder",
-      };
-
-      const folder = await drive.files.create({
-        requestBody: folderMetadata,
-        fields: "id",
-      });
-
-      folderId = folder.data.id;
-      folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
-    }
-
-    // 3. Upload Files to the folder
+    // 3. Prepare Images for Database
     const imagesToSave: { name: string; dataUrl: any; }[] = [];
     if (files && files.length > 0) {
-      const uploadPromises = files.map(async (file: any) => {
+      files.forEach((file: any) => {
         // We will rename the file to include the newReference just in case it's generic
         const fileName = file.name.replace("TBD", newReference); 
         imagesToSave.push({ name: fileName, dataUrl: file.dataUrl });
-        const base64Data = file.dataUrl.split(",")[1];
-        
-        if (process.env.APPS_SCRIPT_WEB_APP_URL) {
-          const proxyRes = await fetch(process.env.APPS_SCRIPT_WEB_APP_URL, {
-            method: "POST",
-            body: JSON.stringify({
-              action: "uploadFile",
-              folderId: folderId,
-              fileName: fileName,
-              base64Data: base64Data,
-              mimeType: "image/jpeg"
-            })
-          });
-          
-          const proxyData = await proxyRes.json();
-          if (!proxyData.success) {
-            throw new Error("Apps Script Proxy Error (File): " + proxyData.error);
-          }
-        } else {
-          const buffer = Buffer.from(base64Data, "base64");
-          const stream = Readable.from(buffer);
-
-          await drive.files.create({
-            requestBody: {
-              name: fileName,
-              parents: [folderId!],
-            },
-            media: {
-              mimeType: "image/jpeg",
-              body: stream,
-            },
-          });
-        }
       });
-      
-      await Promise.all(uploadPromises);
     }
 
     // 4. Save to MongoDB ONLY after successful uploads
