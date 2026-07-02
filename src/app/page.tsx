@@ -131,7 +131,16 @@ export default function FleetApp() {
     try {
       const saved = localStorage.getItem('fleet_vehicle_drivers');
       if (saved) setVehicleDrivers(JSON.parse(saved));
+
     } catch (e) {}
+
+    // Fetch commissions from DB
+    fetch('/api/admin/commissions')
+      .then(res => res.json())
+      .then(data => {
+        if (data.commissions) setVehicleCommissions(data.commissions);
+      })
+      .catch(err => console.error("Error fetching commissions:", err));
   }, []);
 
   const handleDriverAssign = (vehicle: string, driver: string) => {
@@ -979,29 +988,49 @@ export default function FleetApp() {
         const rawFinalPrice = cleanNum(details[4]);
         const finalPriceNum = Number(rawFinalPrice) || 0;
 
-        // Calculate Driver Salary based on Vehicle Type
-        const vehicleType = details[17] ? details[17].toString().trim().toUpperCase() : '';
-        let rawSalary = '';
-        if (vehicleType === 'WAGON R | 3 SEATER' || vehicleType === 'MINI VAN | 6 SEATER') {
-          rawSalary = Math.round(finalPriceNum * 0.20).toString();
-        } else if (vehicleType === 'KDH HIGH ROOF VAN | 14 SEATER' || vehicleType === 'BUS | NON AC 32 SEATER') {
-          rawSalary = Math.round(finalPriceNum * 0.15).toString();
-        } else {
-          rawSalary = cleanNum(details[2]); // Fallback to default Driver Comm in account sheet
-        }
-
         const pkgKms = Number(cleanNum(details[33])) || 0;
         const distance = Number(cleanNum(details[58])) || 0;
         const rawPkgBalance = (pkgKms - distance).toString();
 
-        setFormData((prev: any) => ({
-          ...prev,
-          tripStartMeter: prev.tripStartMeter || accStartMeter,
-          tripEndMeter: prev.tripEndMeter || accEndMeter,
-          drvComms: rawSalary,
-          tripPrice: rawFinalPrice,
-          pkgBalanceMileage: rawPkgBalance
-        }));
+        setFormData((prev: any) => {
+          // Calculate Driver Salary based on Form Vehicle Number (Fleet Data) & Dynamic Commission Rate
+          const vehicleNumber = prev.vehicle ? prev.vehicle.toString().trim().toUpperCase() : '';
+          // Normalize state keys
+          const normalizedComms: Record<string, number> = {};
+          for (const key in vehicleCommissions) {
+            normalizedComms[key.trim().toUpperCase()] = vehicleCommissions[key];
+          }
+          
+          const commissionRate = normalizedComms[vehicleNumber];
+          
+          let rawSalary = '';
+          if (commissionRate !== undefined && commissionRate > 0) {
+            rawSalary = Math.round(finalPriceNum * (commissionRate / 100)).toString();
+          } else {
+            const vehicleType = details[17] ? details[17].toString().trim().toUpperCase() : '';
+            if (vehicleType === 'WAGON R | 3 SEATER' || vehicleType === 'MINI VAN | 6 SEATER') {
+              rawSalary = Math.round(finalPriceNum * 0.20).toString();
+            } else if (vehicleType === 'KDH HIGH ROOF VAN | 14 SEATER' || vehicleType === 'BUS | NON AC 32 SEATER') {
+              rawSalary = Math.round(finalPriceNum * 0.15).toString();
+            } else {
+              rawSalary = cleanNum(details[2]); // Fallback to default Driver Comm in account sheet
+            }
+          }
+
+          const fuel1 = Number(prev.firstFuelCost) || 0;
+          const fuel2 = Number(prev.fuelCost) || 0;
+          const dueAmount = Math.round(finalPriceNum - fuel1 - fuel2 - Number(rawSalary));
+
+          return {
+            ...prev,
+            tripStartMeter: prev.tripStartMeter || accStartMeter,
+            tripEndMeter: prev.tripEndMeter || accEndMeter,
+            drvComms: rawSalary,
+            tripPrice: rawFinalPrice,
+            pkgBalanceMileage: rawPkgBalance,
+            scDueAmount: dueAmount
+          };
+        });
       }
     } catch (err) {
       console.error("Error fetching trip details:", err);
@@ -1027,13 +1056,16 @@ export default function FleetApp() {
     setFormData((prev: any) => ({ ...prev, [id]: value }));
 
     // Auto-calcs
-    if (id === 'fuelCost') {
-      // Calc scDueAmount = Final price - fuel cost - driver salary
-      const fuel = Number(value) || 0;
-      const tripPrice = Number(formData.tripPrice.toString().replace(/[^\d.]/g, '')) || 0;
-      const salary = Number(formData.drvComms) || 0;
-      const due = Math.round(tripPrice - fuel - salary);
-      setFormData((prev: any) => ({ ...prev, scDueAmount: due }));
+    if (['fuelCost', 'firstFuelCost', 'tripPrice', 'drvComms'].includes(id)) {
+      // Calc scDueAmount = Final price - fuel cost 1 - fuel cost 2 - driver salary
+      setFormData((prev: any) => {
+        const fuel1 = Number(prev.firstFuelCost) || 0;
+        const fuel2 = Number(prev.fuelCost) || 0;
+        const tripPrice = Number((prev.tripPrice || '').toString().replace(/[^\d.]/g, '')) || 0;
+        const salary = Number(prev.drvComms) || 0;
+        const due = Math.round(tripPrice - fuel1 - fuel2 - salary);
+        return { ...prev, scDueAmount: due };
+      });
     }
 
     if (id === 'garageEndMeter') {
@@ -2617,8 +2649,18 @@ export default function FleetApp() {
                 <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Commission Rates</h3>
                   <button
-                    onClick={() => {
-                      setAlert({ type: 'success', message: 'Commission rates saved successfully!' });
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/admin/commissions', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ commissions: vehicleCommissions })
+                        });
+                        if (!res.ok) throw new Error('Failed to save');
+                        setAlert({ type: 'success', message: 'Commission rates saved to database successfully!' });
+                      } catch (err) {
+                        setAlert({ type: 'error', message: 'Error saving commission rates' });
+                      }
                     }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
                   >
@@ -2658,8 +2700,18 @@ export default function FleetApp() {
                             </td>
                             <td className="px-6 py-4">
                               <button
-                                onClick={() => {
-                                  setAlert({ type: 'success', message: `Commission rate for ${vehicle} updated to ${vehicleCommissions[vehicle] || 0}%` });
+                                onClick={async () => {
+                                  try {
+                                    const res = await fetch('/api/admin/commissions', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ commissions: vehicleCommissions })
+                                    });
+                                    if (!res.ok) throw new Error('Failed to save');
+                                    setAlert({ type: 'success', message: `Commission rate for ${vehicle} updated to ${vehicleCommissions[vehicle] || 0}% in database` });
+                                  } catch (err) {
+                                    setAlert({ type: 'error', message: 'Error updating commission rate' });
+                                  }
                                 }}
                                 className="px-4 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black text-[10px] font-black uppercase tracking-widest transition-all border border-emerald-500/20"
                               >
