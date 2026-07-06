@@ -86,7 +86,7 @@ export async function POST(request: Request) {
         const drive = await getDrive();
         const folderId = trip.folderId;
 
-        for (const file of files) {
+        const uploadPromises = files.map(async (file: any) => {
           const base64Data = file.dataUrl.split(",")[1];
           
           if (process.env.APPS_SCRIPT_WEB_APP_URL) {
@@ -120,7 +120,9 @@ export async function POST(request: Request) {
               },
             });
           }
-        }
+        });
+        
+        await Promise.all(uploadPromises);
       } catch (driveError) {
         console.error("Google Drive upload failed, image saved in DB:", driveError);
       }

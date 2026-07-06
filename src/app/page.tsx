@@ -69,6 +69,8 @@ export default function FleetApp() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [officeMessage, setOfficeMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [showNoticePopup, setShowNoticePopup] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Admin Dashboard States
   const [adminData, setAdminData] = useState<any>(null);
@@ -355,6 +357,13 @@ export default function FleetApp() {
       setShowInstallPopup(true);
     }
   }, [user, deferredPrompt]);
+
+  useEffect(() => {
+    const splashTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2500);
+    return () => clearTimeout(splashTimer);
+  }, []);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -915,6 +924,7 @@ export default function FleetApp() {
         vehicle: details[4] || '',
         purpose: details[5] || '',
         garageStartMeter: details[6] || '',
+        garageEndMeter: details[8] || '',
         tripRef: fetchedTripRef,
         folderUrl: details[20] || '',
         folderId: details[21] || '',
@@ -1122,8 +1132,8 @@ export default function FleetApp() {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1024;
-          const MAX_HEIGHT = 1024;
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
           let width = img.width;
           let height = img.height;
 
@@ -1144,8 +1154,8 @@ export default function FleetApp() {
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
           
-          // Compress with 0.7 quality
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          // Compress with 0.5 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
           resolve(dataUrl);
         };
         img.onerror = (err) => reject(err);
@@ -1221,7 +1231,7 @@ export default function FleetApp() {
           const repairFiles = Array.isArray(files.repairReceipt) ? files.repairReceipt : [files.repairReceipt];
           for (let i = 0; i < repairFiles.length; i++) {
             uploadFiles.push({
-              name: `${currentRef}_Repair_${i + 1}`,
+              name: `${currentRef}_Repair_${Date.now()}_${i + 1}`,
               dataUrl: await fileToBase64(repairFiles[i] as File)
             });
           }
@@ -1300,6 +1310,35 @@ export default function FleetApp() {
     }
   };
 
+  if (showSplash) {
+    return (
+      <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#f4f7fb]">
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="relative w-64 h-64 sm:w-80 sm:h-80 mb-12"
+        >
+          <img 
+            src="/logo.jpg" 
+            alt="Fleet App Splash" 
+            className="w-full h-full object-contain drop-shadow-2xl rounded-[2.5rem]"
+          />
+        </motion.div>
+        
+        <motion.div 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+          <h2 className="text-sm sm:text-base font-black text-slate-800 tracking-[0.4em] uppercase">SC Fleet</h2>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (!user) return <LoginModal onLogin={(u) => { setUser(u); fetchInitialData(u[0]); }} />;
 
   return (
@@ -1366,6 +1405,36 @@ export default function FleetApp() {
                   YES, LOGOUT
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Notice Popup Modal */}
+      <AnimatePresence>
+        {showNoticePopup && stage !== 'admin' && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="glass-card p-6 w-full max-w-sm text-center space-y-6 border-blue-500/20"
+            >
+              <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-8 h-8 text-blue-500" />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-black text-white">විශේෂ දැනුම්දීමයි</h3>
+                <p className="text-slate-200 text-sm leading-relaxed font-medium">
+                  2026.07.07 වන දින සිට ඉදිරියට සිදු කරන HIRE සඳහා වැටුප් සැකසිම මෙම නව FLEET APP එක මගින් සිදු කෙරේ.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowNoticePopup(false)}
+                className="w-full py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-500 transition-all font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-500/20"
+              >
+                OK / තේරුම් ගත්තා
+              </button>
             </motion.div>
           </div>
         )}
@@ -2926,6 +2995,7 @@ export default function FleetApp() {
                       { label: 'Loss (End)', value: `${formData.endLossMileage} KM` },
                       { label: 'Total Mileage', value: `${formData.totalMileage} KM` },
                       { label: 'Fuel Cost', value: `Rs. ${formData.fuelCost}` },
+                      { label: '2nd Fuel Cost', value: `Rs. ${formData.secondFuelCost}` },
                       { label: 'Repair Cost', value: `Rs. ${formData.repairCost}` },
                       { label: 'SC Due', value: `Rs. ${formData.scDueAmount}`, highlight: true },
                       { label: 'Driver Comms', value: `Rs. ${formData.drvComms}`, highlight: true },
@@ -2953,7 +3023,7 @@ export default function FleetApp() {
                         setCurrentRef(null);
                         setFormData({
                           vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '',
-                          tripRef: '', tripStartMeter: '', tripEndMeter: '', fuelCost: '',
+                          tripRef: '', tripStartMeter: '', tripEndMeter: '', fuelCost: '', secondFuelCost: '',
                           repairCost: '', comments: '', scDueAmount: '', drvComms: '',
                           startLossMileage: '', endLossMileage: '', pkgBalanceMileage: '',
                           tripPrice: '', totalMileage: '', finalPrice: '', startTs: '', endTs: ''
