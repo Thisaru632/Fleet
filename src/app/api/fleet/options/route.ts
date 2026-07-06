@@ -11,7 +11,11 @@ export async function GET() {
     
     // Fetch unique vehicles and purposes from all existing trips in MongoDB
     const vehicles = await Trip.distinct("vehicle", { vehicle: { $nin: [null, ""] } });
-    const purposes = await Trip.distinct("purpose", { purpose: { $nin: [null, ""] } });
+    const dbPurposes = await Trip.distinct("purpose", { purpose: { $nin: [null, ""] } });
+
+    // Ensure default purposes are always available
+    const defaultPurposes = ["Hire", "Repair", "Personal", "Fuel"];
+    const purposes = Array.from(new Set([...defaultPurposes, ...dbPurposes]));
 
     // Sort alphabetically
     vehicles.sort();
