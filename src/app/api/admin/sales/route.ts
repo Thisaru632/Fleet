@@ -65,8 +65,8 @@ export async function GET(request: Request) {
       users
     ] = await Promise.all([
       Trip.countDocuments(query),
-      Trip.find(query, { images: 0 }).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
-      Trip.find(query, { images: 0, rawValues: 0 }).sort({ timestamp: -1 }).limit(10).lean(),
+      Trip.find(query, { images: 0 }).sort({ _id: -1 }).skip(skip).limit(limit).lean(),
+      Trip.find(query, { images: 0, rawValues: 0 }).sort({ _id: -1 }).limit(10).lean(),
       Trip.aggregate([
         { $match: query },
         { $group: {
