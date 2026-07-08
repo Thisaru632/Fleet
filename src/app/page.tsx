@@ -71,6 +71,7 @@ export default function FleetApp() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showNoticePopup, setShowNoticePopup] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
+  const [showRefreshPopup, setShowRefreshPopup] = useState(false);
 
   // Admin Dashboard States
   const [adminData, setAdminData] = useState<any>(null);
@@ -1188,6 +1189,27 @@ export default function FleetApp() {
           setLoading(false);
           return;
         }
+
+        if (formData.purpose === 'Hire') {
+          if (
+            formData.tripStartMeter === '' || formData.tripStartMeter === null || formData.tripStartMeter === undefined ||
+            formData.tripEndMeter === '' || formData.tripEndMeter === null || formData.tripEndMeter === undefined ||
+            formData.tripPrice === '' || formData.tripPrice === null || formData.tripPrice === undefined ||
+            formData.drvComms === '' || formData.drvComms === null || formData.drvComms === undefined
+          ) {
+            setShowRefreshPopup(true);
+            setLoading(false);
+            return;
+          }
+        }
+
+        if (formData.purpose === 'Repair') {
+          if (!files.repairReceipt || (Array.isArray(files.repairReceipt) && files.repairReceipt.length === 0)) {
+            setAlert({ type: 'error', message: 'Please upload the repair bill before submitting.' });
+            setLoading(false);
+            return;
+          }
+        }
       }
 
       const now = new Date();
@@ -1373,6 +1395,36 @@ export default function FleetApp() {
           </div>
         )}
       </div>
+
+      {/* Refresh Popup Modal */}
+      <AnimatePresence>
+        {showRefreshPopup && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="glass-card p-8 w-full max-w-sm text-center space-y-6 border-rose-500/20"
+            >
+              <div className="w-20 h-20 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-10 h-10 text-rose-500" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-white">දත්ත යාවත් කාලීන වීමේ දොශයකි</h3>
+                <p className="text-slate-400 text-sm">වරක් App එක Refresh කර නැවත උත්සහ කරන්න</p>
+              </div>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="flex-1 py-3 rounded-xl border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-all font-bold text-sm"
+                >
+                  REFRESH
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Logout Confirmation Modal */}
       <AnimatePresence>
@@ -2132,14 +2184,51 @@ export default function FleetApp() {
                                     })()}
                                   </span>
                                 ) : idx === 0 ? (
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    (t.values[idx as number] || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
-                                    (t.values[idx as number] || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
-                                    "bg-yellow-200 text-yellow-900"
-                                  )}>
-                                    {t.values[idx as number] || 'Pending'}
-                                  </span>
+                                  <select
+                                    value={t.values[idx as number] || 'Pending'}
+                                    onChange={async (e) => {
+                                      const newStatus = e.target.value;
+                                      const newValues = [...t.values];
+                                      newValues[0] = newStatus;
+                                      setAlert({ type: 'warning', message: 'Updating status...' });
+                                      try {
+                                        const res = await fetch('/api/admin/edit-trip', {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ reference: t.rf, rawValues: newValues })
+                                        });
+                                        const data = await res.json();
+                                        if (data.error) throw new Error(data.error);
+                                        setAlert({ type: 'success', message: 'Status updated!' });
+                                        
+                                        // Update local state optimistically
+                                        const newFleetData = [...adminData.tables.fleetData];
+                                        const rowIdx = newFleetData.findIndex((r: any) => r.rf === t.rf);
+                                        if (rowIdx > -1) {
+                                          newFleetData[rowIdx].values[0] = newStatus;
+                                          setAdminData({
+                                            ...adminData,
+                                            tables: {
+                                              ...adminData.tables,
+                                              fleetData: newFleetData
+                                            }
+                                          });
+                                        }
+                                      } catch (err: any) {
+                                        setAlert({ type: 'error', message: err.message || 'Failed to update status' });
+                                      }
+                                    }}
+                                    className={cn(
+                                      "px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-widest cursor-pointer outline-none appearance-none text-center",
+                                      (t.values[idx as number] || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
+                                      (t.values[idx as number] || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
+                                      "bg-yellow-200 text-yellow-900"
+                                    )}
+                                  >
+                                    <option value="Pending" className="bg-slate-800 text-white font-bold">Pending</option>
+                                    <option value="Approved" className="bg-slate-800 text-white font-bold">Approved</option>
+                                    <option value="Cancelled" className="bg-slate-800 text-white font-bold">Cancelled</option>
+                                  </select>
                                 ) : idx === 5 ? (
                                   <span className={cn(
                                     "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
@@ -2178,9 +2267,16 @@ export default function FleetApp() {
                                     (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
                                       (idx === 9 || idx === 11 || idx === 24) ? "text-rose-400" : "text-white"
                                   )}>
-                                    {idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || t.values[idx as number].toString().trim() === '')
-                                      ? '0'
-                                      : (t.values[idx as number] !== undefined && t.values[idx as number] !== null ? t.values[idx as number].toString() : '-')}
+                                    {(() => {
+                                      const isFinished = t.values[8] !== undefined && t.values[8] !== null && String(t.values[8]).trim() !== '';
+                                      if (!isFinished && (idx === 18 || idx === 19 || idx === 22)) {
+                                        return '0';
+                                      }
+                                      if (idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || String(t.values[idx as number]).trim() === '')) {
+                                        return '0';
+                                      }
+                                      return (t.values[idx as number] !== undefined && t.values[idx as number] !== null) ? t.values[idx as number].toString() : '-';
+                                    })()}
                                   </span>
                                 )}
                               </td>
