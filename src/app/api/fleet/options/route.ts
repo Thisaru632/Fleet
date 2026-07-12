@@ -10,10 +10,13 @@ export async function GET() {
     await dbConnect();
     
     // Fetch unique vehicles and purposes from all existing trips in MongoDB
-    const vehicles = await Trip.distinct("vehicle", { vehicle: { $nin: [null, ""] } });
+    const dbVehicles = await Trip.distinct("vehicle", { vehicle: { $nin: [null, ""] } });
     const dbPurposes = await Trip.distinct("purpose", { purpose: { $nin: [null, ""] } });
 
-    // Ensure default purposes are always available
+    // Ensure default vehicles and purposes are always available
+    const defaultVehicles = ["PK-3991"];
+    const vehicles = Array.from(new Set([...defaultVehicles, ...dbVehicles]));
+
     const defaultPurposes = ["Hire", "Repair", "Personal", "Fuel"];
     const purposes = Array.from(new Set([...defaultPurposes, ...dbPurposes]));
 
