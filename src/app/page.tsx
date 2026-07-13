@@ -97,6 +97,7 @@ export default function FleetApp() {
   const [importingCsv, setImportingCsv] = useState(false);
   const [adminPage, setAdminPage] = useState(1);
   const [isSyncingAccounts, setIsSyncingAccounts] = useState(false);
+  const [isSyncingFullScreen, setIsSyncingFullScreen] = useState(false);
   const [clearingFleet, setClearingFleet] = useState(false);
   const [editingTrip, setEditingTrip] = useState<any>(null);
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
@@ -817,9 +818,18 @@ export default function FleetApp() {
     }
   };
 
-  const handleNewRecord = () => {
-    // Trigger background sync
-    fetch('/api/admin/sync-accounts').catch(err => console.error('Background sync failed:', err));
+  const handleNewRecord = async () => {
+    setLoading(true);
+    setIsSyncingFullScreen(true);
+    
+    try {
+      await fetch('/api/admin/sync-accounts');
+    } catch (err) {
+      console.error('Background sync failed:', err);
+    }
+    
+    setIsSyncingFullScreen(false);
+    setLoading(false);
 
     setCurrentRef('TBD'); // Temporary value until submit
     setFormData({
@@ -839,9 +849,18 @@ export default function FleetApp() {
     setAlert({ type: 'success', message: 'Please fill details. The record will be created when you submit.' });
   };
 
-  const handleUpdateBtnClick = () => {
-    // Trigger background sync
-    fetch('/api/admin/sync-accounts').catch(err => console.error('Background sync failed:', err));
+  const handleUpdateBtnClick = async () => {
+    setLoading(true);
+    setIsSyncingFullScreen(true);
+    
+    try {
+      await fetch('/api/admin/sync-accounts');
+    } catch (err) {
+      console.error('Background sync failed:', err);
+    }
+    
+    setIsSyncingFullScreen(false);
+    setLoading(false);
 
     setCurrentRef(null);
     setFormData({
@@ -1337,6 +1356,27 @@ export default function FleetApp() {
       setLoading(false);
     }
   };
+
+  if (isSyncingFullScreen) {
+    return (
+      <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 text-center">
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="flex flex-col items-center gap-6 p-8 glass-card border-emerald-500/20 w-full max-w-sm"
+        >
+          <div className="relative">
+            <div className="absolute inset-0 border-4 border-emerald-500/20 rounded-full"></div>
+            <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-white tracking-widest uppercase">Syncing Details</h2>
+            <p className="text-sm text-emerald-400 font-medium">Please wait a moment...</p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (showSplash) {
     return (
