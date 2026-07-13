@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Trip from "@/models/Trip";
 import User from "@/models/User";
+import SheetMetadata from "@/models/SheetMetadata";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -62,11 +63,12 @@ export async function GET(request: Request) {
       chartsAggregation,
       uniqueVehicles,
       uniqueDrivers,
-      users
+      users,
+      addedVehiclesMeta
     ] = await Promise.all([
       Trip.countDocuments(query),
-      Trip.find(query, { images: 0 }).sort({ _id: -1 }).skip(skip).limit(limit).lean(),
-      Trip.find(query, { images: 0, rawValues: 0 }).sort({ _id: -1 }).limit(10).lean(),
+      Trip.find(query, { images: 0 }).sort({ reference: -1 }).skip(skip).limit(limit).lean(),
+      Trip.find(query, { images: 0, rawValues: 0 }).sort({ reference: -1 }).limit(10).lean(),
       Trip.aggregate([
         { $match: query },
         { $group: {
@@ -140,7 +142,8 @@ export async function GET(request: Request) {
       ]),
       Trip.distinct("vehicle"),
       Trip.distinct("driverId"),
-      User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 }).lean()
+      User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 }).lean(),
+      SheetMetadata.findOne({ key: "added_vehicles" }).lean()
     ]);
 
     // KPI mapping
@@ -244,7 +247,7 @@ export async function GET(request: Request) {
       },
       driverNames,
       filterOptions: {
-        vehicles: Array.from(new Set(["PK-3991", ...uniqueVehicles.filter(Boolean)])),
+        vehicles: Array.from(new Set(["PK-3991", ...uniqueVehicles.filter(Boolean), ...(addedVehiclesMeta?.value || [])])),
         drivers: uniqueDrivers.filter(Boolean),
         purposes: ["All", "Hire", "Repair", "Personal", "Fuel"],
         statuses: ["All", "Approved", "Pending"]

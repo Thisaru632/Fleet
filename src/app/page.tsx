@@ -116,6 +116,8 @@ export default function FleetApp() {
   });
 
   const [debouncedFleetSearch, setDebouncedFleetSearch] = useState('');
+  const [newVehicleNumber, setNewVehicleNumber] = useState('');
+  const [addingVehicle, setAddingVehicle] = useState(false);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -1832,7 +1834,7 @@ export default function FleetApp() {
               )}
             >
               <Activity className="w-4 h-4" />
-              DRIVER COMMISSION
+              VEHICLE & COMMISSIONS
             </button>
 
             <div className="w-px h-8 bg-white/10 mx-2 self-center shrink-0"></div>
@@ -2915,6 +2917,52 @@ export default function FleetApp() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
+              {/* Add Vehicle Section */}
+              <div className="glass-card p-4 border border-white/5 bg-white/5 mb-6 flex flex-col sm:flex-row items-center gap-4">
+                <div className="flex-1 space-y-1 w-full text-left">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Plus className="w-3 h-3 text-emerald-500" />
+                    Add New Vehicle
+                  </h3>
+                  <p className="text-[9px] text-slate-500">Add a vehicle number to make it available system-wide</p>
+                </div>
+                <div className="flex w-full sm:w-auto items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. CBK-0647"
+                    className="w-full sm:w-48 input-field h-9 text-xs"
+                    value={newVehicleNumber}
+                    onChange={(e) => setNewVehicleNumber(e.target.value.toUpperCase())}
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!newVehicleNumber.trim()) return;
+                      setAddingVehicle(true);
+                      try {
+                        const res = await fetch('/api/admin/add-vehicle', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ vehicleNumber: newVehicleNumber.trim() })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'Failed to add vehicle');
+                        setAlert({ type: 'success', message: `${newVehicleNumber} added successfully!` });
+                        setNewVehicleNumber('');
+                        fetchAdminSales(true);
+                      } catch (err: any) {
+                        setAlert({ type: 'error', message: err.message });
+                      } finally {
+                        setAddingVehicle(false);
+                      }
+                    }}
+                    disabled={addingVehicle || !newVehicleNumber.trim()}
+                    className="h-9 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shadow-lg shadow-emerald-500/20"
+                  >
+                    {addingVehicle ? 'ADDING...' : 'ADD VEHICLE'}
+                  </button>
+                </div>
+              </div>
+
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Commission Rates</h3>
