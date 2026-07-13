@@ -97,7 +97,7 @@ export default function FleetApp() {
   const [importingCsv, setImportingCsv] = useState(false);
   const [adminPage, setAdminPage] = useState(1);
   const [isSyncingAccounts, setIsSyncingAccounts] = useState(false);
-  const [isSyncingFullScreen, setIsSyncingFullScreen] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
   const [clearingFleet, setClearingFleet] = useState(false);
   const [editingTrip, setEditingTrip] = useState<any>(null);
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
@@ -130,6 +130,21 @@ export default function FleetApp() {
     }, 500);
     return () => clearTimeout(handler);
   }, [fleetSearch]);
+
+  const resetAdminFilters = () => {
+    setAdminFilters({
+      startDate: '',
+      endDate: '',
+      purpose: 'All',
+      status: 'All',
+      vehicle: 'All',
+      driver: 'All'
+    });
+  };
+
+  useEffect(() => {
+    resetAdminFilters();
+  }, [adminTab]);
 
   useEffect(() => {
     try {
@@ -524,17 +539,44 @@ export default function FleetApp() {
 
   const handleSyncAccountSheet = async () => {
     setIsSyncingAccounts(true);
+    setSyncProgress(0);
     setAlert({ type: 'warning', message: 'Syncing with Google Sheets... This may take a moment.' });
+    
+    const progressInterval = setInterval(() => {
+      setSyncProgress(prev => {
+        if (prev >= 99) return 99;
+        
+        let increment = 1;
+        if (prev < 40) {
+          increment = Math.floor(Math.random() * 8) + 4; // 4 to 11
+        } else if (prev < 75) {
+          increment = Math.floor(Math.random() * 5) + 2; // 2 to 6
+        } else if (prev < 90) {
+          increment = Math.floor(Math.random() * 3) + 1; // 1 to 3
+        } else {
+          increment = Math.random() > 0.6 ? 1 : 0; // Occasionally 1, mostly 0
+        }
+        
+        return Math.min(99, prev + increment);
+      });
+    }, 600);
+
     try {
       const res = await fetch('/api/admin/sync-accounts');
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      
+      setSyncProgress(100);
       setAlert({ type: 'success', message: data.message || 'Account sheet synced successfully!' });
       fetchAccountSheetData(); // Refresh table
     } catch (err: any) {
       setAlert({ type: 'error', message: err.message || 'Failed to sync account sheet' });
     } finally {
-      setIsSyncingAccounts(false);
+      clearInterval(progressInterval);
+      setTimeout(() => {
+        setIsSyncingAccounts(false);
+        setSyncProgress(0);
+      }, 1000);
       setTimeout(() => setAlert(null), 3000);
     }
   };
@@ -818,19 +860,7 @@ export default function FleetApp() {
     }
   };
 
-  const handleNewRecord = async () => {
-    setLoading(true);
-    setIsSyncingFullScreen(true);
-    
-    try {
-      await fetch('/api/admin/sync-accounts');
-    } catch (err) {
-      console.error('Background sync failed:', err);
-    }
-    
-    setIsSyncingFullScreen(false);
-    setLoading(false);
-
+  const handleNewRecord = () => {
     setCurrentRef('TBD'); // Temporary value until submit
     setFormData({
       vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '',
@@ -849,19 +879,7 @@ export default function FleetApp() {
     setAlert({ type: 'success', message: 'Please fill details. The record will be created when you submit.' });
   };
 
-  const handleUpdateBtnClick = async () => {
-    setLoading(true);
-    setIsSyncingFullScreen(true);
-    
-    try {
-      await fetch('/api/admin/sync-accounts');
-    } catch (err) {
-      console.error('Background sync failed:', err);
-    }
-    
-    setIsSyncingFullScreen(false);
-    setLoading(false);
-
+  const handleUpdateBtnClick = () => {
     setCurrentRef(null);
     setFormData({
       vehicle: '',
@@ -1357,27 +1375,6 @@ export default function FleetApp() {
     }
   };
 
-  if (isSyncingFullScreen) {
-    return (
-      <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md px-4 text-center">
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="flex flex-col items-center gap-6 p-8 glass-card border-emerald-500/20 w-full max-w-sm"
-        >
-          <div className="relative">
-            <div className="absolute inset-0 border-4 border-emerald-500/20 rounded-full"></div>
-            <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-xl font-black text-white tracking-widest uppercase">Syncing Details</h2>
-            <p className="text-sm text-emerald-400 font-medium">Please wait a moment...</p>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
   if (showSplash) {
     return (
       <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#f4f7fb]">
@@ -1410,7 +1407,42 @@ export default function FleetApp() {
   if (!user) return <LoginModal onLogin={(u) => { setUser(u); fetchInitialData(u[0]); }} />;
 
   return (
-    <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full" : "max-w-xl")}>
+    <>
+      <AnimatePresence>
+        {isSyncingAccounts && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center"
+          >
+            <div className="relative flex items-center justify-center mb-6">
+              <svg className="w-32 h-32 transform -rotate-90 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]" viewBox="0 0 36 36">
+                <path
+                  className="opacity-20 text-emerald-500"
+                  strokeWidth="3"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className="text-emerald-500 transition-all duration-300 ease-out"
+                  strokeDasharray={`${syncProgress}, 100`}
+                  strokeWidth="3"
+                  stroke="currentColor"
+                  fill="none"
+                  strokeLinecap="round"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <span className="absolute text-2xl font-bold text-white">{syncProgress}%</span>
+            </div>
+            <h2 className="text-2xl font-black tracking-widest text-emerald-500 animate-pulse uppercase">Syncing Data</h2>
+            <p className="text-slate-400 text-sm mt-3 font-medium text-center px-6">Please wait while your account details are updated...</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full" : "max-w-xl")}>
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-3">
@@ -1540,27 +1572,44 @@ export default function FleetApp() {
 
       {/* Driver Info Bar */}
       {stage !== 'admin' && (
-        <div className="glass-card p-4 mb-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-center px-3 border-r border-white/10">
-              <IdCard className="w-5 h-5 text-emerald-500 mb-1" />
-              <span className="text-xs font-bold text-white">{user[0]}</span>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white">{user[4]}</span>
+        <div className="flex items-center gap-4 mb-6">
+          <div className="glass-card p-4 flex items-center justify-between gap-4 flex-1">
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col items-center px-3 border-r border-white/10">
+                <IdCard className="w-5 h-5 text-emerald-500 mb-1" />
+                <span className="text-xs font-bold text-white">{user[0]}</span>
               </div>
-              <div className="flex items-center gap-2 text-slate-400">
-                <Phone className="w-3 h-3" />
-                <span className="text-[10px]">{user[3]}</span>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white">{user[4]}</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400">
+                  <Phone className="w-3 h-3" />
+                  <span className="text-[10px]">{user[3]}</span>
+                </div>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors shrink-0"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
+          
           <button
-            onClick={handleLogout}
-            className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors"
+            onClick={handleSyncAccountSheet}
+            disabled={isSyncingAccounts}
+            className={`shrink-0 flex flex-col items-center justify-center p-3 sm:px-5 rounded-2xl transition-all border shadow-lg ${
+              isSyncingAccounts 
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' 
+                : 'bg-emerald-500/20 border-emerald-500 hover:bg-emerald-500 hover:text-white text-emerald-500 shadow-emerald-500/20 hover:shadow-emerald-500/40'
+            }`}
+            title="Sync Account Data"
           >
-            <LogOut className="w-5 h-5" />
+            <RefreshCw className={`w-6 h-6 mb-1 ${isSyncingAccounts ? 'animate-spin opacity-50' : ''}`} />
+            <span className="text-[10px] font-bold uppercase tracking-wider">{isSyncingAccounts ? 'Syncing...' : 'Sync Data'}</span>
           </button>
         </div>
       )}
@@ -1699,8 +1748,10 @@ export default function FleetApp() {
       {stage === 'admin' && (
         <div className="space-y-8 pb-20">
           {/* Header & Back section removed */}
-          {/* Tabs Navigation */}
-          <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10 w-fit">
+          {/* Tabs and Filters Container */}
+          <div className="flex flex-col gap-3 w-fit">
+            {/* Tabs Navigation */}
+            <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10 w-full overflow-x-auto">
             <button
               onClick={() => setAdminTab('overview')}
               className={cn(
@@ -1799,9 +1850,9 @@ export default function FleetApp() {
 
           {/* Filters */}
           {adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && (
-            <div className="glass-card p-2.5">
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-              <div className="space-y-1">
+            <div className="p-1.5 bg-white/5 rounded-2xl border border-white/10 flex flex-col md:flex-row items-end gap-2 w-full">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-2 flex-1 w-full px-2 py-0.5">
+                <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                   <Calendar className="w-2.5 h-2.5" /> From
                 </label>
@@ -1866,8 +1917,16 @@ export default function FleetApp() {
                 </select>
               </div>
             </div>
+            <button
+              onClick={resetAdminFilters}
+              className="h-7 px-4 mb-0.5 mr-0.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shrink-0 w-full md:w-auto"
+              title="Clear Filters"
+            >
+              <X className="w-3 h-3" /> CLEAR
+            </button>
           </div>
           )}
+          </div>
           {fetchingAdmin ? (
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
               <div className="relative">
@@ -4407,5 +4466,6 @@ export default function FleetApp() {
         )}
       </AnimatePresence>
     </main>
+    </>
   );
 }
