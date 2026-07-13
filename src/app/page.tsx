@@ -818,6 +818,9 @@ export default function FleetApp() {
   };
 
   const handleNewRecord = () => {
+    // Trigger background sync
+    fetch('/api/admin/sync-accounts').catch(err => console.error('Background sync failed:', err));
+
     setCurrentRef('TBD'); // Temporary value until submit
     setFormData({
       vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '',
@@ -837,6 +840,9 @@ export default function FleetApp() {
   };
 
   const handleUpdateBtnClick = () => {
+    // Trigger background sync
+    fetch('/api/admin/sync-accounts').catch(err => console.error('Background sync failed:', err));
+
     setCurrentRef(null);
     setFormData({
       vehicle: '',
