@@ -1,0 +1,398 @@
+Line 690:
+      const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => {
+        let val = '';
+        if (idx === 'fuel_meter' || idx === 'fuel_liters') {
+            const rawComments = t.values[10] || '';
+            const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+
+------------------
+Line 1819:
+                    {sentMessages.map((msg, i) => (
+                      <div key={i} className="bg-slate-900/50 border border-white/5 p-4 rounded-xl">
+                        <div className="text-[10px] font-bold text-blue-400 mb-2 uppercase tracking-widest">{msg.timestamp}</div>
+                        <p className="text-xs font-medium text-slate-200 whitespace-pre-wrap">{msg.message}</p>
+                      </div>
+
+------------------
+Line 1852:
+                    {inboxMessages.map((msg: any, i) => (
+                      <div 
+                        key={i} 
+                        onClick={async () => {
+                          if (!msg.isRead) {
+
+------------------
+Line 1863:
+                              setInboxMessages(prev => prev.map(m => m._id === msg._id ? { ...m, isRead: true } : m));
+                            } catch (e) {}
+                          }
+                        }}
+                        className={cn(
+
+------------------
+Line 2039:
+                  {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
+
+------------------
+Line 2049:
+                  {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
+
+------------------
+Line 2060:
+                  {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
+
+------------------
+Line 2071:
+                  {adminData?.filterOptions.drivers.map((d: string) => <option key={d} value={d}>{adminData.driverNames?.[d] || d}</option>)}
+                </select>
+              </div>
+            </div>
+            <button
+
+------------------
+Line 2118:
+                    ].map((kpi, idx) => (
+                      <div key={idx} className="glass-card p-6 space-y-4">
+                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", kpi.bg)}>
+                          <kpi.icon className={cn("w-6 h-6", kpi.color)} />
+                        </div>
+
+------------------
+Line 2143:
+                        {adminData.tables.topVehicles.slice(0, 3).map((v: any, i: number) => (
+                          <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                              <span className="text-xs font-bold text-white">{v.vehicle}</span>
+
+------------------
+Line 2167:
+                        {adminData.tables.topDrivers.slice(0, 3).map((d: any, i: number) => (
+                          <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                              <span className="text-xs font-bold text-white">{adminData.driverNames?.[d.driver] || d.driver}</span>
+
+------------------
+Line 2200:
+                      {adminData.tables.topVehicles.map((v: any, i: number) => (
+                        <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                            <span className="text-xs font-bold text-white">{v.vehicle}</span>
+
+------------------
+Line 2218:
+                      {adminData.tables.topDrivers.map((d: any, i: number) => (
+                        <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                            <span className="text-xs font-bold text-white">{adminData.driverNames?.[d.driver] || d.driver}</span>
+
+------------------
+Line 2246:
+                          {['FR Ref', 'Date', 'Driver', 'Vehicle', 'Purpose', 'Status', 'Sales', 'Commission', 'Fuel', 'Repair', 'Loss Mileage'].map(h => (
+                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+
+------------------
+Line 2252:
+                        {adminData.tables.recentTrips.map((t: any, i: number) => (
+                          <tr key={i} className="hover:bg-white/5 transition-colors group">
+                            <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.rf}</td>
+                            <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">{t.date.split(' ')[0]}</td>
+                            <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{adminData.driverNames?.[t.driver] || t.driver}</td>
+
+------------------
+Line 2307:
+                            {Array.from({ length: Math.min(5, adminData.pagination.totalPages) }).map((_, i) => {
+                              let pageNum = 1;
+                              if (adminData.pagination.totalPages <= 5) pageNum = i + 1;
+                              else if (adminData.pagination.page <= 3) pageNum = i + 1;
+                              else if (adminData.pagination.page >= adminData.pagination.totalPages - 2) pageNum = adminData.pagination.totalPages - 4 + i;
+
+------------------
+Line 2376:
+                          ].map(h => (
+                            <th key={h} className={cn(
+                              "px-6 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                              h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5" : ""
+                            )}>
+
+------------------
+Line 2387:
+                        {adminData.tables.fleetData.map((t: any, i: number) => {
+                          const originalIndex = adminData.tables.fleetData.indexOf(t);
+                          const vehicleNum = t.values[4];
+                          const rawGarageStart = t.values[6];
+                          
+
+------------------
+Line 2419:
+                            {[0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => (
+                              <td 
+                                key={idx} 
+                                className={cn(
+                                  "px-6 py-2 text-xs whitespace-nowrap",
+
+------------------
+Line 2667:
+                      {adminData?.filterOptions?.drivers?.map((d: string) => (
+                        <option key={d} value={d}>{adminData.driverNames?.[d] || d}</option>
+                      ))}
+                    </select>
+                    <select
+
+------------------
+Line 2687:
+                      {adminData?.filterOptions?.vehicles?.map((v: string) => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                  </div>
+
+------------------
+Line 2699:
+                          {['User Name', 'Password', 'Role', 'Name', 'Phone Number', 'Assigned Vehicle', 'Status', 'Actions'].map(h => (
+                            <th key={h} className={cn(
+                              "px-10 py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                              h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 w-[1%]" : "",
+                              h === 'Name' ? "w-full" : ""
+
+------------------
+Line 2730:
+                        }).map((driver: any, i: number) => {
+                          // Find assigned vehicle
+                          let assignedVehicle = "Unassigned";
+                          Object.keys(vehicleDrivers).forEach(v => {
+                            if (vehicleDrivers[v] === driver.username) {
+
+------------------
+Line 2858:
+                          ]).map((h: string) => (
+                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+
+------------------
+Line 2865:
+                          .map((row: any, i: number) => (
+                          <tr key={i} className="hover:bg-white/5 transition-colors group">
+                            {(row.rawValues || []).map((val: any, idx: number) => (
+                              <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
+                                {idx === 0 ? (
+
+------------------
+Line 2867:
+                            {(row.rawValues || []).map((val: any, idx: number) => (
+                              <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
+                                {idx === 0 ? (
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+
+------------------
+Line 2981:
+                          {['Status', 'Driver ID', 'Driver Name', 'Message Preview', 'Actions'].map(h => (
+                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+
+------------------
+Line 2987:
+                        {messagesData.messages.map((msg: any, i: number) => (
+                          <tr key={i} className={cn("hover:bg-white/5 transition-colors group", !msg.isRead && "bg-blue-500/[0.02]")}>
+                            <td className="px-6 py-4">
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+
+------------------
+Line 3089:
+                                    .map((driver: any) => {
+                                      const d = driver.username;
+                                      const isSelected = adminMessageDriver.includes(d);
+                                      return (
+                                        <div 
+
+------------------
+Line 3140:
+                                  .map((d: any) => d.username);
+                              }
+                              
+                              if (driverIds.length === 0) {
+                                window.alert("No drivers selected or available.");
+
+------------------
+Line 3348:
+                        {adminData.filterOptions.vehicles.map((vehicle: string) => (
+                          <tr key={vehicle} className="hover:bg-white/5 transition-colors group">
+                            <td className="px-6 py-4 text-sm font-bold text-white">
+                              {vehicle}
+                            </td>
+
+------------------
+Line 3440:
+                  {historyFrRefs?.map((ref, idx) => (
+                    <option key={`${ref}-${idx}`} value={ref}>{ref}</option>
+                  ))}
+                </select>
+              </div>
+
+------------------
+Line 3462:
+                        {[2024, 2025, 2026, 2027].map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+
+------------------
+Line 3474:
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                          <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                        ))}
+                      </select>
+                    </div>
+
+------------------
+Line 3517:
+                      {salaryData.map((item, idx) => (
+                        <div key={idx} className="p-4 grid grid-cols-3 items-center hover:bg-white/5 transition-colors">
+                          <span className="text-xs font-bold text-white">{item.tripRef}</span>
+                          <span className="text-[10px] text-slate-400">{item.date?.split(' ')[0]}</span>
+                          <span className="text-xs font-bold text-emerald-400 text-right">{item.salary.toLocaleString()}</span>
+
+------------------
+Line 3600:
+                    ].map((item, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{item.label}</p>
+                        <p className={cn("text-sm font-bold", item.highlight ? "text-purple-400" : "text-white")}>
+                          {item.value || 'N/A'}
+
+------------------
+Line 3648:
+                  {frRefs?.map((ref, idx) => (
+                    <option key={`${ref}-${idx}`} value={ref}>{ref}</option>
+                  ))}
+                </select>
+                {!currentRef && (
+
+------------------
+Line 3682:
+                      {options?.vehicles?.map((v, idx) => <option key={`${v}-${idx}`} value={v}>{v}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Purpose</label>
+
+------------------
+Line 3695:
+                      {options?.purposes?.map((p, idx) => <option key={`${p}-${idx}`} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+
+------------------
+Line 3757:
+                      let filtered = (tripRefs || []).map(t => t.ref);
+                      // Ensure the current value is in the list (especially for the Update stage)
+                      if (formData.tripRef && !filtered.includes(formData.tripRef)) {
+                        filtered = [formData.tripRef, ...filtered];
+                      }
+
+------------------
+Line 3762:
+                      return filtered.map((t, idx) => <option key={`${t}-${idx}`} value={t}>{t}</option>);
+                    })()}
+                  </select>
+                </div>
+
+
+------------------
+Line 3961:
+                          {files.repairReceipt.map((f, i) => (
+                            <div key={i} className="flex items-center justify-between text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg border border-white/5">
+                              <span className="truncate flex-1 mr-2">{f.name}</span>
+                              <button
+                                onClick={(e) => {
+
+------------------
+Line 4194:
+                ].map((section, sIdx) => (
+                  <div key={sIdx} className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                    <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">{section.title}</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
+                      {section.fields.map((field: any, i) => (
+
+------------------
+Line 4198:
+                      {section.fields.map((field: any, i) => (
+                        <div key={i} className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{field.label}</label>
+                      {field.type === 'select' ? (
+                        <select
+
+------------------
+Line 4213:
+                          {field.options?.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : field.idx === 'fuel_meter' ? (
+                         <input
+                            type="number"
+
+------------------
+Line 4316:
+                    {viewingImages.images.map((img: any, idx: number) => (
+                      <div key={idx} className="glass-card overflow-hidden border border-white/5 flex flex-col">
+                        <div className="p-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{img.name}</span>
+                          <span className="text-[9px] text-slate-500 font-bold">{idx + 1} of {viewingImages.images.length}</span>
+
+------------------
+Line 4427:
+                ].map((section, sIdx) => (
+                  <div key={sIdx} className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                    <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">{section.title}</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
+                      {section.fields.map((field, i) => (
+
+------------------
+Line 4431:
+                      {section.fields.map((field, i) => (
+                        <div key={i} className="space-y-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{field.label}</p>
+                      <p className="text-xs font-medium text-white truncate" title={String(field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
+                        (() => {
+
+------------------
+Line 4695:
+                        {adminData?.filterOptions?.vehicles?.map((v: string) => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+
+------------------
+Line 4833:
+                        {adminData?.filterOptions?.vehicles?.map((v: string) => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>

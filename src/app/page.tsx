@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -69,6 +69,11 @@ export default function FleetApp() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [officeMessage, setOfficeMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [officeTab, setOfficeTab] = useState<'send' | 'inbox'>('send');
+  const [sentMessages, setSentMessages] = useState<any[]>([]);
+  const [fetchingSentMessages, setFetchingSentMessages] = useState(false);
+  const [inboxMessages, setInboxMessages] = useState<any[]>([]);
+  const [fetchingInboxMessages, setFetchingInboxMessages] = useState(false);
   const [showNoticePopup, setShowNoticePopup] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [showRefreshPopup, setShowRefreshPopup] = useState(false);
@@ -94,6 +99,25 @@ export default function FleetApp() {
   const [messagesData, setMessagesData] = useState<any>(null);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [fetchingMessages, setFetchingMessages] = useState(false);
+  const [adminMessageTab, setAdminMessageTab] = useState<'inbox' | 'sent'>('inbox');
+  const [showAdminMessageModal, setShowAdminMessageModal] = useState(false);
+  const [adminMessageText, setAdminMessageText] = useState('');
+  const [adminMessageDriver, setAdminMessageDriver] = useState<string[]>(['All']);
+  const [showDriverDropdown, setShowDriverDropdown] = useState(false);
+  const adminDriverDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (adminDriverDropdownRef.current && !adminDriverDropdownRef.current.contains(event.target as Node)) {
+        setShowDriverDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   const [importingCsv, setImportingCsv] = useState(false);
   const [adminPage, setAdminPage] = useState(1);
   const [isSyncingAccounts, setIsSyncingAccounts] = useState(false);
@@ -444,6 +468,43 @@ export default function FleetApp() {
     setShowLogoutConfirm(false);
   };
 
+  const fetchSentMessages = async () => {
+    if (!user || !user[0]) return;
+    setFetchingSentMessages(true);
+    try {
+      const res = await fetch(`/api/fleet/message?drvId=${user[0]}&type=sent`);
+      const data = await res.json();
+      if (data.messages) setSentMessages(data.messages);
+    } catch (e) {
+      console.error("Failed to fetch sent messages:", e);
+    } finally {
+      setFetchingSentMessages(false);
+    }
+  };
+
+  const fetchInboxMessages = async () => {
+    if (!user || !user[0]) return;
+    setFetchingInboxMessages(true);
+    try {
+      const res = await fetch(`/api/fleet/message?drvId=${user[0]}&type=inbox`);
+      const data = await res.json();
+      if (data.messages) setInboxMessages(data.messages);
+    } catch (e) {
+      console.error("Failed to fetch inbox messages:", e);
+    } finally {
+      setFetchingInboxMessages(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && user[0]) {
+      fetchInboxMessages();
+      if (stage === 'contact-office') {
+        fetchSentMessages();
+      }
+    }
+  }, [stage, user]);
+
   const handleSendMessage = async () => {
     if (!officeMessage.trim()) return;
     setSendingMessage(true);
@@ -462,6 +523,7 @@ export default function FleetApp() {
 
       setAlert({ type: 'success', message: 'Message sent to Senu Cabs Office successfully!' });
       setOfficeMessage('');
+      fetchSentMessages();
     } catch (err: any) {
       setAlert({ type: 'error', message: err.message || 'Failed to send message' });
     } finally {
@@ -493,6 +555,10 @@ export default function FleetApp() {
 
   useEffect(() => {
     if (stage === 'admin' && user[2]?.toLowerCase() === 'admin') {
+      if (adminTab !== 'messages') {
+        fetchAdminMessages(true);
+      }
+      
       if (adminTab === 'messages') {
         fetchAdminMessages();
       } else if (adminTab === 'accounts') {
@@ -1680,8 +1746,19 @@ export default function FleetApp() {
                 setStage('contact-office');
               }}
               disabled={loading}
-              className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group"
+              className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group relative"
             >
+              {(() => {
+                const unreadCount = inboxMessages.filter((m: any) => !m.isRead).length;
+                if (unreadCount > 0) {
+                  return (
+                    <div className="absolute top-4 right-4 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse flex items-center justify-center min-w-[24px] h-[24px] px-1.5 z-10">
+                      <span className="text-[12px] font-black text-white">{unreadCount}</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
                 <MessageSquare className="w-8 h-8 text-blue-500 group-hover:text-white" />
               </div>
@@ -1710,33 +1787,128 @@ export default function FleetApp() {
 
       {stage === 'contact-office' && (
         <div className="space-y-6">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass-card p-6 space-y-4 border-blue-500/20 bg-blue-500/5"
-          >
-            <div className="flex items-center gap-3 text-white font-bold text-sm mb-2">
-              <MessageSquare className="w-5 h-5 text-blue-500" />
-              SEND MESSAGE TO SENU CABS OFFICE
-            </div>
-            <p className="text-sm font-bold text-slate-200 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
-              Senu cabs කාර්යාලය වෙත පැමිනිල්ලක්, පණිවුඩයක් හෝ කිසියම් දැනුම් දීමක් කිරිමට අවශ්ය නම් පහත "Send Message" පහසුකම භාවිතා කරන්න.
-            </p>
-            <textarea
-              className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
-              placeholder="Type your message here..."
-              rows={6}
-              value={officeMessage}
-              onChange={(e) => setOfficeMessage(e.target.value)}
-            />
+          <div className="flex gap-2 p-1 bg-slate-900 border border-white/5 rounded-xl">
             <button
-              onClick={handleSendMessage}
-              disabled={sendingMessage || !officeMessage.trim()}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest"
+              onClick={() => setOfficeTab('send')}
+              className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", officeTab === 'send' ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
             >
-              {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SEND MESSAGE'}
+              Send Message
             </button>
-          </motion.div>
+            <button
+              onClick={() => setOfficeTab('inbox')}
+              className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", officeTab === 'inbox' ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
+            >
+              Inbox
+            </button>
+          </div>
+
+          {officeTab === 'send' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card p-6 space-y-4 border-blue-500/20 bg-blue-500/5"
+            >
+              <div className="flex items-center gap-3 text-white font-bold text-sm mb-2">
+                <MessageSquare className="w-5 h-5 text-blue-500" />
+                SEND MESSAGE TO SENU CABS OFFICE
+              </div>
+              <p className="text-sm font-bold text-slate-200 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
+                Senu cabs කාර්යාලය වෙත පැමිනිල්ලක්, පණිවුඩයක් හෝ කිසියම් දැනුම් දීමක් කිරිමට අවශ්ය නම් පහත "Send Message" පහසුකම භාවිතා කරන්න.
+              </p>
+              <textarea
+                className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
+                placeholder="Type your message here..."
+                rows={6}
+                value={officeMessage}
+                onChange={(e) => setOfficeMessage(e.target.value)}
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={sendingMessage || !officeMessage.trim()}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest"
+              >
+                {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SEND MESSAGE'}
+              </button>
+
+              <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Last 10 Sent Messages</h4>
+                {fetchingSentMessages ? (
+                  <div className="py-4 text-center text-slate-400 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2"/>Loading...</div>
+                ) : sentMessages.length === 0 ? (
+                  <div className="py-4 text-center text-slate-500 text-xs font-bold bg-slate-900/50 rounded-xl border border-white/5">No messages sent yet.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {sentMessages.map((msg, i) => (
+                      <div key={i} className="bg-slate-900/50 border border-white/5 p-4 rounded-xl">
+                        <div className="text-[10px] font-bold text-blue-400 mb-2 uppercase tracking-widest">{msg.timestamp}</div>
+                        <p className="text-xs font-medium text-slate-200 whitespace-pre-wrap">{msg.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {officeTab === 'inbox' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card p-6 border-slate-500/20 bg-slate-500/5"
+            >
+              <div className="flex items-center gap-3 text-white font-bold text-sm mb-6">
+                <MessageSquare className="w-5 h-5 text-slate-400" />
+                INBOX
+              </div>
+              
+              <div className="space-y-4">
+                {fetchingInboxMessages ? (
+                  <div className="py-10 text-center text-slate-400 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2"/>Loading...</div>
+                ) : inboxMessages.length === 0 ? (
+                  <div className="py-10 flex flex-col items-center justify-center text-center gap-3 bg-slate-900/50 rounded-2xl border border-white/5">
+                    <MessageSquare className="w-8 h-8 text-slate-600" />
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No messages in inbox</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {inboxMessages.map((msg: any, i) => (
+                      <div 
+                        key={i} 
+                        onClick={async () => {
+                          if (!msg.isRead) {
+                            try {
+                              await fetch('/api/fleet/message', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: msg._id })
+                              });
+                              setInboxMessages(prev => prev.map(m => m._id === msg._id ? { ...m, isRead: true } : m));
+                            } catch (e) {}
+                          }
+                        }}
+                        className={cn(
+                          "p-4 rounded-xl transition-all",
+                          !msg.isRead 
+                            ? "bg-blue-500/[0.05] border border-blue-500/30 cursor-pointer hover:bg-blue-500/[0.1]" 
+                            : "bg-slate-900/50 border border-white/5"
+                        )}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                            {!msg.isRead && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>}
+                            {msg.isRead && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
+                            FROM ADMIN
+                          </div>
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{msg.timestamp}</div>
+                        </div>
+                        <p className={cn("text-xs whitespace-pre-wrap transition-colors", !msg.isRead ? "text-white font-bold" : "text-slate-400 font-medium")}>{msg.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
 
           <button
             onClick={() => setStage('dashboard')}
@@ -1797,12 +1969,15 @@ export default function FleetApp() {
             <button
               onClick={() => setAdminTab('messages')}
               className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 relative",
                 adminTab === 'messages' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
               )}
             >
               <MessageSquare className="w-4 h-4" />
               MESSAGES
+              {messagesData?.messages?.some((m: any) => !m.isRead && !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))) && (
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              )}
             </button>
             <button
               onClick={() => setAdminTab('accounts')}
@@ -2236,13 +2411,17 @@ export default function FleetApp() {
                           const vehicleNum = t.values[4];
                           const rawGarageStart = t.values[6];
                           
-                          const prevTrip = vehicleNum ? adminData.tables.fleetData.slice(originalIndex + 1).find((pt: any) => pt.values[4] === vehicleNum) : null;
+                          const currentStatusStr = String(t.values[0] || '').toLowerCase();
+                          const isCurrentIgnoredForAlerts = currentStatusStr.includes('cancel') || currentStatusStr.includes('approved');
+                          const isPurposeFiltered = adminFilters.purpose !== 'All';
+                          const prevTrip = vehicleNum ? adminData.tables.fleetData.slice(originalIndex + 1).find((pt: any) => pt.values[4] === vehicleNum && !String(pt.values[0] || '').toLowerCase().includes('cancel')) : null;
                           const rawPrevGarageEnd = prevTrip ? prevTrip.values[8] : null;
                           
                           let mismatch = 0;
                           let hasMismatch = false;
                           
                           if (
+                            !isCurrentIgnoredForAlerts && !isPurposeFiltered &&
                             rawGarageStart !== undefined && rawGarageStart !== null && String(rawGarageStart).trim() !== '' &&
                             rawPrevGarageEnd !== undefined && rawPrevGarageEnd !== null && String(rawPrevGarageEnd).trim() !== ''
                           ) {
@@ -2264,7 +2443,7 @@ export default function FleetApp() {
                                 key={idx} 
                                 className={cn(
                                   "px-6 py-2 text-xs whitespace-nowrap",
-                                  hasMismatch && idx === 6 ? "animate-pulse bg-red-500/30 font-bold" : ""
+                                  hasMismatch && idx === 6 ? "font-bold" : ""
                                 )}
                                 title={hasMismatch && idx === 6 ? `${mismatch} km mismatch with the last trip for this vehicle` : undefined}
                               >
@@ -2361,7 +2540,10 @@ export default function FleetApp() {
                                         const sLoss = Number(String(sLossRaw).replace(/[^\d.-]/g, ''));
                                         const eLoss = Number(String(eLossRaw).replace(/[^\d.-]/g, ''));
                                         if (!isNaN(sLoss) && !isNaN(eLoss) && sLoss !== eLoss) {
-                                          return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Start and End Loss mismatch"></span>;
+                                          const currentStatusStr = String(t.values[0] || '').toLowerCase();
+                                          if (!currentStatusStr.includes('cancel') && !currentStatusStr.includes('approved')) {
+                                            return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Start and End Loss mismatch"></span>;
+                                          }
                                         }
                                       }
                                       return null;
@@ -2370,10 +2552,13 @@ export default function FleetApp() {
                                   </div>
                                 ) : (
                                   <span className={cn(
-                                    "font-sans font-normal",
+                                    "font-sans font-normal flex items-center gap-1.5",
                                     (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
                                       (idx === 9 || idx === 11 || idx === 24) ? "text-rose-400" : "text-white"
                                   )}>
+                                    {hasMismatch && idx === 6 && (
+                                      <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0"></span>
+                                    )}
                                     {(() => {
                                       const isFinished = t.values[8] !== undefined && t.values[8] !== null && String(t.values[8]).trim() !== '';
                                       if (!isFinished && (idx === 18 || idx === 19 || idx === 22)) {
@@ -2764,18 +2949,95 @@ export default function FleetApp() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              <div className="glass-card overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Messages</h3>
-                  <MessageSquare className="w-4 h-4 text-blue-500" />
+              <div className="flex gap-2 p-1 bg-slate-900 border border-white/5 rounded-xl w-full max-w-md mb-6">
+                <button
+                  onClick={() => setAdminMessageTab('sent')}
+                  className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", adminMessageTab === 'sent' ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
+                >
+                  Sent Box
+                </button>
+                <button
+                  onClick={() => setAdminMessageTab('inbox')}
+                  className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", adminMessageTab === 'inbox' ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
+                >
+                  Inbox
+                </button>
+              </div>
+
+              {adminMessageTab === 'sent' && (
+                <div className="glass-card overflow-hidden">
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sent Messages</h3>
+                    <button
+                      onClick={() => setShowAdminMessageModal(true)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+                    >
+                      <Plus className="w-3 h-3" />
+                      NEW MESSAGE
+                    </button>
+                  </div>
+                  {fetchingMessages ? (
+                    <div className="p-20 flex flex-col items-center justify-center space-y-4">
+                      <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+                      <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Messages...</p>
+                    </div>
+                  ) : (() => {
+                    const isAdminMsg = (m: any) => m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber);
+                    const adminSent = (messagesData?.messages || []).filter(isAdminMsg);
+                    if (adminSent.length === 0) {
+                      return (
+                        <div className="p-10 flex flex-col items-center justify-center text-center gap-3">
+                          <MessageSquare className="w-8 h-8 text-slate-600" />
+                          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No sent messages</p>
+                        </div>
+                      );
+                    }
+                    
+                    const groupedAdminSent = Object.values(adminSent.reduce((acc: any, curr: any) => {
+                      const key = `${curr.message}_${curr.timestamp}`;
+                      if (!acc[key]) {
+                        acc[key] = { ...curr, recipients: [curr.driverId] };
+                      } else {
+                        if (!acc[key].recipients.includes(curr.driverId)) {
+                          acc[key].recipients.push(curr.driverId);
+                        }
+                      }
+                      return acc;
+                    }, {})) as any[];
+                    
+                    return (
+                      <div className="space-y-3 p-4">
+                        {groupedAdminSent.map((msg: any, i: number) => (
+                          <div key={i} className="bg-slate-900/50 border border-white/5 p-4 rounded-xl flex flex-col md:flex-row justify-between gap-4 group hover:bg-white/5 transition-colors">
+                            <div className="space-y-2">
+                              <p className="text-xs font-medium text-slate-200 whitespace-pre-wrap">"{msg.message}"</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[10px] font-bold text-emerald-400 mb-2 uppercase tracking-widest">{msg.timestamp}</span>
+                                <span className="text-slate-600 text-[10px]">•</span>
+                                <span className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">Sent to {msg.recipients.length} driver(s)</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
+              )}
+
+              {adminMessageTab === 'inbox' && (
+                <div className="glass-card overflow-hidden">
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Messages</h3>
+                    <MessageSquare className="w-4 h-4 text-emerald-500" />
+                  </div>
 
                 {fetchingMessages ? (
                   <div className="p-20 flex flex-col items-center justify-center space-y-4">
                     <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
                     <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Messages...</p>
                   </div>
-                ) : messagesData?.messages?.length > 0 ? (
+                ) : (messagesData?.messages || []).filter((m: any) => !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))).length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead>
@@ -2786,7 +3048,7 @@ export default function FleetApp() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {messagesData.messages.map((msg: any, i: number) => (
+                        {(messagesData?.messages || []).filter((m: any) => !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))).map((msg: any, i: number) => (
                           <tr key={i} className={cn("hover:bg-white/5 transition-colors group", !msg.isRead && "bg-blue-500/[0.02]")}>
                             <td className="px-6 py-4">
                               <span className={cn(
@@ -2827,7 +3089,159 @@ export default function FleetApp() {
                     <p className="text-slate-500 font-bold">No messages found.</p>
                   </div>
                 )}
-              </div>
+                </div>
+              )}
+
+              {/* New Message Popup */}
+              <AnimatePresence>
+                {showAdminMessageModal && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                    <motion.div
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.95, opacity: 0 }}
+                      className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative"
+                    >
+                      <button 
+                        onClick={() => setShowAdminMessageModal(false)}
+                        className="absolute top-4 right-4 text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <h3 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2 mb-6">
+                        <MessageSquare className="w-5 h-5 text-emerald-500" />
+                        Send Message to Drivers
+                      </h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Select Driver(s)</label>
+                          <div className="relative" ref={adminDriverDropdownRef}>
+                            <div 
+                              onClick={() => setShowDriverDropdown(!showDriverDropdown)}
+                              className="w-full bg-slate-950 border border-emerald-500/20 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-all cursor-pointer flex justify-between items-center hover:border-emerald-500/50"
+                            >
+                              <span className="truncate text-slate-200">
+                                {adminMessageDriver.includes('All') 
+                                  ? 'All Drivers' 
+                                  : adminMessageDriver.length > 0 
+                                    ? `${adminMessageDriver.length} Driver(s) Selected` 
+                                    : 'Select Drivers'}
+                              </span>
+                              <div className="text-emerald-500/50 text-[10px]">▼</div>
+                            </div>
+                            
+                            <AnimatePresence>
+                              {showDriverDropdown && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -5 }}
+                                  className="absolute top-full mt-2 w-full bg-slate-950 border border-emerald-500/30 rounded-xl overflow-hidden z-[110] shadow-[0_10px_40px_-10px_rgba(16,185,129,0.2)] max-h-[220px] overflow-y-auto custom-scrollbar"
+                                >
+                                  <div 
+                                    onClick={() => setAdminMessageDriver(['All'])}
+                                    className="p-3 border-b border-white/5 cursor-pointer hover:bg-emerald-500/10 flex items-center gap-3 transition-colors"
+                                  >
+                                    <div className={cn("w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all", adminMessageDriver.includes('All') ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-900")}>
+                                      {adminMessageDriver.includes('All') && <CheckCircle2 className="w-3 h-3 text-black" />}
+                                    </div>
+                                    <span className={cn("text-xs font-bold", adminMessageDriver.includes('All') ? "text-emerald-400" : "text-white")}>All Drivers</span>
+                                  </div>
+                                  
+                                  {(adminData?.tables?.driversList || [])
+                                    .filter((driver: any) => driver.status === 'Active' && driver.username)
+                                    .map((driver: any, idx: number) => {
+                                      const d = driver.username;
+                                      const isSelected = adminMessageDriver.includes(d);
+                                      return (
+                                        <div 
+                                          key={d || `driver-${idx}`}
+                                          onClick={() => {
+                                            if (adminMessageDriver.includes('All')) {
+                                              setAdminMessageDriver([d]);
+                                            } else {
+                                              if (isSelected) {
+                                                const newSelection = adminMessageDriver.filter(val => val !== d);
+                                                setAdminMessageDriver(newSelection.length === 0 ? ['All'] : newSelection);
+                                              } else {
+                                                setAdminMessageDriver([...adminMessageDriver, d]);
+                                              }
+                                            }
+                                          }}
+                                          className={cn("p-3 border-b border-white/5 cursor-pointer hover:bg-white/5 flex items-center gap-3 transition-colors", isSelected && "bg-emerald-500/5")}
+                                        >
+                                          <div className={cn("w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all", isSelected ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-900")}>
+                                            {isSelected && <CheckCircle2 className="w-3 h-3 text-black" />}
+                                          </div>
+                                          <span className={cn("text-xs", isSelected ? "font-medium text-emerald-400" : "font-normal text-slate-400")}>
+                                            {driver.name || d} ({d})
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Message</label>
+                          <textarea
+                            className="w-full bg-slate-950 border border-white/5 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-emerald-500 transition-all resize-none"
+                            rows={5}
+                            placeholder="Type your message here..."
+                            value={adminMessageText}
+                            onChange={(e) => setAdminMessageText(e.target.value)}
+                          />
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              let driverIds = adminMessageDriver;
+                              if (driverIds.includes('All')) {
+                                driverIds = (adminData?.tables?.driversList || [])
+                                  .filter((d: any) => d.status === 'Active' && d.username)
+                                  .map((d: any) => d.username);
+                              }
+                              
+                              driverIds = driverIds.filter(Boolean);
+                              
+                              if (driverIds.length === 0) {
+                                window.alert("No drivers selected or available.");
+                                return;
+                              }
+                              
+                              const res = await fetch('/api/admin/send-message', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  driverIds,
+                                  message: adminMessageText
+                                }),
+                              });
+                              
+                              const data = await res.json();
+                              if (data.error) throw new Error(data.error);
+                              
+                              setAlert({ type: 'success', message: `Message sent to ${data.count} driver(s)!` });
+                              setShowAdminMessageModal(false);
+                              setAdminMessageText('');
+                              setAdminMessageDriver(['All']);
+                              fetchAdminMessages();
+                            } catch (err: any) {
+                              setAlert({ type: 'error', message: err.message || 'Failed to send message' });
+                            }
+                          }}
+                          disabled={!adminMessageText.trim() || adminMessageDriver.length === 0}
+                          className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
+                        >
+                          SEND MESSAGE
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
 
               {/* Message View Modal */}
               <AnimatePresence>

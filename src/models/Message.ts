@@ -7,6 +7,7 @@ const MessageSchema: Schema = new Schema({
   phoneNumber: { type: String },
   message: { type: String, required: true },
   isRead: { type: Boolean, default: false },
+  sender: { type: String, default: 'Driver' }
 }, { timestamps: true });
 
 export default mongoose.models.Message || mongoose.model("Message", MessageSchema);
