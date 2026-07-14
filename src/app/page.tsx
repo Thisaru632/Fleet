@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -104,6 +104,22 @@ export default function FleetApp() {
   const [adminMessageText, setAdminMessageText] = useState('');
   const [adminMessageDriver, setAdminMessageDriver] = useState<string[]>(['All']);
   const [showDriverDropdown, setShowDriverDropdown] = useState(false);
+  const driverDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (driverDropdownRef.current && !driverDropdownRef.current.contains(event.target as Node)) {
+        setShowDriverDropdown(false);
+      }
+    };
+
+    if (showDriverDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDriverDropdown]);
   const [importingCsv, setImportingCsv] = useState(false);
   const [adminPage, setAdminPage] = useState(1);
   const [isSyncingAccounts, setIsSyncingAccounts] = useState(false);
@@ -458,7 +474,7 @@ export default function FleetApp() {
     if (!user || !user[0]) return;
     setFetchingSentMessages(true);
     try {
-      const res = await fetch(`/api/fleet/message?drvId=${user[0]}&type=sent`);
+      const res = await fetch(`/api/fleet/message?drvId=${user[0]}&type=sent&_t=${Date.now()}`);
       const data = await res.json();
       if (data.messages) setSentMessages(data.messages);
     } catch (e) {
@@ -472,7 +488,7 @@ export default function FleetApp() {
     if (!user || !user[0]) return;
     setFetchingInboxMessages(true);
     try {
-      const res = await fetch(`/api/fleet/message?drvId=${user[0]}&type=inbox`);
+      const res = await fetch(`/api/fleet/message?drvId=${user[0]}&type=inbox&_t=${Date.now()}`);
       const data = await res.json();
       if (data.messages) setInboxMessages(data.messages);
     } catch (e) {
@@ -864,7 +880,7 @@ export default function FleetApp() {
   const fetchAdminMessages = async (quiet = false) => {
     if (!quiet) setFetchingMessages(true);
     try {
-      const res = await fetch(`/api/admin/messages?page=${adminPage}&limit=50`);
+      const res = await fetch(`/api/admin/messages?page=${adminPage}&limit=50&_t=${Date.now()}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setMessagesData(data);
@@ -3101,7 +3117,7 @@ export default function FleetApp() {
                       <div className="space-y-4">
                         <div>
                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Select Driver(s)</label>
-                          <div className="relative">
+                          <div className="relative" ref={driverDropdownRef}>
                             <div 
                               onClick={() => setShowDriverDropdown(!showDriverDropdown)}
                               className="w-full bg-slate-950 border border-emerald-500/20 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-all cursor-pointer flex justify-between items-center hover:border-emerald-500/50"
