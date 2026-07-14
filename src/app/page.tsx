@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -104,20 +104,6 @@ export default function FleetApp() {
   const [adminMessageText, setAdminMessageText] = useState('');
   const [adminMessageDriver, setAdminMessageDriver] = useState<string[]>(['All']);
   const [showDriverDropdown, setShowDriverDropdown] = useState(false);
-  const adminDriverDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (adminDriverDropdownRef.current && !adminDriverDropdownRef.current.contains(event.target as Node)) {
-        setShowDriverDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
   const [importingCsv, setImportingCsv] = useState(false);
   const [adminPage, setAdminPage] = useState(1);
   const [isSyncingAccounts, setIsSyncingAccounts] = useState(false);
@@ -3115,7 +3101,7 @@ export default function FleetApp() {
                       <div className="space-y-4">
                         <div>
                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Select Driver(s)</label>
-                          <div className="relative" ref={adminDriverDropdownRef}>
+                          <div className="relative">
                             <div 
                               onClick={() => setShowDriverDropdown(!showDriverDropdown)}
                               className="w-full bg-slate-950 border border-emerald-500/20 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-all cursor-pointer flex justify-between items-center hover:border-emerald-500/50"
