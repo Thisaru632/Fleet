@@ -24,7 +24,7 @@ export async function PUT(request: Request) {
     // Recalculate total mileage
     const startMeter = parseNum(rawValues[6]);
     const endMeter = parseNum(rawValues[8]);
-    trip.mileage = endMeter - startMeter;
+    trip.mileage = endMeter > 0 ? (endMeter - startMeter) : 0;
     rawValues[22] = trip.mileage;
 
     // Recalculate scDueAmount

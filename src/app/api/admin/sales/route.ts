@@ -78,7 +78,7 @@ export async function GET(request: Request) {
             totalCommission: { $sum: "$commission" },
             totalFuel: { $sum: "$fuel" },
             totalRepairCost: { $sum: "$repair" },
-            totalMileage: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, "$mileage", 0] } },
+            totalMileage: { $sum: "$mileage" },
             hireCount: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, 1, 0] } },
             repairCount: { $sum: { $cond: [{ $eq: ["$purpose", "Repair"] }, 1, 0] } }
           }
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
                   _id: { $ifNull: ["$vehicle", "Unknown"] },
                   sales: { $sum: "$finalPrice" },
                   hireIncome: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, "$finalPrice", 0] } },
-                  hireMileage: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, "$mileage", 0] } },
+                  totalMileage: { $sum: "$mileage" },
                   fuelCost: { $sum: "$fuel" }
                 }
               },
@@ -189,9 +189,9 @@ export async function GET(request: Request) {
       vehicle: d._id,
       sales: d.sales,
       hireIncome: d.hireIncome || 0,
-      mileage: d.hireMileage || 0,
+      mileage: d.totalMileage || 0,
       fuelCost: d.fuelCost || 0,
-      incomePerKm: d.hireMileage > 0 ? (d.hireIncome / d.hireMileage) : 0,
+      incomePerKm: d.totalMileage > 0 ? (d.hireIncome / d.totalMileage) : 0,
       fuelPercentage: d.hireIncome > 0 ? (d.fuelCost / d.hireIncome) * 100 : 0
     }));
     const driverSales = chartsData.byDriver.map((d: any) => ({ driver: d._id, sales: d.sales }));
