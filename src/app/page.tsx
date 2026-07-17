@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -37,10 +37,16 @@ import {
   Search,
   Eye,
   MoreVertical,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Copy
 } from 'lucide-react';
 
 import LoginModal from '@/components/LoginModal';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
+  BarChart, Bar
+} from 'recharts';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -74,7 +80,6 @@ export default function FleetApp() {
   const [fetchingSentMessages, setFetchingSentMessages] = useState(false);
   const [inboxMessages, setInboxMessages] = useState<any[]>([]);
   const [fetchingInboxMessages, setFetchingInboxMessages] = useState(false);
-  const [showNoticePopup, setShowNoticePopup] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [showRefreshPopup, setShowRefreshPopup] = useState(false);
 
@@ -144,6 +149,61 @@ export default function FleetApp() {
   const [debouncedFleetSearch, setDebouncedFleetSearch] = useState('');
   const [newVehicleNumber, setNewVehicleNumber] = useState('');
   const [addingVehicle, setAddingVehicle] = useState(false);
+
+  const cumulativeSalesData = useMemo(() => {
+    if (!adminData?.charts?.dailySales) return [];
+    let runningTotal = 0;
+    return adminData.charts.dailySales.map((d: any) => {
+      runningTotal += (d.sales || 0);
+      return { ...d, totalSales: runningTotal };
+    });
+  }, [adminData?.charts?.dailySales]);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentTarget, setCommentTarget] = useState<{rf: string, comment: string} | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [savingComment, setSavingComment] = useState(false);
+
+  const handleSaveComment = async () => {
+    if (!commentTarget) return;
+    setSavingComment(true);
+    setAlert({ type: 'warning', message: 'Updating staff comment...' });
+    
+    try {
+      const targetTrip = adminData.tables.fleetData.find((r: any) => r.rf === commentTarget.rf);
+      if (!targetTrip) throw new Error("Trip not found");
+
+      const newValues = [...targetTrip.values];
+      newValues[27] = commentText;
+
+      const res = await fetch('/api/admin/edit-trip', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reference: commentTarget.rf, rawValues: newValues })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setAlert({ type: 'success', message: 'Staff comment updated!' });
+      
+      const newFleetData = [...adminData.tables.fleetData];
+      const rowIdx = newFleetData.findIndex((r: any) => r.rf === commentTarget.rf);
+      if (rowIdx > -1) {
+        newFleetData[rowIdx].values[27] = commentText;
+        setAdminData({
+          ...adminData,
+          tables: {
+            ...adminData.tables,
+            fleetData: newFleetData
+          }
+        });
+      }
+      setShowCommentModal(false);
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to update comment' });
+    } finally {
+      setSavingComment(false);
+    }
+  };
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -1558,8 +1618,8 @@ export default function FleetApp() {
                 <AlertCircle className="w-10 h-10 text-rose-500" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-black text-white">දත්ත යාවත් කාලීන වීමේ දොශයකි</h3>
-                <p className="text-slate-400 text-sm">වරක් App එක Refresh කර නැවත උත්සහ කරන්න</p>
+                <h3 className="text-xl font-black text-white">à¶¯à¶­à·Šà¶­ à¶ºà·à·€à¶­à·Š à¶šà·à¶½à·“à¶± à·€à·“à¶¸à·š à¶¯à·œà·à¶ºà¶šà·’</h3>
+                <p className="text-slate-400 text-sm">à·€à¶»à¶šà·Š App à¶‘à¶š Refresh à¶šà¶» à¶±à·à·€à¶­ à¶‹à¶­à·Šà·ƒà·„ à¶šà¶»à¶±à·Šà¶±</p>
               </div>
               <div className="flex gap-4">
                 <button
@@ -1610,31 +1670,47 @@ export default function FleetApp() {
         )}
       </AnimatePresence>
 
-      {/* Notice Popup Modal */}
+
+      {/* Staff Comment Modal */}
       <AnimatePresence>
-        {showNoticePopup && stage !== 'admin' && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        {showCommentModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="glass-card p-6 w-full max-w-sm text-center space-y-6 border-blue-500/20"
+              className="glass-card p-6 w-full max-w-md text-center space-y-6 border-blue-500/20 bg-slate-900/90"
             >
-              <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto">
-                <AlertCircle className="w-8 h-8 text-blue-500" />
+              <div className="flex items-center gap-3 text-white font-bold text-sm mb-2 justify-center">
+                <MessageSquare className="w-5 h-5 text-blue-500" />
+                STAFF COMMENT
               </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-black text-white">විශේෂ දැනුම්දීමයි</h3>
-                <p className="text-slate-200 text-sm leading-relaxed font-medium">
-                  2026.07.07 වන දින සිට ඉදිරියට සිදු කරන HIRE සඳහා වැටුප් සැකසිම මෙම නව FLEET APP එක මගින් සිදු කෙරේ.
-                </p>
+              <p className="text-xs text-slate-400 mb-4">Enter or update the staff comment for this trip.</p>
+              
+              <textarea
+                className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
+                placeholder="Enter staff comment here..."
+                rows={4}
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+              />
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowCommentModal(false)}
+                  disabled={savingComment}
+                  className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all font-bold text-sm"
+                >
+                  CANCEL
+                </button>
+                <button
+                  onClick={handleSaveComment}
+                  disabled={savingComment || commentText === commentTarget?.comment}
+                  className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-all font-bold text-sm flex justify-center items-center gap-2"
+                >
+                  {savingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SAVE'}
+                </button>
               </div>
-              <button
-                onClick={() => setShowNoticePopup(false)}
-                className="w-full py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-500 transition-all font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-500/20"
-              >
-                OK / තේරුම් ගත්තා
-              </button>
             </motion.div>
           </div>
         )}
@@ -1815,7 +1891,7 @@ export default function FleetApp() {
                 SEND MESSAGE TO SENU CABS OFFICE
               </div>
               <p className="text-sm font-bold text-slate-200 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
-                Senu cabs කාර්යාලය වෙත පැමිනිල්ලක්, පණිවුඩයක් හෝ කිසියම් දැනුම් දීමක් කිරිමට අවශ්ය නම් පහත "Send Message" පහසුකම භාවිතා කරන්න.
+                Senu cabs à¶šà·à¶»à·Šà¶ºà·à¶½à¶º à·€à·™à¶­ à¶´à·à¶¸à·’à¶±à·’à¶½à·Šà¶½à¶šà·Š, à¶´à¶«à·’à·€à·”à¶©à¶ºà¶šà·Š à·„à· à¶šà·’à·ƒà·’à¶ºà¶¸à·Š à¶¯à·à¶±à·”à¶¸à·Š à¶¯à·“à¶¸à¶šà·Š à¶šà·’à¶»à·’à¶¸à¶§ à¶…à·€à·à·Šà¶º à¶±à¶¸à·Š à¶´à·„à¶­ "Send Message" à¶´à·„à·ƒà·”à¶šà¶¸ à¶·à·à·€à·’à¶­à· à¶šà¶»à¶±à·Šà¶±.
               </p>
               <textarea
                 className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
@@ -2128,82 +2204,146 @@ export default function FleetApp() {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-8"
+                  className="bg-[#f4f7f6] rounded-xl p-4 md:p-6 space-y-4 text-slate-800"
                 >
-                  {/* KPI Cards */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    {[
-                      { label: 'Total Sales', value: adminData.kpis.totalSales, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                      { label: 'Driver Comms', value: adminData.kpis.totalCommission, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                      { label: 'Loss Mileage', value: adminData.kpis.totalMileage, unit: 'KM', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-                      { label: 'Hires Count', value: adminData.kpis.hireCount, unit: 'Trips', icon: ClipboardCheck, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-                      { label: 'Fuel Cost', value: adminData.kpis.totalFuel, icon: Fuel, color: 'text-sky-500', bg: 'bg-sky-500/10' },
-                      { label: 'Repair Cost', value: adminData.kpis.totalRepairCost, icon: Wrench, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-                    ].map((kpi, idx) => (
-                      <div key={idx} className="glass-card p-6 space-y-4">
-                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", kpi.bg)}>
-                          <kpi.icon className={cn("w-6 h-6", kpi.color)} />
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{kpi.label}</p>
-                          <p className="text-2xl font-black text-white tracking-tight">
-                            {kpi.unit === 'KM' || kpi.unit === 'Trips' || kpi.unit === 'Repairs' ? '' : 'Rs. '}
-                            {kpi.value.toLocaleString()}
-                            <span className="text-xs ml-1 text-slate-500 font-bold">{kpi.unit || ''}</span>
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                  {/* Header */}
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <h2 className="text-lg font-bold text-slate-700">Fleet KPI Dashboard</h2>
+                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 bg-white px-2.5 py-1 rounded shadow-sm">
+                      <Calendar className="w-3 h-3" />
+                      Last Month
+                    </div>
                   </div>
 
-                  {/* Summary Rankings Preview */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="glass-card overflow-hidden">
-                      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 3 Vehicles</h3>
-                        <Car className="w-4 h-4 text-emerald-500" />
-                      </div>
-                      <div className="divide-y divide-white/5">
-                        {adminData.tables.topVehicles.slice(0, 3).map((v: any, i: number) => (
-                          <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                              <span className="text-xs font-bold text-white">{v.vehicle}</span>
+                  <div className="grid grid-cols-1 xl:grid-cols-5 lg:grid-cols-4 md:grid-cols-3 gap-4">
+                    {/* Left Column (Main content) */}
+                    <div className="xl:col-span-4 lg:col-span-3 md:col-span-2 space-y-4">
+                      {/* Top KPI Cards */}
+                      <div className="flex flex-row w-full gap-2">
+                        {[
+                          { title: 'HIRE COUNT', value: adminData.kpis.hireCount, color: 'text-emerald-400', trend: '+4%', isUp: true },
+                          { title: 'TOTAL REVENUE', value: `Rs. ${adminData.kpis.totalSales.toLocaleString()}`, color: 'text-emerald-400', trend: '+8%', isUp: true },
+                          { title: 'FUEL COST', value: `Rs. ${adminData.kpis.totalFuel.toLocaleString()}`, color: 'text-rose-400', trend: '-10%', isUp: false },
+                          { title: 'REPAIR COST', value: `Rs. ${adminData.kpis.totalRepairCost.toLocaleString()}`, color: 'text-rose-400', trend: '+49%', isUp: true },
+                          { title: 'FUEL LITERS', value: `${(adminData.kpis.totalFuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L`, color: 'text-white', trend: 'N/A', isUp: true },
+                          { title: 'TOTAL MILEAGE', value: `${(adminData.kpis.totalMileage || 0).toLocaleString()} KM`, color: 'text-slate-200', trend: 'N/A', isUp: true },
+                          { title: 'DRIVER COMMISSION', value: `Rs. ${(adminData.kpis.totalCommission || 0).toLocaleString()}`, color: 'text-rose-400', trend: 'N/A', isUp: true },
+                        ].map((kpi, idx) => (
+                          <div key={idx} className="flex-1 min-w-0 bg-[#0f172a] p-2 rounded-lg shadow-sm border border-slate-800 flex flex-col justify-between h-20">
+                            <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wide truncate">{kpi.title}</h3>
+                            <div className={`text-sm font-bold tracking-tight leading-none truncate ${kpi.color}`}>
+                              {kpi.value}
                             </div>
-                            <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
+                            <div className="flex items-center gap-1 mt-auto truncate">
+                              <div className="w-3.5 h-3.5 rounded-full bg-slate-900 flex items-center justify-center shrink-0">
+                                <TrendingUp className="w-2 h-2 text-slate-500" />
+                              </div>
+                              <span className={`text-[8px] font-semibold truncate ${kpi.isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {kpi.isUp ? '▲' : '▼'} {kpi.trend}
+                              </span>
+                              <div className="ml-auto w-3.5 h-3.5 rounded flex items-center justify-center bg-slate-900 shrink-0">
+                                <Calendar className="w-2 h-2 text-slate-500" />
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
-                      <button
-                        onClick={() => setAdminTab('rankings')}
-                        className="w-full py-3 bg-white/5 text-[10px] font-black text-slate-400 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
-                      >
-                        SEE ALL RANKINGS <TrendingUp className="w-3 h-3" />
-                      </button>
                     </div>
 
-                    <div className="glass-card overflow-hidden">
-                      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 3 Drivers</h3>
-                        <Users className="w-4 h-4 text-blue-500" />
-                      </div>
-                      <div className="divide-y divide-white/5">
-                        {adminData.tables.topDrivers.slice(0, 3).map((d: any, i: number) => (
-                          <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                              <span className="text-xs font-bold text-white">{adminData.driverNames?.[d.driver] || d.driver}</span>
-                            </div>
-                            <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
+                    {/* Right Column Wrapper */}
+                    <div className="flex flex-col gap-4">
+                      {/* Right Sidebar (Fleet Summary) */}
+                      <div className="bg-[#0f172a] rounded-lg shadow-sm border border-slate-800 overflow-hidden flex flex-col min-h-[480px] max-h-[600px] xl:max-h-full">
+                        <div className="p-3 border-b border-slate-800 bg-slate-900 flex items-center justify-between shrink-0">
+                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wide">Fleet summary</h3>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => {
+                                const headers = ["Vehicle", "Hire Income", "KM", "Fuel Cost", "Fuel %"];
+                                const rows = (adminData.tables.topVehicles || []).map((v: any) => [
+                                  v.vehicle,
+                                  Math.round(v.hireIncome).toLocaleString(),
+                                  Math.round(v.mileage).toLocaleString(),
+                                  `Rs.${Math.round(v.fuelCost).toLocaleString()}`,
+                                  `${v.fuelPercentage.toFixed(2)}%`
+                                ]);
+                                const csvContent = [headers.join("\t"), ...rows.map((r: any) => r.join("\t"))].join("\n");
+                                navigator.clipboard.writeText(csvContent);
+                                setAlert({ type: 'success', message: 'Copied to clipboard!' });
+                              }}
+                              className="p-1 hover:bg-slate-800 rounded transition-colors"
+                              title="Copy Table"
+                            >
+                              <Copy className="w-3.5 h-3.5 text-slate-400" />
+                            </button>
+                            <Car className="w-3.5 h-3.5 text-slate-400" />
                           </div>
-                        ))}
+                        </div>
+                        <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar bg-slate-950 text-white p-2">
+                          <table className="w-full text-left text-xs font-sans border-collapse">
+                            <thead>
+                              <tr className="border-b border-white/10 text-slate-400">
+                                <th className="py-3 px-2 font-bold">Vehicle</th>
+                                <th className="py-3 px-2 font-bold text-right">Hire Income</th>
+                                <th className="py-3 px-2 font-bold text-right">KM</th>
+                                <th className="py-3 px-2 font-bold text-right">Fuel Cost</th>
+                                <th className="py-3 px-2 font-bold text-right">Fuel %</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {(adminData.tables.topVehicles || []).map((v: any, i: number) => (
+                                <tr key={i} className="hover:bg-white/5 transition-colors">
+                                  <td className="py-3 px-2 font-bold text-slate-300">{v.vehicle}</td>
+                                  <td className="py-3 px-2 text-right text-white font-mono">{Math.round(v.hireIncome).toLocaleString()}</td>
+                                  <td className="py-3 px-2 text-right text-slate-300 font-mono">{Math.round(v.mileage).toLocaleString()}</td>
+                                  <td className="py-3 px-2 text-right text-rose-400 font-mono">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
+                                  <td className="py-3 px-2 text-right text-rose-400 font-mono">{v.fuelPercentage.toFixed(2)}%</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => setAdminTab('rankings')}
-                        className="w-full py-3 bg-white/5 text-[10px] font-black text-slate-400 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
-                      >
-                        SEE ALL RANKINGS <TrendingUp className="w-3 h-3" />
-                      </button>
+
+                      {/* Profit Calculation Card */}
+                      <div className="bg-[#0f172a] border border-slate-800 rounded-lg p-4 text-white flex flex-col justify-between shadow-sm">
+                        <div className="border-b border-slate-800 pb-2 mb-3 flex items-center justify-between">
+                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Profit equation</h3>
+                          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider font-mono">Formula: Rev - Cost</span>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm font-sans">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Total Revenue</span>
+                            <span className="font-bold text-emerald-400">Rs. {adminData.kpis.totalSales.toLocaleString()}</span>
+                          </div>
+                          
+                          <div className="flex justify-between items-center text-rose-400">
+                            <span className="text-slate-400">(-) Fuel Cost</span>
+                            <span className="font-semibold">- Rs. {adminData.kpis.totalFuel.toLocaleString()}</span>
+                          </div>
+
+                          <div className="flex justify-between items-center text-rose-400">
+                            <span className="text-slate-400">(-) Repair Cost</span>
+                            <span className="font-semibold">- Rs. {adminData.kpis.totalRepairCost.toLocaleString()}</span>
+                          </div>
+
+                          <div className="flex justify-between items-center text-rose-400">
+                            <span className="text-slate-400">(-) Driver Commission</span>
+                            <span className="font-semibold">- Rs. {adminData.kpis.totalCommission.toLocaleString()}</span>
+                          </div>
+
+                          <div className="border-t border-slate-800 my-2 pt-2 flex justify-between items-center">
+                            <span className="text-sm font-black tracking-wider text-slate-400 uppercase">Profit</span>
+                            <span className={cn(
+                              "text-base font-black font-mono",
+                              adminData.kpis.netIncome >= 0 ? "text-emerald-400" : "text-rose-500"
+                            )}>
+                              Rs. {adminData.kpis.netIncome.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -2390,7 +2530,7 @@ export default function FleetApp() {
                       <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                         <tr className="border-b border-white/5 bg-white/[0.02]">
                           {[
-                            'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
+                            'Status', 'STAFF COMMENT', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
                             'Purpose', 'Garage Start', 'Garage End', 'End TS',
                             'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
@@ -2440,7 +2580,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => (
+                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => (
                               <td 
                                 key={idx} 
                                 className={cn(
@@ -2449,7 +2589,26 @@ export default function FleetApp() {
                                 )}
                                 title={hasMismatch && idx === 6 ? `${mismatch} km mismatch with the last trip for this vehicle` : undefined}
                               >
-                                {idx === 'fuel_meter' || idx === 'fuel_liters' ? (
+                                {idx === 'staff_comment' ? (
+                                  <div 
+                                    onClick={() => {
+                                      const currentComment = t.values[27] || '';
+                                      setCommentTarget({ rf: t.rf, comment: currentComment });
+                                      setCommentText(currentComment);
+                                      setShowCommentModal(true);
+                                    }}
+                                    className="flex items-center gap-2 cursor-pointer hover:bg-white/10 p-1 rounded transition-colors group min-w-[80px]"
+                                  >
+                                    {t.values[27] ? (
+                                      <span className="text-white text-xs">{t.values[27]}</span>
+                                    ) : (
+                                      <span className="text-slate-500 italic text-[10px] flex items-center gap-1">
+                                        <Plus className="w-3 h-3" /> Add
+                                      </span>
+                                    )}
+                                    {t.values[27] && <Edit className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                                  </div>
+                                ) : idx === 'fuel_meter' || idx === 'fuel_liters' ? (
                                   <span className="text-white">
                                     {(() => {
                                       const rawComments = t.values[10] || '';
@@ -3015,7 +3174,7 @@ export default function FleetApp() {
                               <p className="text-xs font-medium text-slate-200 whitespace-pre-wrap">"{msg.message}"</p>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-[10px] font-bold text-emerald-400 mb-2 uppercase tracking-widest">{msg.timestamp}</span>
-                                <span className="text-slate-600 text-[10px]">•</span>
+                                <span className="text-slate-600 text-[10px]">â€¢</span>
                                 <span className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">Sent to {msg.recipients.length} driver(s)</span>
                               </div>
                             </div>
@@ -3129,7 +3288,7 @@ export default function FleetApp() {
                                     ? `${adminMessageDriver.length} Driver(s) Selected` 
                                     : 'Select Drivers'}
                               </span>
-                              <div className="text-emerald-500/50 text-[10px]">▼</div>
+                              <div className="text-emerald-500/50 text-[10px]">â–¼</div>
                             </div>
                             
                             <AnimatePresence>
@@ -4036,7 +4195,7 @@ export default function FleetApp() {
                                 }}
                                 className="text-rose-500 hover:text-rose-400 font-bold px-1"
                               >
-                                ✕
+                                âœ•
                               </button>
                             </div>
                           ))}
@@ -4219,6 +4378,7 @@ export default function FleetApp() {
                     title: 'Start Details',
                     fields: [
                       { label: 'Status', idx: 0, type: 'select', options: ['Pending', 'Approved', 'Cancelled'] },
+                      { label: 'Staff Comment', idx: 27, type: 'text' },
                       { label: 'FR Ref', idx: 1, type: 'text', readOnly: true },
                       { label: 'Start TS', idx: 2, type: 'text', readOnly: true },
                       { label: 'Driver', idx: 3, type: 'text' },
@@ -4452,6 +4612,7 @@ export default function FleetApp() {
                     title: 'Start Details',
                     fields: [
                       { label: 'Status', idx: 0 },
+                      { label: 'Staff Comment', idx: 27 },
                       { label: 'FR Ref', idx: 1 },
                       { label: 'Start TS', idx: 2 },
                       { label: 'Driver', idx: 3 },

@@ -64,7 +64,8 @@ export async function GET(request: Request) {
       uniqueVehicles,
       uniqueDrivers,
       users,
-      addedVehiclesMeta
+      addedVehiclesMeta,
+      allTripsRaw
     ] = await Promise.all([
       Trip.countDocuments(query),
       Trip.find(query, { images: 0 }).sort({ reference: -1 }).skip(skip).limit(limit).lean(),
@@ -100,10 +101,13 @@ export async function GET(request: Request) {
               {
                 $group: {
                   _id: { $ifNull: ["$vehicle", "Unknown"] },
-                  sales: { $sum: "$finalPrice" }
+                  sales: { $sum: "$finalPrice" },
+                  hireIncome: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, "$finalPrice", 0] } },
+                  hireMileage: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, "$mileage", 0] } },
+                  fuelCost: { $sum: "$fuel" }
                 }
               },
-              { $sort: { sales: -1 } }
+              { $sort: { _id: 1 } }
             ],
             byDriver: [
               {
@@ -143,7 +147,8 @@ export async function GET(request: Request) {
       Trip.distinct("vehicle"),
       Trip.distinct("driverId"),
       User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 }).lean(),
-      SheetMetadata.findOne({ key: "added_vehicles" }).lean()
+      SheetMetadata.findOne({ key: "added_vehicles" }).lean(),
+      Trip.find(query, { rawValues: 1 }).lean()
     ]);
 
     // KPI mapping
@@ -156,12 +161,39 @@ export async function GET(request: Request) {
       hireCount: 0,
       repairCount: 0
     };
+
+    let totalFuelLiters = 0;
+    (allTripsRaw || []).forEach((t: any) => {
+      const values = t.rawValues || [];
+      const rawComments = String(values[10] || '');
+      const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+      if (fuelMatch) {
+        const fuelStr = fuelMatch[1];
+        const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+        if (m) {
+          totalFuelLiters += parseFloat(m[1]) || 0;
+        }
+      }
+      const secondLiters = parseFloat(values[26]);
+      if (!isNaN(secondLiters)) {
+        totalFuelLiters += secondLiters;
+      }
+    });
+
     const netIncome = (kpis.totalSales || 0) - (kpis.totalCommission || 0) - (kpis.totalFuel || 0) - (kpis.totalRepairCost || 0);
 
     // Charts mapping
     const chartsData = chartsAggregation[0];
     const dailySales = chartsData.byDate.map((d: any) => ({ date: d._id, sales: d.sales }));
-    const vehicleSales = chartsData.byVehicle.map((d: any) => ({ vehicle: d._id, sales: d.sales }));
+    const vehicleSales = chartsData.byVehicle.map((d: any) => ({
+      vehicle: d._id,
+      sales: d.sales,
+      hireIncome: d.hireIncome || 0,
+      mileage: d.hireMileage || 0,
+      fuelCost: d.fuelCost || 0,
+      incomePerKm: d.hireMileage > 0 ? (d.hireIncome / d.hireMileage) : 0,
+      fuelPercentage: d.hireIncome > 0 ? (d.fuelCost / d.hireIncome) * 100 : 0
+    }));
     const driverSales = chartsData.byDriver.map((d: any) => ({ driver: d._id, sales: d.sales }));
     const monthlySales = chartsData.byMonth.map((d: any) => ({ month: d._id, sales: d.sales }));
     
@@ -223,7 +255,8 @@ export async function GET(request: Request) {
         repairCount: kpis.repairCount || 0,
         totalMileage: kpis.totalMileage || 0,
         totalFuel: kpis.totalFuel || 0,
-        totalRepairCost: kpis.totalRepairCost || 0
+        totalRepairCost: kpis.totalRepairCost || 0,
+        totalFuelLiters: totalFuelLiters || 0
       },
       charts: {
         dailySales,
