@@ -2214,11 +2214,12 @@ export default function FleetApp() {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-[#f4f7f6] rounded-xl p-4 md:p-6 space-y-4 text-slate-800"
+                  className="glass-card p-4 md:p-6 space-y-4 text-slate-200"
+                  style={{ minHeight: 'calc(100vh - 12rem)' }}
                 >
                   {/* Header */}
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                    <h2 className="text-lg font-bold text-slate-700">Fleet KPI Dashboard</h2>
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-700">
+                    <h2 className="text-lg font-bold text-white">Fleet KPI Dashboard</h2>
                     <div className="flex items-center gap-2">
                       <select
                         className="bg-slate-800 text-white text-[11px] font-bold px-2 py-1.5 rounded shadow-sm border border-slate-700 outline-none cursor-pointer"
