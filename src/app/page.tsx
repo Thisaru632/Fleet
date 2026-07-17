@@ -86,13 +86,19 @@ export default function FleetApp() {
   // Admin Dashboard States
   const [adminData, setAdminData] = useState<any>(null);
   const [fetchingAdmin, setFetchingAdmin] = useState(false);
-  const [adminFilters, setAdminFilters] = useState({
-    startDate: '',
-    endDate: '',
-    purpose: 'All',
-    status: 'All',
-    vehicle: 'All',
-    driver: 'All'
+  const [adminFilters, setAdminFilters] = useState(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return {
+      startDate: `${y}-${m}-01`,
+      endDate: `${y}-${m}-${d}`,
+      purpose: 'All',
+      status: 'All',
+      vehicle: 'All',
+      driver: 'All'
+    };
   });
   const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission'>('overview');
   const [vehicleCommissions, setVehicleCommissions] = useState<Record<string, number>>({});
@@ -220,9 +226,13 @@ export default function FleetApp() {
   }, [fleetSearch]);
 
   const resetAdminFilters = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
     setAdminFilters({
-      startDate: '',
-      endDate: '',
+      startDate: `${y}-${m}-01`,
+      endDate: `${y}-${m}-${d}`,
       purpose: 'All',
       status: 'All',
       vehicle: 'All',
@@ -2104,7 +2114,7 @@ export default function FleetApp() {
           </div>
 
           {/* Filters */}
-          {adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && (
+          {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && (
             <div className="p-1.5 bg-white/5 rounded-2xl border border-white/10 flex flex-col md:flex-row items-end gap-2 w-full">
               <div className="grid grid-cols-2 md:grid-cols-6 gap-2 flex-1 w-full px-2 py-0.5">
                 <div className="space-y-1">
@@ -2129,48 +2139,48 @@ export default function FleetApp() {
                   onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
-                <select
-                  className="w-full input-field py-0 text-[10px] text-white h-7"
-                  value={adminFilters.purpose}
-                  onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
-                >
-                  {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
-                <select
-                  className="w-full input-field py-0 text-[10px] text-white h-7"
-                  value={adminFilters.status}
-                  onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
-                >
-                  {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
-                <select
-                  className="w-full input-field py-0 text-[10px] text-white h-7"
-                  value={adminFilters.vehicle}
-                  onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
-                >
-                  <option value="All">All Vehicles</option>
-                  {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
-                <select
-                  className="w-full input-field py-0 text-[10px] text-white h-7"
-                  value={adminFilters.driver}
-                  onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
-                >
-                  <option value="All">All Drivers</option>
-                  {adminData?.filterOptions.drivers.map((d: string) => <option key={d} value={d}>{adminData.driverNames?.[d] || d}</option>)}
-                </select>
-              </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
+                    <select
+                      className="w-full input-field py-0 text-[10px] text-white h-7"
+                      value={adminFilters.purpose}
+                      onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
+                    >
+                      {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
+                    <select
+                      className="w-full input-field py-0 text-[10px] text-white h-7"
+                      value={adminFilters.status}
+                      onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
+                    >
+                      {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
+                    <select
+                      className="w-full input-field py-0 text-[10px] text-white h-7"
+                      value={adminFilters.vehicle}
+                      onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
+                    >
+                      <option value="All">All Vehicles</option>
+                      {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
+                    <select
+                      className="w-full input-field py-0 text-[10px] text-white h-7"
+                      value={adminFilters.driver}
+                      onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
+                    >
+                      <option value="All">All Drivers</option>
+                      {adminData?.filterOptions.drivers.map((d: string) => <option key={d} value={d}>{adminData.driverNames?.[d] || d}</option>)}
+                    </select>
+                  </div>
             </div>
             <button
               onClick={resetAdminFilters}
@@ -2209,9 +2219,78 @@ export default function FleetApp() {
                   {/* Header */}
                   <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                     <h2 className="text-lg font-bold text-slate-700">Fleet KPI Dashboard</h2>
-                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 bg-white px-2.5 py-1 rounded shadow-sm">
-                      <Calendar className="w-3 h-3" />
-                      Last Month
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="bg-slate-800 text-white text-[11px] font-bold px-2 py-1.5 rounded shadow-sm border border-slate-700 outline-none cursor-pointer"
+                        value={(() => {
+                          const today = new Date();
+                          const y = today.getFullYear();
+                          const m = String(today.getMonth() + 1).padStart(2, '0');
+                          const d = String(today.getDate()).padStart(2, '0');
+                          const todayStr = `${y}-${m}-${d}`;
+                        
+                          const lastWeek = new Date(today);
+                          lastWeek.setDate(today.getDate() - 7);
+                          const wy = lastWeek.getFullYear();
+                          const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
+                          const wd = String(lastWeek.getDate()).padStart(2, '0');
+                          const lastWeekStr = `${wy}-${wm}-${wd}`;
+                        
+                          if (adminFilters.endDate === todayStr) {
+                            if (adminFilters.startDate === todayStr) return 'Daily';
+                            if (adminFilters.startDate === lastWeekStr) return 'Weekly';
+                            if (adminFilters.startDate === `${y}-${m}-01`) return 'Monthly';
+                            if (adminFilters.startDate === `${y}-01-01`) return 'Yearly';
+                          }
+                          return 'Custom';
+                        })()}
+                        onChange={(e) => {
+                          const preset = e.target.value;
+                          const today = new Date();
+                          const y = today.getFullYear();
+                          const m = String(today.getMonth() + 1).padStart(2, '0');
+                          const d = String(today.getDate()).padStart(2, '0');
+                          const todayStr = `${y}-${m}-${d}`;
+
+                          if (preset === 'Daily') {
+                            setAdminFilters({ ...adminFilters, startDate: todayStr, endDate: todayStr });
+                          } else if (preset === 'Weekly') {
+                            const lastWeek = new Date(today);
+                            lastWeek.setDate(today.getDate() - 7);
+                            const wy = lastWeek.getFullYear();
+                            const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
+                            const wd = String(lastWeek.getDate()).padStart(2, '0');
+                            setAdminFilters({ ...adminFilters, startDate: `${wy}-${wm}-${wd}`, endDate: todayStr });
+                          } else if (preset === 'Monthly') {
+                            setAdminFilters({ ...adminFilters, startDate: `${y}-${m}-01`, endDate: todayStr });
+                          } else if (preset === 'Yearly') {
+                            setAdminFilters({ ...adminFilters, startDate: `${y}-01-01`, endDate: todayStr });
+                          }
+                        }}
+                      >
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Yearly">Yearly</option>
+                        <option value="Custom" hidden>Custom</option>
+                      </select>
+                      
+                      <div className="flex items-center gap-2 bg-slate-800 px-2.5 py-1 rounded shadow-sm border border-slate-700">
+                        <Calendar className="w-3.5 h-3.5 text-white" />
+                        <input
+                          type="date"
+                          className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[88px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                          value={adminFilters.startDate}
+                          onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
+                        />
+                        <span className="text-slate-400 text-[10px] font-bold">—</span>
+                        <input
+                          type="date"
+                          className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[88px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                          value={adminFilters.endDate}
+                          onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -2226,7 +2305,7 @@ export default function FleetApp() {
                           { title: 'FUEL COST', value: `Rs. ${adminData.kpis.totalFuel.toLocaleString()}`, color: 'text-rose-400', trend: '-10%', isUp: false },
                           { title: 'REPAIR COST', value: `Rs. ${adminData.kpis.totalRepairCost.toLocaleString()}`, color: 'text-rose-400', trend: '+49%', isUp: true },
                           { title: 'FUEL LITERS', value: `${(adminData.kpis.totalFuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L`, color: 'text-white', trend: 'N/A', isUp: true },
-                          { title: 'TOTAL MILEAGE', value: `${(adminData.kpis.totalMileage || 0).toLocaleString()} KM`, color: 'text-slate-200', trend: 'N/A', isUp: true },
+                          { title: 'TOTAL MILEAGE', value: `${(adminData.tables.fleetData?.reduce((sum: number, row: any) => sum + (Number(String(row.values?.[22] || 0).replace(/[^\d.-]/g, '')) || 0), 0) || 0).toLocaleString()} KM`, color: 'text-slate-200', trend: 'N/A', isUp: true },
                           { title: 'DRIVER COMMISSION', value: `Rs. ${(adminData.kpis.totalCommission || 0).toLocaleString()}`, color: 'text-rose-400', trend: 'N/A', isUp: true },
                         ].map((kpi, idx) => (
                           <div key={idx} className="flex-1 min-w-0 bg-[#0f172a] p-2 rounded-lg shadow-sm border border-slate-800 flex flex-col justify-between h-20">
@@ -2255,7 +2334,7 @@ export default function FleetApp() {
                       {/* Right Sidebar (Fleet Summary) */}
                       <div className="bg-[#0f172a] rounded-lg shadow-sm border border-slate-800 overflow-hidden flex flex-col min-h-[480px] max-h-[600px] xl:max-h-full">
                         <div className="p-3 border-b border-slate-800 bg-slate-900 flex items-center justify-between shrink-0">
-                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wide">Fleet summary</h3>
+                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex-shrink-0">Fleet summary</h3>
                           <div className="flex items-center gap-2">
                             <button 
                               onClick={() => {
