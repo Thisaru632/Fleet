@@ -100,7 +100,21 @@ export default function FleetApp() {
       driver: 'All'
     };
   });
-  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report'>('overview');
+  const [reportCategory, setReportCategory] = useState<'Credit' | 'Invoice'>('Credit');
+  const [reportStartDate, setReportStartDate] = useState(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  });
+  const [reportEndDate, setReportEndDate] = useState(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
   const [vehicleCommissions, setVehicleCommissions] = useState<Record<string, number>>({});
   const [accountSheetData, setAccountSheetData] = useState<any>(null);
   const [fetchingAccountData, setFetchingAccountData] = useState(false);
@@ -108,6 +122,9 @@ export default function FleetApp() {
   const [fleetSearch, setFleetSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [messagesData, setMessagesData] = useState<any>(null);
+  const [reportAccountData, setReportAccountData] = useState<any>(null);
+  const [reportFleetData, setReportFleetData] = useState<any>(null);
+  const [fetchingReportData, setFetchingReportData] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [fetchingMessages, setFetchingMessages] = useState(false);
   const [adminMessageTab, setAdminMessageTab] = useState<'inbox' | 'sent'>('inbox');
@@ -243,6 +260,20 @@ export default function FleetApp() {
   useEffect(() => {
     resetAdminFilters();
   }, [adminTab]);
+
+  useEffect(() => {
+    if (adminTab === 'report' && (reportCategory === 'Credit' || reportCategory === 'Invoice') && (!reportAccountData || !reportFleetData) && !fetchingReportData) {
+      setFetchingReportData(true);
+      Promise.all([
+        fetch('/api/admin/account-data?page=1&limit=5000').then(res => res.json()),
+        fetch('/api/admin/sales?page=1&limit=5000').then(res => res.json())
+      ]).then(([accData, fleetRes]) => {
+        if (!accData.error) setReportAccountData(accData);
+        if (!fleetRes.error) setReportFleetData(fleetRes);
+        setFetchingReportData(false);
+      });
+    }
+  }, [adminTab, reportCategory, reportAccountData, reportFleetData, fetchingReportData]);
 
   useEffect(() => {
     try {
@@ -1544,6 +1575,162 @@ export default function FleetApp() {
     );
   }
 
+  const generateCreditReportCSV = () => {
+    if (!reportFleetData?.tables?.fleetData) {
+      setAlert({ type: 'error', message: 'No fleet data available to generate report.' });
+      setTimeout(() => setAlert(null), 3000);
+      return;
+    }
+    
+    // Headers
+    const headers = [
+      "", "*CreditMemoNo", "*Customer", "*CreditMemoDate", "Location", 
+      "Memo", "Item(Product/Service)", "ItemDescription", "ItemQuantity", 
+      "ItemRate", "*ItemAmount", "Service Date"
+    ];
+    
+    let csvContent = headers.join(",") + "\n";
+    
+    const records = reportFleetData.tables.fleetData
+      .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'));
+      
+    records.forEach((t: any) => {
+      const tripRef = t.values[12] || '';
+      let formattedDate = '';
+      let pickUp = '';
+      let dropOff = '';
+      let scComm = '';
+
+      if (tripRef && reportAccountData?.data) {
+        const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+        if (accMatch) {
+          const rawEndDate = accMatch.rawValues[15] || '';
+          if (rawEndDate) {
+            const raw = String(rawEndDate).split(' ')[0];
+            const d = new Date(raw);
+            if (!isNaN(d.getTime())) {
+              formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+            } else {
+              formattedDate = raw.replace(/\//g, '-');
+            }
+          }
+          pickUp = accMatch.rawValues[24] || '';
+          dropOff = accMatch.rawValues[27] || '';
+          scComm = accMatch.rawValues[3] || '';
+        }
+      }
+      
+      const description = pickUp && dropOff ? `${pickUp} to ${dropOff}` : pickUp || dropOff || '';
+      const safeDescription = `"${description.replace(/"/g, '""')}"`;
+      
+      const row = [
+        tripRef, 
+        tripRef ? `C${tripRef}` : "", 
+        "Senu Cabs & Tours", 
+        formattedDate, 
+        "", 
+        "", 
+        "CAB COMMISSION", 
+        safeDescription, 
+        "", 
+        "", 
+        scComm, 
+        ""
+      ];
+      csvContent += row.join(",") + "\n";
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Credit_Report_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setAlert({ type: 'success', message: 'Report generated and downloaded successfully!' });
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const generateInvoiceReportCSV = () => {
+    if (!reportFleetData?.tables?.fleetData) {
+      setAlert({ type: 'error', message: 'No fleet data available to generate report.' });
+      setTimeout(() => setAlert(null), 3000);
+      return;
+    }
+    
+    // Headers
+    const headers = [
+      "*InvoiceNo", "*Customer", "*InvoiceDate", "*DueDate", "Terms", 
+      "Location", "Memo", "Item(Product/Service)", "ItemDescription", 
+      "ItemQuantity", "ItemRate", "*ItemAmount", "DRIVER COMM"
+    ];
+    
+    let csvContent = headers.join(",") + "\n";
+    
+    const records = reportFleetData.tables.fleetData
+      .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'));
+      
+    records.forEach((t: any) => {
+      const tripRef = t.values[12] || '';
+      const vehicleNum = t.values[4] || '';
+      let formattedDate = '';
+      let hireAmount = '';
+      
+      const driverCode = t.values[3] || '';
+      const driverName = adminData.driverNames?.[driverCode] || driverCode;
+      const customerName = driverName ? `${driverName} - Cash` : '- Cash';
+      const driverComm = t.values[14] || '';
+
+      if (tripRef && reportAccountData?.data) {
+        const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+        if (accMatch) {
+          const rawEndDate = accMatch.rawValues[15] || '';
+          if (rawEndDate) {
+            const raw = String(rawEndDate).split(' ')[0];
+            const d = new Date(raw);
+            if (!isNaN(d.getTime())) {
+              formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+            } else {
+              formattedDate = raw.replace(/\//g, '-');
+            }
+          }
+          hireAmount = accMatch.rawValues[4] || '';
+        }
+      }
+      
+      const row = [
+        tripRef, 
+        `"${customerName}"`, 
+        formattedDate, 
+        "", 
+        "", 
+        "", 
+        "", 
+        vehicleNum, 
+        "", 
+        "", 
+        "", 
+        hireAmount,
+        driverComm
+      ];
+      csvContent += row.join(",") + "\n";
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Invoice_Report_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setAlert({ type: 'success', message: 'Invoice Report generated successfully!' });
+    setTimeout(() => setAlert(null), 3000);
+  };
+
   if (!user) return <LoginModal onLogin={(u) => { setUser(u); fetchInitialData(u[0]); }} />;
 
   return (
@@ -1606,7 +1793,8 @@ export default function FleetApp() {
                  adminTab === 'messages' ? 'Messages' : 
                  adminTab === 'accounts' ? 'Account Sheet' : 
                  adminTab === 'vehicles' ? 'Vehicles' : 
-                 adminTab === 'driver-manage' ? 'Driver Manage' : 'Admin Control Panel'}
+                 adminTab === 'driver-manage' ? 'Driver Manage' : 
+                 adminTab === 'report' ? 'Reports Dashboard' : 'Admin Control Panel'}
               </h2>
               <p className="text-[8px] text-emerald-500/60 font-black tracking-widest uppercase mt-0.5">Admin Control Panel</p>
             </div>
@@ -2100,6 +2288,17 @@ export default function FleetApp() {
               VEHICLE & COMMISSIONS
             </button>
 
+            <button
+              onClick={() => setAdminTab('report')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'report' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <ClipboardCheck className="w-4 h-4" />
+              REPORTS
+            </button>
+
             <div className="w-px h-8 bg-white/10 mx-2 self-center shrink-0"></div>
             <button
               onClick={() => {
@@ -2114,7 +2313,7 @@ export default function FleetApp() {
           </div>
 
           {/* Filters */}
-          {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && (
+          {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && adminTab !== 'report' && (
             <div className="p-1.5 bg-white/5 rounded-2xl border border-white/10 flex flex-col md:flex-row items-end gap-2 w-full">
               <div className="grid grid-cols-2 md:grid-cols-6 gap-2 flex-1 w-full px-2 py-0.5">
                 <div className="space-y-1">
@@ -3702,6 +3901,255 @@ export default function FleetApp() {
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {/* REPORT TAB */}
+          {!fetchingAdmin && adminTab === 'report' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="glass-card p-4 border border-white/5 bg-white/5">
+                <div className="flex flex-col md:flex-row md:items-end gap-4">
+                  <div className="flex items-center gap-3 md:mr-2 mb-2 md:mb-0">
+                    <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hidden md:block">
+                      <ClipboardCheck className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-widest whitespace-nowrap">
+                        Report
+                      </h3>
+                      <p className="text-[10px] text-slate-400">Settings</p>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Category</label>
+                      <select
+                        className="w-full input-field py-0 px-3 text-xs text-white h-9"
+                        value={reportCategory}
+                        onChange={(e) => setReportCategory(e.target.value as 'Credit' | 'Invoice')}
+                      >
+                        <option value="Credit">Credit Report</option>
+                        <option value="Invoice">Invoice Report</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Calendar className="w-2.5 h-2.5" /> From
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full input-field py-0 px-3 text-xs text-white h-9"
+                        value={reportStartDate}
+                        onChange={(e) => setReportStartDate(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Calendar className="w-2.5 h-2.5" /> To
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full input-field py-0 px-3 text-xs text-white h-9"
+                        value={reportEndDate}
+                        onChange={(e) => setReportEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mt-4 md:mt-0">
+                    <button
+                      onClick={() => {
+                        if (reportCategory === 'Credit') {
+                          generateCreditReportCSV();
+                        } else if (reportCategory === 'Invoice') {
+                          generateInvoiceReportCSV();
+                        } else {
+                          setAlert({ type: 'warning', message: `Generating ${reportCategory} Report... Please wait.` });
+                          setTimeout(() => setAlert(null), 3000);
+                        }
+                      }}
+                      className="px-4 h-9 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest text-[10px] transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5 whitespace-nowrap"
+                    >
+                      <Download className="w-3 h-3" />
+                      Generate
+                    </button>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* Credit Report Table */}
+              {reportCategory === 'Credit' && reportFleetData?.tables?.fleetData && (
+                fetchingReportData ? (
+                  <div className="flex flex-col items-center justify-center p-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
+                    <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
+                  </div>
+                ) : (
+                <div className="glass-card overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-max">
+                      <thead>
+                        <tr className="border-b border-white/10 text-[11px] font-bold text-white uppercase bg-white/5">
+                          <th className="p-2 border-r border-white/10"></th>
+                          <th className="p-2 border-r border-white/10">*CreditMemoNo</th>
+                          <th className="p-2 border-r border-white/10">*Customer</th>
+                          <th className="p-2 border-r border-white/10">*CreditMemoDate</th>
+                          <th className="p-2 border-r border-white/10">Location</th>
+                          <th className="p-2 border-r border-white/10">Memo</th>
+                          <th className="p-2 border-r border-white/10">Item(Product/Service)</th>
+                          <th className="p-2 border-r border-white/10 min-w-[300px]">ItemDescription</th>
+                          <th className="p-2 border-r border-white/10">ItemQuantity</th>
+                          <th className="p-2 border-r border-white/10">ItemRate</th>
+                          <th className="p-2 border-r border-white/10">*ItemAmount</th>
+                          <th className="p-2">Service Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-[12px] text-slate-300">
+                        {reportFleetData.tables.fleetData
+                          .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
+                          .map((t: any, i: number) => {
+                            const tripRef = t.values[12] || '';
+                            let formattedDate = '';
+                            let pickUp = '';
+                            let dropOff = '';
+                            let scComm = '';
+
+                            if (tripRef && reportAccountData?.data) {
+                              const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+                              if (accMatch) {
+                                const rawEndDate = accMatch.rawValues[15] || '';
+                                if (rawEndDate) {
+                                  const raw = String(rawEndDate).split(' ')[0];
+                                  const d = new Date(raw);
+                                  if (!isNaN(d.getTime())) {
+                                    formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+                                  } else {
+                                    formattedDate = raw.replace(/\//g, '-');
+                                  }
+                                }
+                                pickUp = accMatch.rawValues[24] || '';
+                                dropOff = accMatch.rawValues[27] || '';
+                                scComm = accMatch.rawValues[3] || '';
+                              }
+                            }
+                            
+                            const description = pickUp && dropOff ? `${pickUp} to ${dropOff}` : pickUp || dropOff || '';
+                            
+                            return (
+                              <tr key={i} className="hover:bg-white/5 transition-colors border-b border-white/5">
+                                <td className="p-2 border-r border-white/5 text-slate-400">{tripRef}</td>
+                                <td className="p-2 border-r border-white/5 text-white">{tripRef ? `C${tripRef}` : ''}</td>
+                                <td className="p-2 border-r border-white/5 text-white">Senu Cabs & Tours</td>
+                                <td className="p-2 border-r border-white/5 text-center text-white">{formattedDate}</td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5 text-emerald-400">CAB COMMISSION</td>
+                                <td className="p-2 border-r border-white/5 whitespace-normal text-xs text-white">{description}</td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5 text-right font-bold text-white">{scComm}</td>
+                                <td className="p-2"></td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                )
+              )}
+
+              {/* Invoice Report Table */}
+              {reportCategory === 'Invoice' && reportFleetData?.tables?.fleetData && (
+                fetchingReportData ? (
+                  <div className="flex flex-col items-center justify-center p-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
+                    <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
+                  </div>
+                ) : (
+                <div className="glass-card overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-max">
+                      <thead>
+                        <tr className="border-b border-white/10 text-[11px] font-bold text-white uppercase bg-white/5">
+                          <th className="p-2 border-r border-white/10">*InvoiceNo</th>
+                          <th className="p-2 border-r border-white/10">*Customer</th>
+                          <th className="p-2 border-r border-white/10">*InvoiceDate</th>
+                          <th className="p-2 border-r border-white/10">*DueDate</th>
+                          <th className="p-2 border-r border-white/10">Terms</th>
+                          <th className="p-2 border-r border-white/10">Location</th>
+                          <th className="p-2 border-r border-white/10">Memo</th>
+                          <th className="p-2 border-r border-white/10">Item(Product/Service)</th>
+                          <th className="p-2 border-r border-white/10">ItemDescription</th>
+                          <th className="p-2 border-r border-white/10">ItemQuantity</th>
+                          <th className="p-2 border-r border-white/10">ItemRate</th>
+                          <th className="p-2 border-r border-white/10">*ItemAmount</th>
+                          <th className="p-2">DRIVER COMM</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-[12px] text-slate-300">
+                        {reportFleetData.tables.fleetData
+                          .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
+                          .map((t: any, i: number) => {
+                            const tripRef = t.values[12] || '';
+                            const vehicleNum = t.values[4] || '';
+                            let formattedDate = '';
+                            let hireAmount = '';
+                            
+                            const driverCode = t.values[3] || '';
+                            const driverName = adminData.driverNames?.[driverCode] || driverCode;
+                            const customerName = driverName ? `${driverName} - Cash` : '- Cash';
+                            const driverComm = t.values[14] || '';
+
+                            if (tripRef && reportAccountData?.data) {
+                              const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+                              if (accMatch) {
+                                const rawEndDate = accMatch.rawValues[15] || '';
+                                if (rawEndDate) {
+                                  const raw = String(rawEndDate).split(' ')[0];
+                                  const d = new Date(raw);
+                                  if (!isNaN(d.getTime())) {
+                                    formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+                                  } else {
+                                    formattedDate = raw.replace(/\//g, '-');
+                                  }
+                                }
+                                hireAmount = accMatch.rawValues[4] || '';
+                              }
+                            }
+                            
+                            return (
+                              <tr key={i} className="hover:bg-white/5 transition-colors border-b border-white/5">
+                                <td className="p-2 border-r border-white/5 text-slate-400">{tripRef}</td>
+                                <td className="p-2 border-r border-white/5 text-emerald-400">{customerName}</td>
+                                <td className="p-2 border-r border-white/5 text-center text-white">{formattedDate}</td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5 text-white">{vehicleNum}</td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5"></td>
+                                <td className="p-2 border-r border-white/5 text-right font-bold text-white">{hireAmount}</td>
+                                <td className="p-2 text-right font-bold text-rose-400">{driverComm}</td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                )
+              )}
             </motion.div>
           )}
         </div>
