@@ -4437,7 +4437,7 @@ export default function FleetApp() {
                               </td>
                             </tr>
                           ) : (
-                            salaryList.map((item, idx) => (
+                            salaryList.map((item: any, idx: number) => (
                               <React.Fragment key={idx}>
                                 <tr className="hover:bg-white/5 transition-colors">
                                   <td className="p-3 border-r border-white/5 text-sm font-mono text-slate-400">{item.driverCode}</td>
