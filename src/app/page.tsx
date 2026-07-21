@@ -70,6 +70,7 @@ export default function FleetApp() {
   const [showInstallPopup, setShowInstallPopup] = useState(false);
   const [salaryYear, setSalaryYear] = useState(new Date().getFullYear().toString());
   const [salaryMonth, setSalaryMonth] = useState((new Date().getMonth() + 1).toString());
+  const [expandedSalaryGroup, setExpandedSalaryGroup] = useState<string | null>(null);
   const [salaryData, setSalaryData] = useState<any[]>([]);
   const [totalSalary, setTotalSalary] = useState(0);
   const [fetchingSalary, setFetchingSalary] = useState(false);
@@ -2479,7 +2480,13 @@ export default function FleetApp() {
                       onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
                     >
                       <option value="All">All Drivers</option>
-                      {adminData?.filterOptions.drivers.map((d: string) => <option key={d} value={d}>{adminData.driverNames?.[d] || d}</option>)}
+                      {(adminData?.tables?.driversList || [])
+                        .filter((driver: any) => driver.status === 'Active' && driver.username)
+                        .map((driver: any) => (
+                          <option key={driver.username} value={driver.username}>
+                            {driver.username}
+                          </option>
+                        ))}
                     </select>
                   </div>
             </div>
@@ -4392,6 +4399,7 @@ export default function FleetApp() {
           )}
 
           {!fetchingAdmin && adminTab === 'salary' && (
+            <>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -4399,36 +4407,7 @@ export default function FleetApp() {
               className="space-y-4"
             >
               {(() => {
-                const salaryMap = new Map();
-                
-                // Process fleet data
-                (adminData?.tables?.fleetData || []).forEach((t: any) => {
-                  const status = String(t.values?.[0] || '').toLowerCase();
-                  if (status.includes('cancel')) return;
-                  
-                  const driverCode = t.values?.[3] || '';
-                  if (!driverCode) return;
-                  
-                  const driverName = adminData.driverNames?.[driverCode] || driverCode;
-                  
-                  const tripDateStr = t.date || '';
-                  let month = 'Unknown';
-                  if (tripDateStr && tripDateStr.length >= 7) {
-                    month = tripDateStr.substring(0, 7);
-                  }
-                  
-                  const rawComm = String(t.values?.[14] || '0').replace(/[^\d.-]/g, '');
-                  const comm = parseFloat(rawComm) || 0;
-                  
-                  const key = `${driverName}_${month}`;
-                  if (!salaryMap.has(key)) {
-                    salaryMap.set(key, { driverName, month, totalComm: 0 });
-                  }
-                  salaryMap.get(key).totalComm += comm;
-                });
-                
-                const salaryList = Array.from(salaryMap.values());
-                salaryList.sort((a, b) => b.month.localeCompare(a.month) || a.driverName.localeCompare(b.driverName));
+                const salaryList = adminData?.tables?.salaryData || [];
                 
                 return (
                   <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
@@ -4443,6 +4422,7 @@ export default function FleetApp() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-wider">
+                            <th className="p-3 border-r border-white/5 font-medium">Driver Code</th>
                             <th className="p-3 border-r border-white/5 font-medium">Driver Name</th>
                             <th className="p-3 border-r border-white/5 font-medium">Month</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Total Driver Comm</th>
@@ -4452,22 +4432,28 @@ export default function FleetApp() {
                         <tbody className="divide-y divide-white/5">
                           {salaryList.length === 0 ? (
                             <tr>
-                              <td colSpan={4} className="p-8 text-center text-slate-500 text-sm">
+                              <td colSpan={5} className="p-8 text-center text-slate-500 text-sm">
                                 No salary data available
                               </td>
                             </tr>
                           ) : (
                             salaryList.map((item, idx) => (
-                              <tr key={idx} className="hover:bg-white/5 transition-colors">
-                                <td className="p-3 border-r border-white/5 text-sm text-white font-medium">{item.driverName}</td>
-                                <td className="p-3 border-r border-white/5 text-sm text-slate-300">{item.month}</td>
-                                <td className="p-3 border-r border-white/5 text-sm font-bold text-emerald-400 text-right">Rs {item.totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                <td className="p-3 text-center">
-                                  <button className="px-3 py-1 bg-white/5 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 rounded text-xs font-medium transition-colors border border-white/10 hover:border-emerald-500/30">
-                                    View
-                                  </button>
-                                </td>
-                              </tr>
+                              <React.Fragment key={idx}>
+                                <tr className="hover:bg-white/5 transition-colors">
+                                  <td className="p-3 border-r border-white/5 text-sm font-mono text-slate-400">{item.driverCode}</td>
+                                  <td className="p-3 border-r border-white/5 text-sm text-white font-medium">{item.driverName}</td>
+                                  <td className="p-3 border-r border-white/5 text-sm text-slate-300">{item.month}</td>
+                                  <td className="p-3 border-r border-white/5 text-sm font-bold text-emerald-400 text-right">{item.totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                  <td className="p-3 text-center">
+                                    <button 
+                                      onClick={() => setExpandedSalaryGroup(expandedSalaryGroup === item.key ? null : item.key)}
+                                      className="px-3 py-1 bg-white/5 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 rounded text-xs font-medium transition-colors border border-white/10 hover:border-emerald-500/30"
+                                    >
+                                      View
+                                    </button>
+                                  </td>
+                                </tr>
+                              </React.Fragment>
                             ))
                           )}
                         </tbody>
@@ -4477,6 +4463,76 @@ export default function FleetApp() {
                 );
               })()}
             </motion.div>
+
+            <AnimatePresence>
+              {expandedSalaryGroup && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                >
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    className="bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] ring-1 ring-emerald-500/20"
+                  >
+                    <div className="p-6 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-slate-800/80 to-slate-900/80 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-emerald-500/5 blur-3xl rounded-full translate-x-[-20%] translate-y-[-50%] w-full h-full opacity-50"></div>
+                      <div className="relative z-10 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                          <Wallet className="w-6 h-6 text-emerald-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-white font-black text-xl tracking-wide flex items-center gap-3">
+                            <span className="text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-lg text-sm">
+                              {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.driverCode}
+                            </span>
+                            {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.driverName}
+                          </h3>
+                          <p className="text-slate-400 text-sm font-medium mt-1 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Salary Month: <span className="text-white font-bold">
+                              {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.month}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => setExpandedSalaryGroup(null)}
+                        className="relative z-10 p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition-all border border-white/5 hover:border-rose-500/30"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="overflow-y-auto p-6 flex-1 bg-slate-900/40">
+                      <div className="border border-white/10 rounded-xl overflow-hidden bg-slate-800/20 shadow-inner">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-800/50 text-[11px] text-slate-400 uppercase tracking-widest border-b border-white/10">
+                              <th className="p-4 border-r border-white/5 font-black">Hire Ref</th>
+                              <th className="p-4 border-r border-white/5 font-black">Trip End Date</th>
+                              <th className="p-4 text-right font-black text-emerald-500">Driver Comm</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5 text-sm">
+                            {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.trips.map((trip: any, tIdx: number) => (
+                              <tr key={tIdx} className="hover:bg-white/5 transition-colors group">
+                                <td className="p-4 border-r border-white/5 font-mono text-emerald-400/80 group-hover:text-emerald-300 transition-colors">{trip.tripRef || '-'}</td>
+                                <td className="p-4 border-r border-white/5 text-slate-300 font-medium">{trip.tripEndDate || '-'}</td>
+                                <td className="p-4 text-right font-bold text-emerald-400 bg-emerald-500/5">{trip.comm || '0'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            </>
           )}
         </div>
       )}

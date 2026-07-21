@@ -244,6 +244,48 @@ export async function GET(request: Request) {
       };
     });
 
+    const salaryMap = new Map();
+    (allTripsRaw || []).forEach((t: any) => {
+      const values = t.rawValues || [];
+      const status = String(values[0] || '').toLowerCase();
+      if (status.includes('cancel')) return;
+
+      const purpose = String(values[5] || '');
+      if (purpose !== 'Hire') return;
+
+      const driverCode = String(values[3] || '');
+      if (!driverCode) return;
+
+      let month = 'Unknown';
+      if (t.timestamp) {
+        const d = new Date(t.timestamp);
+        month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      } else {
+        const tripDateStr = String(values[2] || '');
+        if (tripDateStr.length >= 7) {
+            month = tripDateStr.substring(0, 7);
+        }
+      }
+
+      const tripRef = String(values[12] || '');
+      const rawCommStr = String(values[14] || '0');
+      const tripEndDateStr = String(values[7] || '');
+
+      const rawComm = rawCommStr.replace(/[^\d.-]/g, '');
+      const comm = parseFloat(rawComm) || 0;
+
+      const key = `${driverCode}_${month}`;
+      if (!salaryMap.has(key)) {
+        salaryMap.set(key, { key, driverCode, driverName: driverNames[driverCode] || driverCode, month, totalComm: 0, trips: [] });
+      }
+
+      salaryMap.get(key).totalComm += comm;
+      salaryMap.get(key).trips.push({ tripRef, tripEndDate: tripEndDateStr, comm: rawCommStr || '0' });
+    });
+    
+    const salaryData = Array.from(salaryMap.values());
+    salaryData.sort((a, b) => b.month.localeCompare(a.month) || a.driverCode.localeCompare(b.driverCode));
+
     const totalPages = Math.ceil(totalItems / limit);
 
     return NextResponse.json({
@@ -270,7 +312,8 @@ export async function GET(request: Request) {
         topDrivers: driverSales.slice(0, 10),
         recentTrips,
         fleetData,
-        driversList
+        driversList,
+        salaryData
       },
       pagination: {
         page,
