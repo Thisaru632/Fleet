@@ -23,6 +23,11 @@ export async function POST(request: Request) {
         ];
       }
       
+      // Force admin role for SCD008
+      if (user.username === 'SCD008' || userData[0] === 'SCD008') {
+        userData[2] = 'Admin';
+      }
+      
       return NextResponse.json({ success: true, user: userData });
     } else {
       return NextResponse.json({ success: false, message: "Invalid username or password" }, { status: 401 });
