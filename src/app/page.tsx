@@ -1666,7 +1666,6 @@ export default function FleetApp() {
       }
       
       const description = pickUp && dropOff ? `${pickUp} to ${dropOff}` : pickUp || dropOff || '';
-      const safeDescription = `"${description.replace(/"/g, '""')}"`;
       
       const row = [
         tripRef, 
@@ -1676,13 +1675,13 @@ export default function FleetApp() {
         "", 
         "", 
         "CAB COMMISSION", 
-        safeDescription, 
+        description, 
         "", 
         "", 
         scComm, 
         ""
       ];
-      csvContent += row.join(",") + "\n";
+      csvContent += row.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(",") + "\n";
     });
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1792,7 +1791,7 @@ export default function FleetApp() {
       
       const row = [
         tripRef, 
-        `"${customerName}"`, 
+        customerName, 
         formattedDate, 
         "", 
         "", 
@@ -1805,7 +1804,7 @@ export default function FleetApp() {
         hireAmount,
         driverComm
       ];
-      csvContent += row.join(",") + "\n";
+      csvContent += row.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(",") + "\n";
     });
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
