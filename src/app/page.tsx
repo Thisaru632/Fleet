@@ -1591,8 +1591,53 @@ export default function FleetApp() {
     
     let csvContent = headers.join(",") + "\n";
     
+    const parseDateToLocalMs = (dateStr: string | undefined): number => {
+      if (!dateStr) return 0;
+      const raw = String(dateStr).split(' ')[0].trim();
+      if (!raw) return 0;
+      
+      if (raw.includes('-')) {
+        const parts = raw.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+          if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+        }
+      }
+      
+      if (raw.includes('/')) {
+        const parts = raw.split('/');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+          if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+        }
+      }
+      
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+         return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      }
+      return 0;
+    };
+
+    const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+    const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+
     const records = reportFleetData.tables.fleetData
-      .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'));
+      .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
+      .filter((t: any) => {
+        if (!startMs && endMs === Infinity) return true;
+        const tripRef = t.values[12] || '';
+        let recordMs = 0;
+        if (tripRef && reportAccountData?.data) {
+          const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+          if (accMatch) {
+            const rawEndDate = accMatch.rawValues[15] || '';
+            recordMs = parseDateToLocalMs(rawEndDate);
+          }
+        }
+        if (!recordMs) return false;
+        return recordMs >= startMs && recordMs <= endMs;
+      });
       
     records.forEach((t: any) => {
       const tripRef = t.values[12] || '';
@@ -1669,8 +1714,53 @@ export default function FleetApp() {
     
     let csvContent = headers.join(",") + "\n";
     
+    const parseDateToLocalMs = (dateStr: string | undefined): number => {
+      if (!dateStr) return 0;
+      const raw = String(dateStr).split(' ')[0].trim();
+      if (!raw) return 0;
+      
+      if (raw.includes('-')) {
+        const parts = raw.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+          if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+        }
+      }
+      
+      if (raw.includes('/')) {
+        const parts = raw.split('/');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+          if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+        }
+      }
+      
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+         return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      }
+      return 0;
+    };
+
+    const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+    const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+
     const records = reportFleetData.tables.fleetData
-      .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'));
+      .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
+      .filter((t: any) => {
+        if (!startMs && endMs === Infinity) return true;
+        const tripRef = t.values[12] || '';
+        let recordMs = 0;
+        if (tripRef && reportAccountData?.data) {
+          const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+          if (accMatch) {
+            const rawEndDate = accMatch.rawValues[15] || '';
+            recordMs = parseDateToLocalMs(rawEndDate);
+          }
+        }
+        if (!recordMs) return false;
+        return recordMs >= startMs && recordMs <= endMs;
+      });
       
     records.forEach((t: any) => {
       const tripRef = t.values[12] || '';
@@ -3925,7 +4015,7 @@ export default function FleetApp() {
                     </div>
                   </div>
 
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Category</label>
                       <select
@@ -3939,27 +4029,84 @@ export default function FleetApp() {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <Calendar className="w-2.5 h-2.5" /> From
-                      </label>
-                      <input
-                        type="date"
-                        className="w-full input-field py-0 px-3 text-xs text-white h-9"
-                        value={reportStartDate}
-                        onChange={(e) => setReportStartDate(e.target.value)}
-                      />
-                    </div>
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Date Range</label>
+                      <div className="flex items-center gap-2 h-9">
+                        <select
+                          className="bg-slate-800 text-white text-[11px] font-bold px-2 h-full rounded shadow-sm border border-slate-700 outline-none cursor-pointer"
+                          value={(() => {
+                            const today = new Date();
+                            const y = today.getFullYear();
+                            const m = String(today.getMonth() + 1).padStart(2, '0');
+                            const d = String(today.getDate()).padStart(2, '0');
+                            const todayStr = `${y}-${m}-${d}`;
+                          
+                            const lastWeek = new Date(today);
+                            lastWeek.setDate(today.getDate() - 7);
+                            const wy = lastWeek.getFullYear();
+                            const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
+                            const wd = String(lastWeek.getDate()).padStart(2, '0');
+                            const lastWeekStr = `${wy}-${wm}-${wd}`;
+                          
+                            if (reportEndDate === todayStr) {
+                              if (reportStartDate === todayStr) return 'Daily';
+                              if (reportStartDate === lastWeekStr) return 'Weekly';
+                              if (reportStartDate === `${y}-${m}-01`) return 'Monthly';
+                              if (reportStartDate === `${y}-01-01`) return 'Yearly';
+                            }
+                            return 'Custom';
+                          })()}
+                          onChange={(e) => {
+                            const preset = e.target.value;
+                            const today = new Date();
+                            const y = today.getFullYear();
+                            const m = String(today.getMonth() + 1).padStart(2, '0');
+                            const d = String(today.getDate()).padStart(2, '0');
+                            const todayStr = `${y}-${m}-${d}`;
 
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <Calendar className="w-2.5 h-2.5" /> To
-                      </label>
-                      <input
-                        type="date"
-                        className="w-full input-field py-0 px-3 text-xs text-white h-9"
-                        value={reportEndDate}
-                        onChange={(e) => setReportEndDate(e.target.value)}
-                      />
+                            if (preset === 'Daily') {
+                              setReportStartDate(todayStr);
+                              setReportEndDate(todayStr);
+                            } else if (preset === 'Weekly') {
+                              const lastWeek = new Date(today);
+                              lastWeek.setDate(today.getDate() - 7);
+                              const wy = lastWeek.getFullYear();
+                              const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
+                              const wd = String(lastWeek.getDate()).padStart(2, '0');
+                              setReportStartDate(`${wy}-${wm}-${wd}`);
+                              setReportEndDate(todayStr);
+                            } else if (preset === 'Monthly') {
+                              setReportStartDate(`${y}-${m}-01`);
+                              setReportEndDate(todayStr);
+                            } else if (preset === 'Yearly') {
+                              setReportStartDate(`${y}-01-01`);
+                              setReportEndDate(todayStr);
+                            }
+                          }}
+                        >
+                          <option value="Daily">Daily</option>
+                          <option value="Weekly">Weekly</option>
+                          <option value="Monthly">Monthly</option>
+                          <option value="Yearly">Yearly</option>
+                          <option value="Custom" hidden>Custom</option>
+                        </select>
+                        
+                        <div className="flex-1 flex items-center justify-between gap-1 bg-slate-800 px-2 h-full rounded shadow-sm border border-slate-700">
+                          <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
+                          <input
+                            type="date"
+                            className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[90px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                            value={reportStartDate}
+                            onChange={(e) => setReportStartDate(e.target.value)}
+                          />
+                          <span className="text-slate-400 text-[10px] font-bold shrink-0">—</span>
+                          <input
+                            type="date"
+                            className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[90px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                            value={reportEndDate}
+                            onChange={(e) => setReportEndDate(e.target.value)}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -4015,6 +4162,45 @@ export default function FleetApp() {
                       <tbody className="text-[12px] text-slate-300">
                         {reportFleetData.tables.fleetData
                           .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
+                          .filter((t: any) => {
+                            const parseDateToLocalMs = (dateStr: string | undefined): number => {
+                              if (!dateStr) return 0;
+                              const raw = String(dateStr).split(' ')[0].trim();
+                              if (!raw) return 0;
+                              if (raw.includes('-')) {
+                                const parts = raw.split('-');
+                                if (parts.length === 3) {
+                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                                }
+                              }
+                              if (raw.includes('/')) {
+                                const parts = raw.split('/');
+                                if (parts.length === 3) {
+                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1])).getTime();
+                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                }
+                              }
+                              const d = new Date(raw);
+                              if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+                              return 0;
+                            };
+                            const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+                            const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+                            if (!startMs && endMs === Infinity) return true;
+                            
+                            const tripRef = t.values[12] || '';
+                            let recordMs = 0;
+                            if (tripRef && reportAccountData?.data) {
+                              const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+                              if (accMatch) {
+                                const rawEndDate = accMatch.rawValues[15] || '';
+                                recordMs = parseDateToLocalMs(rawEndDate);
+                              }
+                            }
+                            if (!recordMs) return false;
+                            return recordMs >= startMs && recordMs <= endMs;
+                          })
                           .map((t: any, i: number) => {
                             const tripRef = t.values[12] || '';
                             let formattedDate = '';
@@ -4042,6 +4228,7 @@ export default function FleetApp() {
                             }
                             
                             const description = pickUp && dropOff ? `${pickUp} to ${dropOff}` : pickUp || dropOff || '';
+                            const shortDescription = description.split(' ').length > 6 ? description.split(' ').slice(0, 6).join(' ') + '...' : description;
                             
                             return (
                               <tr key={i} className="hover:bg-white/5 transition-colors border-b border-white/5">
@@ -4052,7 +4239,7 @@ export default function FleetApp() {
                                 <td className="p-2 border-r border-white/5"></td>
                                 <td className="p-2 border-r border-white/5"></td>
                                 <td className="p-2 border-r border-white/5 text-emerald-400">CAB COMMISSION</td>
-                                <td className="p-2 border-r border-white/5 whitespace-normal text-xs text-white">{description}</td>
+                                <td className="p-2 border-r border-white/5 whitespace-normal text-xs text-white" title={description}>{shortDescription}</td>
                                 <td className="p-2 border-r border-white/5"></td>
                                 <td className="p-2 border-r border-white/5"></td>
                                 <td className="p-2 border-r border-white/5 text-right font-bold text-white">{scComm}</td>
@@ -4098,6 +4285,45 @@ export default function FleetApp() {
                       <tbody className="text-[12px] text-slate-300">
                         {reportFleetData.tables.fleetData
                           .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
+                          .filter((t: any) => {
+                            const parseDateToLocalMs = (dateStr: string | undefined): number => {
+                              if (!dateStr) return 0;
+                              const raw = String(dateStr).split(' ')[0].trim();
+                              if (!raw) return 0;
+                              if (raw.includes('-')) {
+                                const parts = raw.split('-');
+                                if (parts.length === 3) {
+                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                                }
+                              }
+                              if (raw.includes('/')) {
+                                const parts = raw.split('/');
+                                if (parts.length === 3) {
+                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1])).getTime();
+                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                }
+                              }
+                              const d = new Date(raw);
+                              if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+                              return 0;
+                            };
+                            const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+                            const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+                            if (!startMs && endMs === Infinity) return true;
+                            
+                            const tripRef = t.values[12] || '';
+                            let recordMs = 0;
+                            if (tripRef && reportAccountData?.data) {
+                              const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+                              if (accMatch) {
+                                const rawEndDate = accMatch.rawValues[15] || '';
+                                recordMs = parseDateToLocalMs(rawEndDate);
+                              }
+                            }
+                            if (!recordMs) return false;
+                            return recordMs >= startMs && recordMs <= endMs;
+                          })
                           .map((t: any, i: number) => {
                             const tripRef = t.values[12] || '';
                             const vehicleNum = t.values[4] || '';
