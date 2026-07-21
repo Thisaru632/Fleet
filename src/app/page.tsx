@@ -38,7 +38,8 @@ import {
   Eye,
   MoreVertical,
   Image as ImageIcon,
-  Copy
+  Copy,
+  Wallet
 } from 'lucide-react';
 
 import LoginModal from '@/components/LoginModal';
@@ -100,7 +101,7 @@ export default function FleetApp() {
       driver: 'All'
     };
   });
-  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report' | 'salary'>('overview');
   const [reportCategory, setReportCategory] = useState<'Credit' | 'Invoice'>('Credit');
   const [reportStartDate, setReportStartDate] = useState(() => {
     const today = new Date();
@@ -1661,7 +1662,7 @@ export default function FleetApp() {
           }
           pickUp = accMatch.rawValues[24] || '';
           dropOff = accMatch.rawValues[27] || '';
-          scComm = accMatch.rawValues[3] || '';
+          scComm = String(accMatch.rawValues[3] || '').replace(/Rs\.?\s*/gi, '');
         }
       }
       
@@ -1770,7 +1771,7 @@ export default function FleetApp() {
       const driverCode = t.values[3] || '';
       const driverName = adminData.driverNames?.[driverCode] || driverCode;
       const customerName = driverName ? `${driverName} - Cash` : '- Cash';
-      const driverComm = t.values[14] || '';
+      const driverComm = String(t.values[14] || '').replace(/Rs\.?\s*/gi, '');
 
       if (tripRef && reportAccountData?.data) {
         const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
@@ -1785,7 +1786,7 @@ export default function FleetApp() {
               formattedDate = raw.replace(/\//g, '-');
             }
           }
-          hireAmount = accMatch.rawValues[4] || '';
+          hireAmount = String(accMatch.rawValues[4] || '').replace(/Rs\.?\s*/gi, '');
         }
       }
       
@@ -1883,7 +1884,8 @@ export default function FleetApp() {
                  adminTab === 'accounts' ? 'Account Sheet' : 
                  adminTab === 'vehicles' ? 'Vehicles' : 
                  adminTab === 'driver-manage' ? 'Driver Manage' : 
-                 adminTab === 'report' ? 'Reports Dashboard' : 'Admin Control Panel'}
+                 adminTab === 'report' ? 'Reports Dashboard' : 
+                 adminTab === 'salary' ? 'Driver Salary' : 'Admin Control Panel'}
               </h2>
               <p className="text-[8px] text-emerald-500/60 font-black tracking-widest uppercase mt-0.5">Admin Control Panel</p>
             </div>
@@ -2386,6 +2388,17 @@ export default function FleetApp() {
             >
               <ClipboardCheck className="w-4 h-4" />
               REPORTS
+            </button>
+
+            <button
+              onClick={() => setAdminTab('salary')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
+                adminTab === 'salary' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <Wallet className="w-4 h-4" />
+              SALARY
             </button>
 
             <div className="w-px h-8 bg-white/10 mx-2 self-center shrink-0"></div>
@@ -4222,7 +4235,7 @@ export default function FleetApp() {
                                 }
                                 pickUp = accMatch.rawValues[24] || '';
                                 dropOff = accMatch.rawValues[27] || '';
-                                scComm = accMatch.rawValues[3] || '';
+                                scComm = String(accMatch.rawValues[3] || '').replace(/Rs\.?\s*/gi, '');
                               }
                             }
                             
@@ -4332,7 +4345,7 @@ export default function FleetApp() {
                             const driverCode = t.values[3] || '';
                             const driverName = adminData.driverNames?.[driverCode] || driverCode;
                             const customerName = driverName ? `${driverName} - Cash` : '- Cash';
-                            const driverComm = t.values[14] || '';
+                            const driverComm = String(t.values[14] || '').replace(/Rs\.?\s*/gi, '');
 
                             if (tripRef && reportAccountData?.data) {
                               const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
@@ -4347,7 +4360,7 @@ export default function FleetApp() {
                                     formattedDate = raw.replace(/\//g, '-');
                                   }
                                 }
-                                hireAmount = accMatch.rawValues[4] || '';
+                                hireAmount = String(accMatch.rawValues[4] || '').replace(/Rs\.?\s*/gi, '');
                               }
                             }
                             
@@ -4375,6 +4388,94 @@ export default function FleetApp() {
                 </div>
                 )
               )}
+            </motion.div>
+          )}
+
+          {!fetchingAdmin && adminTab === 'salary' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-4"
+            >
+              {(() => {
+                const salaryMap = new Map();
+                
+                // Process fleet data
+                (adminData?.tables?.fleetData || []).forEach((t: any) => {
+                  const status = String(t.values?.[0] || '').toLowerCase();
+                  if (status.includes('cancel')) return;
+                  
+                  const driverCode = t.values?.[3] || '';
+                  if (!driverCode) return;
+                  
+                  const driverName = adminData.driverNames?.[driverCode] || driverCode;
+                  
+                  const tripDateStr = t.date || '';
+                  let month = 'Unknown';
+                  if (tripDateStr && tripDateStr.length >= 7) {
+                    month = tripDateStr.substring(0, 7);
+                  }
+                  
+                  const rawComm = String(t.values?.[14] || '0').replace(/[^\d.-]/g, '');
+                  const comm = parseFloat(rawComm) || 0;
+                  
+                  const key = `${driverName}_${month}`;
+                  if (!salaryMap.has(key)) {
+                    salaryMap.set(key, { driverName, month, totalComm: 0 });
+                  }
+                  salaryMap.get(key).totalComm += comm;
+                });
+                
+                const salaryList = Array.from(salaryMap.values());
+                salaryList.sort((a, b) => b.month.localeCompare(a.month) || a.driverName.localeCompare(b.driverName));
+                
+                return (
+                  <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
+                      <h3 className="text-white font-semibold flex items-center gap-2">
+                        <Wallet className="w-4 h-4 text-emerald-400" />
+                        Driver Salary
+                      </h3>
+                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{salaryList.length} Records</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-wider">
+                            <th className="p-3 border-r border-white/5 font-medium">Driver Name</th>
+                            <th className="p-3 border-r border-white/5 font-medium">Month</th>
+                            <th className="p-3 border-r border-white/5 font-medium text-right">Total Driver Comm</th>
+                            <th className="p-3 font-medium text-center w-24">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {salaryList.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="p-8 text-center text-slate-500 text-sm">
+                                No salary data available
+                              </td>
+                            </tr>
+                          ) : (
+                            salaryList.map((item, idx) => (
+                              <tr key={idx} className="hover:bg-white/5 transition-colors">
+                                <td className="p-3 border-r border-white/5 text-sm text-white font-medium">{item.driverName}</td>
+                                <td className="p-3 border-r border-white/5 text-sm text-slate-300">{item.month}</td>
+                                <td className="p-3 border-r border-white/5 text-sm font-bold text-emerald-400 text-right">Rs {item.totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td className="p-3 text-center">
+                                  <button className="px-3 py-1 bg-white/5 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 rounded text-xs font-medium transition-colors border border-white/10 hover:border-emerald-500/30">
+                                    View
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
             </motion.div>
           )}
         </div>
