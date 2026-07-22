@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Trip from "@/models/Trip";
+import DriverAdjustment from "@/models/DriverAdjustment";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -25,16 +26,23 @@ export async function GET(request: Request) {
     const startDateStr = `${y}-${String(m).padStart(2, "0")}-01`;
     const lastDayOfMonth = new Date(y, m, 0).getDate();
     const endDateStr = `${y}-${String(m).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")} 23:59:59`;
+    const monthKey = `${y}-${String(m).padStart(2, "0")}`;
 
-    const trips = await Trip.find(
-      {
-        driverId: { $regex: new RegExp(`^${drvId}$`, "i") },
-        purpose: { $regex: /^Hire$/i },
-        timestamp: { $gte: startDateStr, $lte: endDateStr }
-      },
-      null,
-      { sort: { timestamp: 1 }, allowDiskUse: true }
-    );
+    const [trips, adj] = (await Promise.all([
+      Trip.find(
+        {
+          driverId: { $regex: new RegExp(`^${drvId}$`, "i") },
+          purpose: { $regex: /^Hire$/i },
+          timestamp: { $gte: startDateStr, $lte: endDateStr }
+        },
+        null,
+        { sort: { timestamp: 1 }, allowDiskUse: true }
+      ),
+      DriverAdjustment.findOne({
+        driverCode: { $regex: new RegExp(`^${drvId.trim()}$`, "i") },
+        month: monthKey
+      })
+    ])) as [any[], any];
 
     const salaryDetails = trips.map((trip: any) => ({
       tripRef: (trip.rawValues && trip.rawValues[12]) || trip.reference,
@@ -42,9 +50,20 @@ export async function GET(request: Request) {
       salary: trip.commission || 0
     }));
 
-    const totalSalary = salaryDetails.reduce((sum: number, item: any) => sum + item.salary, 0);
+    const baseSalary = salaryDetails.reduce((sum: number, item: any) => sum + item.salary, 0);
+    const salaryAdvance = adj ? adj.salaryAdvance || 0 : 0;
+    const shorts = adj ? adj.shorts || 0 : 0;
+    const inclusions = adj ? adj.inclusions || 0 : 0;
+    const totalSalary = baseSalary - salaryAdvance - shorts + inclusions;
 
-    return NextResponse.json({ salaryDetails, totalSalary });
+    return NextResponse.json({ 
+      salaryDetails, 
+      baseSalary,
+      salaryAdvance, 
+      shorts, 
+      inclusions, 
+      totalSalary 
+    });
   } catch (error: any) {
     console.error("Error fetching salary details:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

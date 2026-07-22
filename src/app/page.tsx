@@ -133,6 +133,12 @@ export default function FleetApp() {
   const [showAdminMessageModal, setShowAdminMessageModal] = useState(false);
   const [adminMessageText, setAdminMessageText] = useState('');
   const [adminMessageDriver, setAdminMessageDriver] = useState<string[]>(['All']);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [selectedAdjustmentItem, setSelectedAdjustmentItem] = useState<any>(null);
+  const [adjAdvance, setAdjAdvance] = useState<string>('');
+  const [adjShorts, setAdjShorts] = useState<string>('');
+  const [adjInclusions, setAdjInclusions] = useState<string>('');
+  const [savingAdjustment, setSavingAdjustment] = useState(false);
   const [showDriverDropdown, setShowDriverDropdown] = useState(false);
   const driverDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -783,6 +789,183 @@ export default function FleetApp() {
     } finally {
       setClearingFleet(false);
       setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
+  const handleOpenAdjustmentModal = (item: any) => {
+    setSelectedAdjustmentItem(item);
+    setAdjAdvance(item.salaryAdvance !== undefined && item.salaryAdvance !== null ? item.salaryAdvance.toString() : '0');
+    setAdjShorts(item.shorts !== undefined && item.shorts !== null ? item.shorts.toString() : '0');
+    setAdjInclusions(item.inclusions !== undefined && item.inclusions !== null ? item.inclusions.toString() : '0');
+    setShowAdjustmentModal(true);
+  };
+
+  const handleSaveAdjustment = async () => {
+    if (!selectedAdjustmentItem) return;
+    setSavingAdjustment(true);
+    try {
+      const res = await fetch('/api/admin/driver-adjustment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverCode: selectedAdjustmentItem.driverCode,
+          month: selectedAdjustmentItem.month,
+          salaryAdvance: parseFloat(adjAdvance) || 0,
+          shorts: parseFloat(adjShorts) || 0,
+          inclusions: parseFloat(adjInclusions) || 0
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAlert({ type: 'success', message: 'Driver salary adjustments updated successfully!' });
+      setShowAdjustmentModal(false);
+      fetchAdminSales(); // Refresh table data
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to save adjustment' });
+    } finally {
+      setSavingAdjustment(false);
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
+  const handleExportPaysheetPDF = async (item: any) => {
+    if (!item) return;
+
+    const driverName = item.driverName || 'Driver';
+    const driverCode = item.driverCode || '';
+    const month = item.month || '';
+    const trips = item.trips || [];
+
+    const baseCommNum = item.baseComm !== undefined ? item.baseComm : trips.reduce((sum: number, t: any) => sum + (parseFloat(String(t.comm).replace(/[^\d.-]/g, '')) || 0), 0);
+    const salaryAdvanceNum = item.salaryAdvance || 0;
+    const shortsNum = item.shorts || 0;
+    const inclusionsNum = item.inclusions || 0;
+    const totalCommNum = item.totalComm !== undefined ? item.totalComm : (baseCommNum - salaryAdvanceNum - shortsNum + inclusionsNum);
+
+    const baseComm = baseCommNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const salaryAdvance = salaryAdvanceNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const shorts = shortsNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const inclusions = inclusionsNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const totalComm = totalCommNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const tripRowsHtml = trips.map((t: any) => `
+      <tr>
+        <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; color: #0f172a; font-size: 10px;">${t.tripRef || '-'}</td>
+        <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; color: #475569; font-size: 10px;">${t.tripEndDate || '-'}</td>
+        <td style="padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #059669; font-size: 10px;">Rs. ${parseFloat(String(t.comm).replace(/[^\d.-]/g, '') || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+      </tr>
+    `).join('');
+
+    const element = document.createElement('div');
+    element.style.width = '200mm';
+    element.style.padding = '8mm 10mm';
+    element.style.backgroundColor = '#ffffff';
+    element.style.color = '#0f172a';
+    element.style.fontFamily = "'Segoe UI', system-ui, -apple-system, sans-serif";
+    element.style.fontSize = '11px';
+    element.style.lineHeight = '1.2';
+    element.style.boxSizing = 'border-box';
+
+    element.innerHTML = `
+      <style>
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 10px; }
+        .brand { font-size: 18px; font-weight: 900; color: #0f172a; letter-spacing: 0.5px; }
+        .title { font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 2px; }
+        .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
+        .meta-label { font-weight: 800; color: #64748b; text-transform: uppercase; font-size: 8px; letter-spacing: 0.5px; margin-bottom: 2px; }
+        .meta-val { font-size: 12px; font-weight: 700; color: #0f172a; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th { background: #0f172a; color: #ffffff; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 8px; text-align: left; }
+        th.right { text-align: right; }
+        td { padding: 4px 8px; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
+        .breakdown-card { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 14px; margin-top: 8px; }
+        .breakdown-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+        .breakdown-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
+        .breakdown-row.total { border-top: 1.5px solid #0f172a; padding-top: 6px; margin-top: 4px; font-size: 13px; font-weight: 900; color: #059669; }
+        .signatures { margin-top: 24px; display: flex; justify-content: space-between; padding: 0 16px; }
+        .sig-line { border-top: 1px dashed #94a3b8; width: 180px; text-align: center; padding-top: 4px; font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+      </style>
+      <div class="header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="${typeof window !== 'undefined' ? window.location.origin : ''}/logo.jpg" style="height: 36px; width: auto; object-fit: contain; border-radius: 4px;" alt="SENU CABS AND TOURS" />
+          <div>
+            <div class="brand">SENU CABS AND TOURS</div>
+            <div class="title">Official Driver Salary Paysheet</div>
+          </div>
+        </div>
+        <div style="text-align: right; font-size: 10px; color: #64748b; font-weight: 600;">
+          Issued Date: ${new Date().toLocaleDateString()}
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div><div class="meta-label">Driver Name</div><div class="meta-val">${driverName}</div></div>
+        <div><div class="meta-label">Driver Code</div><div class="meta-val">${driverCode}</div></div>
+        <div><div class="meta-label">Salary Month</div><div class="meta-val">${month}</div></div>
+        <div><div class="meta-label">Total Trips</div><div class="meta-val">${trips.length}</div></div>
+      </div>
+
+      <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: #334155;">Trip Earnings Details</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Hire Ref</th>
+            <th>Trip End Date</th>
+            <th class="right">Driver Commission</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tripRowsHtml.length > 0 ? tripRowsHtml : '<tr><td colspan="3" style="text-align:center; padding: 12px; color: #94a3b8;">No trip records</td></tr>'}
+        </tbody>
+      </table>
+
+      <div class="breakdown-card">
+        <div class="breakdown-title">Salary Calculation Breakdown</div>
+        <div class="breakdown-row"><span>Sum of Trip Commissions</span><strong style="font-family: monospace;">Rs. ${baseComm}</strong></div>
+        <div class="breakdown-row" style="color: #d97706;"><span>(-) Salary Advance</span><strong style="font-family: monospace;">- Rs. ${salaryAdvance}</strong></div>
+        <div class="breakdown-row" style="color: #dc2626;"><span>(-) Shorts</span><strong style="font-family: monospace;">- Rs. ${shorts}</strong></div>
+        <div class="breakdown-row" style="color: #2563eb;"><span>(+) Inclusions</span><strong style="font-family: monospace;">+ Rs. ${inclusions}</strong></div>
+        <div class="breakdown-row total"><span>Total Driver Commission</span><span style="font-family: monospace;">Rs. ${totalComm}</span></div>
+      </div>
+
+      <div class="signatures">
+        <div class="sig-line">Driver Signature</div>
+        <div class="sig-line">Authorized Signature</div>
+      </div>
+    `;
+
+    try {
+      let html2pdf = (window as any).html2pdf;
+      if (!html2pdf) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+          script.onload = () => resolve(true);
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+        html2pdf = (window as any).html2pdf;
+      }
+
+      if (html2pdf) {
+        const opt = {
+          margin:       [5, 5, 5, 5],
+          filename:     `Paysheet_${driverCode}_${month}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true, logging: false },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        await html2pdf().set(opt).from(element).save();
+      } else {
+        throw new Error('PDF generator unavailable');
+      }
+    } catch (e) {
+      console.warn('html2pdf download failed, falling back to print window:', e);
+      const printWin = window.open('', '_blank');
+      if (printWin) {
+        printWin.document.write(`<!DOCTYPE html><html><head><title>Paysheet - ${driverName}</title></head><body>${element.outerHTML}<script>window.onload=function(){window.print();}</script></body></html>`);
+        printWin.document.close();
+      }
     }
   };
 
@@ -2671,7 +2854,7 @@ export default function FleetApp() {
                           <table className="w-full text-left text-xs font-sans border-collapse">
                             <thead>
                               <tr className="border-b border-white/10 text-slate-400">
-                                <th className="py-3 px-2 font-bold whitespace-nowrap">Vehicle</th>
+                                <th className="py-3 px-2 font-bold whitespace-nowrap w-28">Vehicle</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Hire Income</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel Cost</th>
@@ -2681,7 +2864,7 @@ export default function FleetApp() {
                             <tbody className="divide-y divide-white/5">
                               {(adminData.tables.topVehicles || []).map((v: any, i: number) => (
                                 <tr key={i} className="hover:bg-white/5 transition-colors">
-                                  <td className="py-3 px-2 font-bold text-slate-300 whitespace-nowrap">{v.vehicle}</td>
+                                  <td className="py-3 px-2 font-bold text-slate-300 whitespace-nowrap w-28">{v.vehicle}</td>
                                   <td className="py-3 px-2 text-right text-white font-mono whitespace-nowrap">{Math.round(v.hireIncome).toLocaleString()}</td>
                                   <td className="py-3 px-2 text-right text-slate-300 font-mono whitespace-nowrap">{Math.round(v.mileage).toLocaleString()}</td>
                                   <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
@@ -4427,6 +4610,7 @@ export default function FleetApp() {
                             <th className="p-3 border-r border-white/5 font-medium">Month</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Salary Advance</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Shorts</th>
+                            <th className="p-3 border-r border-white/5 font-medium text-right">Inclusions</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Total Driver Comm</th>
                             <th className="p-3 font-medium text-center w-24">Action</th>
                           </tr>
@@ -4434,7 +4618,7 @@ export default function FleetApp() {
                         <tbody className="divide-y divide-white/5">
                           {salaryList.length === 0 ? (
                             <tr>
-                              <td colSpan={7} className="p-8 text-center text-slate-500 text-sm">
+                              <td colSpan={8} className="p-8 text-center text-slate-500 text-sm">
                                 No salary data available
                               </td>
                             </tr>
@@ -4451,14 +4635,27 @@ export default function FleetApp() {
                                   <td className="p-3 border-r border-white/5 text-sm font-medium text-rose-400 text-right">
                                     {(item.shorts || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </td>
+                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-blue-400 text-right">
+                                    {(item.inclusions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
                                   <td className="p-3 border-r border-white/5 text-sm font-bold text-emerald-400 text-right">{item.totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                   <td className="p-3 text-center">
-                                    <button 
-                                      onClick={() => setExpandedSalaryGroup(expandedSalaryGroup === item.key ? null : item.key)}
-                                      className="px-3 py-1 bg-white/5 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 rounded text-xs font-medium transition-colors border border-white/10 hover:border-emerald-500/30"
-                                    >
-                                      View
-                                    </button>
+                                    <div className="flex items-center justify-center gap-2">
+                                      <button 
+                                        onClick={() => handleOpenAdjustmentModal(item)}
+                                        className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-slate-950 rounded text-xs font-medium transition-colors border border-amber-500/20 flex items-center gap-1"
+                                        title="Edit Advance & Shorts"
+                                      >
+                                        <Edit className="w-3 h-3" />
+                                        Edit
+                                      </button>
+                                      <button 
+                                        onClick={() => setExpandedSalaryGroup(expandedSalaryGroup === item.key ? null : item.key)}
+                                        className="px-3 py-1 bg-white/5 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 rounded text-xs font-medium transition-colors border border-white/10 hover:border-emerald-500/30"
+                                      >
+                                        View
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               </React.Fragment>
@@ -4507,12 +4704,25 @@ export default function FleetApp() {
                           </p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => setExpandedSalaryGroup(null)}
-                        className="relative z-10 p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition-all border border-white/5 hover:border-rose-500/30"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
+                      <div className="relative z-10 flex items-center gap-3">
+                        <button
+                          onClick={() => {
+                            const currentItem = (adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup);
+                            if (currentItem) handleExportPaysheetPDF(currentItem);
+                          }}
+                          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                          title="Download Driver Paysheet A4 PDF"
+                        >
+                          <Download className="w-4 h-4" />
+                          DOWNLOAD PDF
+                        </button>
+                        <button 
+                          onClick={() => setExpandedSalaryGroup(null)}
+                          className="p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition-all border border-white/5 hover:border-rose-500/30"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="overflow-y-auto p-6 flex-1 bg-slate-900/40">
                       <div className="border border-white/10 rounded-xl overflow-hidden bg-slate-800/20 shadow-inner">
@@ -4535,9 +4745,160 @@ export default function FleetApp() {
                           </tbody>
                         </table>
                       </div>
+
+                      {/* Salary Calculation Breakdown */}
+                      {(() => {
+                        const currentItem = (adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup);
+                        if (!currentItem) return null;
+
+                        const baseComm = currentItem.baseComm !== undefined ? currentItem.baseComm : (currentItem.trips || []).reduce((sum: number, t: any) => sum + (parseFloat(String(t.comm).replace(/[^\d.-]/g, '')) || 0), 0);
+                        const salaryAdvance = currentItem.salaryAdvance || 0;
+                        const shorts = currentItem.shorts || 0;
+                        const inclusions = currentItem.inclusions || 0;
+                        const totalComm = currentItem.totalComm !== undefined ? currentItem.totalComm : (baseComm - salaryAdvance - shorts + inclusions);
+
+                        return (
+                          <div className="mt-6 p-4 rounded-xl bg-slate-800/40 border border-white/10 space-y-3">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-white/5 pb-2">
+                              Salary Calculation Breakdown
+                            </h4>
+                            <div className="space-y-2 text-sm font-sans">
+                              <div className="flex justify-between items-center text-slate-300">
+                                <span>Sum of Trip Commissions</span>
+                                <span className="font-mono font-bold text-emerald-400">Rs. {baseComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-slate-300">
+                                <span className="text-slate-400 font-medium">(-) Salary Advance</span>
+                                <span className="font-mono font-bold text-amber-400">- Rs. {salaryAdvance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-slate-300">
+                                <span className="text-slate-400 font-medium">(-) Shorts</span>
+                                <span className="font-mono font-bold text-rose-400">- Rs. {shorts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-slate-300">
+                                <span className="text-slate-400 font-medium">(+) Inclusions</span>
+                                <span className="font-mono font-bold text-blue-400">+ Rs. {inclusions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="pt-2 border-t border-white/10 flex justify-between items-center text-base font-black">
+                                <span className="text-white uppercase tracking-wider">Total Driver Commission</span>
+                                <span className="font-mono font-bold text-emerald-400 text-lg">Rs. {totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </motion.div>
                 </motion.div>
+              )}
+             </AnimatePresence>
+
+            {/* Driver Salary Advance & Shorts Edit Modal */}
+            <AnimatePresence>
+              {showAdjustmentModal && selectedAdjustmentItem && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="glass-card p-6 w-full max-w-md space-y-6 border-amber-500/20 bg-slate-900/95 shadow-2xl rounded-2xl relative overflow-hidden"
+                  >
+                    <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                          <Wallet className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-black text-white flex items-center gap-2">
+                            Update Salary Adjustments
+                          </h3>
+                          <p className="text-xs text-slate-400 font-medium mt-0.5">
+                            {selectedAdjustmentItem.driverName} ({selectedAdjustmentItem.driverCode}) • {selectedAdjustmentItem.month}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowAdjustmentModal(false)}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/5"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                          Salary Advance (Rs.)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-amber-500 focus:outline-none rounded-xl font-mono"
+                          placeholder="Enter advance amount..."
+                          value={adjAdvance}
+                          onChange={(e) => setAdjAdvance(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-2">
+                          Shorts (Rs.)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-rose-500 focus:outline-none rounded-xl font-mono"
+                          placeholder="Enter shorts amount..."
+                          value={adjShorts}
+                          onChange={(e) => setAdjShorts(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                          Inclusions (Rs.)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-blue-500 focus:outline-none rounded-xl font-mono"
+                          placeholder="Enter inclusions amount..."
+                          value={adjInclusions}
+                          onChange={(e) => setAdjInclusions(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAdjustmentModal(false)}
+                        disabled={savingAdjustment}
+                        className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all font-bold text-xs uppercase tracking-wider"
+                      >
+                        CANCEL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveAdjustment}
+                        disabled={savingAdjustment}
+                        className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+                      >
+                        {savingAdjustment ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            SAVING...
+                          </>
+                        ) : (
+                          'SAVE ADJUSTMENTS'
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
               )}
             </AnimatePresence>
             </>

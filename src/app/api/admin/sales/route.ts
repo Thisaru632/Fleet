@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Trip from "@/models/Trip";
 import User from "@/models/User";
 import SheetMetadata from "@/models/SheetMetadata";
+import DriverAdjustment from "@/models/DriverAdjustment";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -281,19 +282,43 @@ export async function GET(request: Request) {
           driverCode, 
           driverName: driverNames[driverCode] || driverCode, 
           month, 
+          baseComm: 0,
           salaryAdvance: 0, 
           shorts: 0, 
+          inclusions: 0,
           totalComm: 0, 
           trips: [] 
         });
       }
 
-      salaryMap.get(key).totalComm += comm;
+      salaryMap.get(key).baseComm += comm;
       salaryMap.get(key).trips.push({ tripRef, tripEndDate: tripEndDateStr, comm: rawCommStr || '0' });
     });
     
-    const salaryData = Array.from(salaryMap.values());
-    salaryData.sort((a, b) => b.month.localeCompare(a.month) || a.driverCode.localeCompare(b.driverCode));
+    const adjustments = await DriverAdjustment.find({});
+    const adjMap = new Map();
+    adjustments.forEach((adj: any) => {
+      adjMap.set(`${adj.driverCode}_${adj.month}`, adj);
+    });
+
+    const salaryData = Array.from(salaryMap.values()).map((item: any) => {
+      const adj = adjMap.get(item.key);
+      const salaryAdvance = adj ? adj.salaryAdvance || 0 : 0;
+      const shorts = adj ? adj.shorts || 0 : 0;
+      const inclusions = adj ? adj.inclusions || 0 : 0;
+      const baseComm = item.baseComm || 0;
+      const totalComm = baseComm - salaryAdvance - shorts + inclusions;
+
+      return {
+        ...item,
+        baseComm,
+        salaryAdvance,
+        shorts,
+        inclusions,
+        totalComm
+      };
+    });
+    salaryData.sort((a: any, b: any) => b.month.localeCompare(a.month) || a.driverCode.localeCompare(b.driverCode));
 
     const totalPages = Math.ceil(totalItems / limit);
 
