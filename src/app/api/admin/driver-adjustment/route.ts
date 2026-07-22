@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   try {
     await dbConnect();
     const body = await request.json();
-    const { driverCode, month, salaryAdvance, shorts, inclusions } = body;
+    const { driverCode, month, salaryAdvance, shorts, inclusions, comment } = body;
 
     if (!driverCode || !month) {
       return NextResponse.json({ error: "Driver Code and Month are required" }, { status: 400 });
@@ -17,10 +17,11 @@ export async function POST(request: Request) {
     const numAdvance = Number(salaryAdvance) || 0;
     const numShorts = Number(shorts) || 0;
     const numInclusions = Number(inclusions) || 0;
+    const commentStr = comment ? comment.toString().trim() : "";
 
     const updated = await DriverAdjustment.findOneAndUpdate(
       { driverCode: driverCode.toString().trim(), month: month.toString().trim() },
-      { $set: { salaryAdvance: numAdvance, shorts: numShorts, inclusions: numInclusions } },
+      { $set: { salaryAdvance: numAdvance, shorts: numShorts, inclusions: numInclusions, comment: commentStr } },
       { upsert: true, new: true }
     );
 

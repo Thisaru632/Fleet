@@ -306,6 +306,7 @@ export async function GET(request: Request) {
       const salaryAdvance = adj ? adj.salaryAdvance || 0 : 0;
       const shorts = adj ? adj.shorts || 0 : 0;
       const inclusions = adj ? adj.inclusions || 0 : 0;
+      const comment = adj ? adj.comment || "" : "";
       const baseComm = item.baseComm || 0;
       const totalComm = baseComm - salaryAdvance - shorts + inclusions;
 
@@ -315,6 +316,7 @@ export async function GET(request: Request) {
         salaryAdvance,
         shorts,
         inclusions,
+        comment,
         totalComm
       };
     });

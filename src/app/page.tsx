@@ -138,6 +138,7 @@ export default function FleetApp() {
   const [adjAdvance, setAdjAdvance] = useState<string>('');
   const [adjShorts, setAdjShorts] = useState<string>('');
   const [adjInclusions, setAdjInclusions] = useState<string>('');
+  const [adjComment, setAdjComment] = useState<string>('');
   const [savingAdjustment, setSavingAdjustment] = useState(false);
   const [showDriverDropdown, setShowDriverDropdown] = useState(false);
   const driverDropdownRef = useRef<HTMLDivElement>(null);
@@ -797,6 +798,7 @@ export default function FleetApp() {
     setAdjAdvance(item.salaryAdvance !== undefined && item.salaryAdvance !== null ? item.salaryAdvance.toString() : '0');
     setAdjShorts(item.shorts !== undefined && item.shorts !== null ? item.shorts.toString() : '0');
     setAdjInclusions(item.inclusions !== undefined && item.inclusions !== null ? item.inclusions.toString() : '0');
+    setAdjComment(item.comment || '');
     setShowAdjustmentModal(true);
   };
 
@@ -812,7 +814,8 @@ export default function FleetApp() {
           month: selectedAdjustmentItem.month,
           salaryAdvance: parseFloat(adjAdvance) || 0,
           shorts: parseFloat(adjShorts) || 0,
-          inclusions: parseFloat(adjInclusions) || 0
+          inclusions: parseFloat(adjInclusions) || 0,
+          comment: adjComment
         })
       });
       const data = await res.json();
@@ -924,7 +927,10 @@ export default function FleetApp() {
         <div class="breakdown-row"><span>Sum of Trip Commissions</span><strong style="font-family: monospace;">Rs. ${baseComm}</strong></div>
         <div class="breakdown-row" style="color: #d97706;"><span>(-) Salary Advance</span><strong style="font-family: monospace;">- Rs. ${salaryAdvance}</strong></div>
         <div class="breakdown-row" style="color: #dc2626;"><span>(-) Shorts</span><strong style="font-family: monospace;">- Rs. ${shorts}</strong></div>
-        <div class="breakdown-row" style="color: #2563eb;"><span>(+) Inclusions</span><strong style="font-family: monospace;">+ Rs. ${inclusions}</strong></div>
+        <div class="breakdown-row" style="color: #2563eb;">
+          <span>(+) Inclusions ${item.comment ? `<span style="color: #475569; font-weight: normal; font-style: italic; font-size: 9px; margin-left: 4px;">(${item.comment})</span>` : ''}</span>
+          <strong style="font-family: monospace;">+ Rs. ${inclusions}</strong>
+        </div>
         <div class="breakdown-row total"><span>Total Driver Commission</span><span style="font-family: monospace;">Rs. ${totalComm}</span></div>
       </div>
 
@@ -2601,78 +2607,82 @@ export default function FleetApp() {
           {/* Filters */}
           {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && adminTab !== 'report' && (
             <div className="p-1.5 bg-white/5 rounded-2xl border border-white/10 flex flex-col md:flex-row items-end gap-2 w-full">
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-2 flex-1 w-full px-2 py-0.5">
+              <div className={cn("grid gap-2 flex-1 w-full px-2 py-0.5", adminTab === 'salary' ? "grid-cols-2 md:grid-cols-3 max-w-2xl" : "grid-cols-2 md:grid-cols-6")}>
                 <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                  <Calendar className="w-2.5 h-2.5" /> From
-                </label>
-                <input
-                  type="date"
-                  className="w-full input-field py-0 text-[10px] text-white h-7"
-                  value={adminFilters.startDate}
-                  onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
-                />
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <Calendar className="w-2.5 h-2.5" /> From
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full input-field py-0 text-[10px] text-white h-7"
+                    value={adminFilters.startDate}
+                    onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <Calendar className="w-2.5 h-2.5" /> To
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full input-field py-0 text-[10px] text-white h-7"
+                    value={adminFilters.endDate}
+                    onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
+                  />
+                </div>
+                {adminTab !== 'salary' && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
+                      <select
+                        className="w-full input-field py-0 text-[10px] text-white h-7"
+                        value={adminFilters.purpose}
+                        onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
+                      >
+                        {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
+                      <select
+                        className="w-full input-field py-0 text-[10px] text-white h-7"
+                        value={adminFilters.status}
+                        onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
+                      >
+                        {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
+                      <select
+                        className="w-full input-field py-0 text-[10px] text-white h-7"
+                        value={adminFilters.vehicle}
+                        onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
+                      >
+                        <option value="All">All Vehicles</option>
+                        {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
+                  <select
+                    className="w-full input-field py-0 text-[10px] text-white h-7"
+                    value={adminFilters.driver}
+                    onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
+                  >
+                    <option value="All">All Drivers</option>
+                    {(adminData?.tables?.driversList || [])
+                      .filter((driver: any) => driver.status === 'Active' && driver.username)
+                      .map((driver: any) => (
+                        <option key={driver.username} value={driver.username}>
+                          {driver.username}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                  <Calendar className="w-2.5 h-2.5" /> To
-                </label>
-                <input
-                  type="date"
-                  className="w-full input-field py-0 text-[10px] text-white h-7"
-                  value={adminFilters.endDate}
-                  onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
-                />
-              </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
-                    <select
-                      className="w-full input-field py-0 text-[10px] text-white h-7"
-                      value={adminFilters.purpose}
-                      onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
-                    >
-                      {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
-                    <select
-                      className="w-full input-field py-0 text-[10px] text-white h-7"
-                      value={adminFilters.status}
-                      onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
-                    >
-                      {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
-                    <select
-                      className="w-full input-field py-0 text-[10px] text-white h-7"
-                      value={adminFilters.vehicle}
-                      onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
-                    >
-                      <option value="All">All Vehicles</option>
-                      {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
-                    <select
-                      className="w-full input-field py-0 text-[10px] text-white h-7"
-                      value={adminFilters.driver}
-                      onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
-                    >
-                      <option value="All">All Drivers</option>
-                      {(adminData?.tables?.driversList || [])
-                        .filter((driver: any) => driver.status === 'Active' && driver.username)
-                        .map((driver: any) => (
-                          <option key={driver.username} value={driver.username}>
-                            {driver.username}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-            </div>
             <button
               onClick={resetAdminFilters}
               className="h-7 px-4 mb-0.5 mr-0.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shrink-0 w-full md:w-auto"
@@ -4776,7 +4786,12 @@ export default function FleetApp() {
                                 <span className="font-mono font-bold text-rose-400">- Rs. {shorts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                               <div className="flex justify-between items-center text-slate-300">
-                                <span className="text-slate-400 font-medium">(+) Inclusions</span>
+                                <span className="text-slate-400 font-medium flex items-center gap-1.5">
+                                  (+) Inclusions
+                                  {currentItem.comment && (
+                                    <span className="text-xs text-blue-300/80 italic font-normal">({currentItem.comment})</span>
+                                  )}
+                                </span>
                                 <span className="font-mono font-bold text-blue-400">+ Rs. {inclusions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                               <div className="pt-2 border-t border-white/10 flex justify-between items-center text-base font-black">
@@ -4868,6 +4883,19 @@ export default function FleetApp() {
                           placeholder="Enter inclusions amount..."
                           value={adjInclusions}
                           onChange={(e) => setAdjInclusions(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                          Inclusions Comment / Reason
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-emerald-500 focus:outline-none rounded-xl"
+                          placeholder="e.g. Festival Bonus, Special Allowance..."
+                          value={adjComment}
+                          onChange={(e) => setAdjComment(e.target.value)}
                         />
                       </div>
                     </div>
