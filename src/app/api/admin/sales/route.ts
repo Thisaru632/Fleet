@@ -276,7 +276,16 @@ export async function GET(request: Request) {
 
       const key = `${driverCode}_${month}`;
       if (!salaryMap.has(key)) {
-        salaryMap.set(key, { key, driverCode, driverName: driverNames[driverCode] || driverCode, month, totalComm: 0, trips: [] });
+        salaryMap.set(key, { 
+          key, 
+          driverCode, 
+          driverName: driverNames[driverCode] || driverCode, 
+          month, 
+          salaryAdvance: 0, 
+          shorts: 0, 
+          totalComm: 0, 
+          trips: [] 
+        });
       }
 
       salaryMap.get(key).totalComm += comm;

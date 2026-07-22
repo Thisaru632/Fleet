@@ -2291,7 +2291,7 @@ export default function FleetApp() {
         <div className="space-y-8 pb-20">
           {/* Header & Back section removed */}
           {/* Tabs and Filters Container */}
-          <div className="flex flex-col gap-3 w-fit">
+          <div className="flex flex-col gap-3 w-full">
             {/* Tabs Navigation */}
             <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10 w-full overflow-x-auto">
             <button
@@ -2603,11 +2603,11 @@ export default function FleetApp() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 xl:grid-cols-5 lg:grid-cols-4 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     {/* Left Column (Main content) */}
-                    <div className="xl:col-span-4 lg:col-span-3 md:col-span-2 space-y-4">
+                    <div className="lg:col-span-7 xl:col-span-7 space-y-4">
                       {/* Top KPI Cards */}
-                      <div className="flex flex-row w-full gap-2">
+                      <div className="flex flex-row w-full gap-2 overflow-x-auto custom-scrollbar pb-1">
                         {[
                           { title: 'HIRE COUNT', value: adminData.kpis.hireCount, color: 'text-emerald-400', trend: '+4%', isUp: true },
                           { title: 'TOTAL REVENUE', value: `Rs. ${adminData.kpis.totalSales.toLocaleString()}`, color: 'text-emerald-400', trend: '+8%', isUp: true },
@@ -2617,7 +2617,7 @@ export default function FleetApp() {
                           { title: 'TOTAL MILEAGE', value: `${(adminData.tables.fleetData?.reduce((sum: number, row: any) => sum + (Number(String(row.values?.[22] || 0).replace(/[^\d.-]/g, '')) || 0), 0) || 0).toLocaleString()} KM`, color: 'text-slate-200', trend: 'N/A', isUp: true },
                           { title: 'DRIVER COMMISSION', value: `Rs. ${(adminData.kpis.totalCommission || 0).toLocaleString()}`, color: 'text-rose-400', trend: 'N/A', isUp: true },
                         ].map((kpi, idx) => (
-                          <div key={idx} className="flex-1 min-w-0 bg-[#0f172a] p-2 rounded-lg shadow-sm border border-slate-800 flex flex-col justify-between h-20">
+                          <div key={idx} className="flex-1 min-w-[120px] bg-[#0f172a] p-2 rounded-lg shadow-sm border border-slate-800 flex flex-col justify-between h-20">
                             <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wide truncate">{kpi.title}</h3>
                             <div className={`text-sm font-bold tracking-tight leading-none truncate ${kpi.color}`}>
                               {kpi.value}
@@ -2639,7 +2639,7 @@ export default function FleetApp() {
                     </div>
 
                     {/* Right Column Wrapper */}
-                    <div className="flex flex-col gap-4">
+                    <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-4">
                       {/* Right Sidebar (Fleet Summary) */}
                       <div className="bg-[#0f172a] rounded-lg shadow-sm border border-slate-800 overflow-hidden flex flex-col min-h-[480px] max-h-[600px] xl:max-h-full">
                         <div className="p-3 border-b border-slate-800 bg-slate-900 flex items-center justify-between shrink-0">
@@ -2671,21 +2671,21 @@ export default function FleetApp() {
                           <table className="w-full text-left text-xs font-sans border-collapse">
                             <thead>
                               <tr className="border-b border-white/10 text-slate-400">
-                                <th className="py-3 px-2 font-bold">Vehicle</th>
-                                <th className="py-3 px-2 font-bold text-right">Hire Income</th>
-                                <th className="py-3 px-2 font-bold text-right">KM</th>
-                                <th className="py-3 px-2 font-bold text-right">Fuel Cost</th>
-                                <th className="py-3 px-2 font-bold text-right">Fuel %</th>
+                                <th className="py-3 px-2 font-bold whitespace-nowrap">Vehicle</th>
+                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Hire Income</th>
+                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM</th>
+                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel Cost</th>
+                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel %</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
                               {(adminData.tables.topVehicles || []).map((v: any, i: number) => (
                                 <tr key={i} className="hover:bg-white/5 transition-colors">
-                                  <td className="py-3 px-2 font-bold text-slate-300">{v.vehicle}</td>
-                                  <td className="py-3 px-2 text-right text-white font-mono">{Math.round(v.hireIncome).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-right text-slate-300 font-mono">{Math.round(v.mileage).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-right text-rose-400 font-mono">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-right text-rose-400 font-mono">{v.fuelPercentage.toFixed(2)}%</td>
+                                  <td className="py-3 px-2 font-bold text-slate-300 whitespace-nowrap">{v.vehicle}</td>
+                                  <td className="py-3 px-2 text-right text-white font-mono whitespace-nowrap">{Math.round(v.hireIncome).toLocaleString()}</td>
+                                  <td className="py-3 px-2 text-right text-slate-300 font-mono whitespace-nowrap">{Math.round(v.mileage).toLocaleString()}</td>
+                                  <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
+                                  <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">{v.fuelPercentage.toFixed(2)}%</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -2791,7 +2791,7 @@ export default function FleetApp() {
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
                     <History className="w-4 h-4 text-emerald-500" />
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
                     <table className="w-full text-left">
                       <thead>
                         <tr className="border-b border-white/5 bg-white/[0.02]">
@@ -2913,7 +2913,7 @@ export default function FleetApp() {
                       </button>
                     </div>
                   </div>
-                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
                     <table className="w-full text-left relative">
                       <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                         <tr className="border-b border-white/5 bg-white/[0.02]">
@@ -3415,7 +3415,7 @@ export default function FleetApp() {
                     <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Account Data...</p>
                   </div>
                 ) : accountSheetData?.data?.length > 0 ? (
-                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
                     <table className="w-full text-left relative">
                       <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                         <tr className="border-b border-white/5 bg-white/[0.02]">
@@ -4418,13 +4418,15 @@ export default function FleetApp() {
                       </h3>
                       <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{salaryList.length} Records</span>
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-wider">
                             <th className="p-3 border-r border-white/5 font-medium">Driver Code</th>
                             <th className="p-3 border-r border-white/5 font-medium">Driver Name</th>
                             <th className="p-3 border-r border-white/5 font-medium">Month</th>
+                            <th className="p-3 border-r border-white/5 font-medium text-right">Salary Advance</th>
+                            <th className="p-3 border-r border-white/5 font-medium text-right">Shorts</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Total Driver Comm</th>
                             <th className="p-3 font-medium text-center w-24">Action</th>
                           </tr>
@@ -4432,7 +4434,7 @@ export default function FleetApp() {
                         <tbody className="divide-y divide-white/5">
                           {salaryList.length === 0 ? (
                             <tr>
-                              <td colSpan={5} className="p-8 text-center text-slate-500 text-sm">
+                              <td colSpan={7} className="p-8 text-center text-slate-500 text-sm">
                                 No salary data available
                               </td>
                             </tr>
@@ -4443,6 +4445,12 @@ export default function FleetApp() {
                                   <td className="p-3 border-r border-white/5 text-sm font-mono text-slate-400">{item.driverCode}</td>
                                   <td className="p-3 border-r border-white/5 text-sm text-white font-medium">{item.driverName}</td>
                                   <td className="p-3 border-r border-white/5 text-sm text-slate-300">{item.month}</td>
+                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-amber-400 text-right">
+                                    {(item.salaryAdvance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-rose-400 text-right">
+                                    {(item.shorts || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
                                   <td className="p-3 border-r border-white/5 text-sm font-bold text-emerald-400 text-right">{item.totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                   <td className="p-3 text-center">
                                     <button 

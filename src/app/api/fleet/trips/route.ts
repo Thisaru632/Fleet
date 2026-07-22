@@ -20,15 +20,31 @@ export async function GET(request: Request) {
     let filteredTripRefs: any[] = [];
     let accountDocs: any[] = [];
     try {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
+      // Calculate current date in Asia/Colombo timezone (UTC+5:30)
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Colombo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(now);
+
+      const year = Number(parts.find(p => p.type === "year")?.value);
+      const month = Number(parts.find(p => p.type === "month")?.value) - 1;
+      const day = Number(parts.find(p => p.type === "day")?.value);
+
+      // Bounds in local timezone (UTC+5:30) and UTC midnight to ensure dates match regardless of server time
+      const startOfLocalDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0) - (5.5 * 60 * 60 * 1000));
+      const endOfLocalDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999) - (5.5 * 60 * 60 * 1000));
+      const startOfUtcDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      const endOfUtcDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+
+      const queryStart = new Date(Math.min(startOfLocalDay.getTime(), startOfUtcDay.getTime()));
+      const queryEnd = new Date(Math.max(endOfLocalDay.getTime(), endOfUtcDay.getTime()));
 
       accountDocs = await AccountSheet.find({ 
         status: { $regex: /^Assigned$/i },
-        date: { $gte: startOfDay, $lte: endOfDay }
+        date: { $gte: queryStart, $lte: queryEnd }
       });
       const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, '')) || '';
       const tripRefs = accountDocs
