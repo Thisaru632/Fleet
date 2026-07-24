@@ -4567,7 +4567,7 @@ export default function FleetApp() {
                                 
                                 const hireType = String(accMatch.rawValues[31] || '').trim().toLowerCase();
                                 if (hireType === 'credit') {
-                                  customerName = 'Senu Cabs and Tours - Credit';
+                                  customerName = 'Senu Cabs and Tours';
                                 } else if (hireType === 'cash') {
                                   customerName = driverName ? `${driverName} - Cash` : '- Cash';
                                 }
