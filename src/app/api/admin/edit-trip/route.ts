@@ -29,7 +29,7 @@ export async function PUT(request: Request) {
 
     // Recalculate scDueAmount
     const isHire = trip.purpose === "Hire";
-    const scDue = isHire ? Math.round(parseNum(rawValues[23]) - parseNum(rawValues[9]) - (rawValues.length > 24 ? parseNum(rawValues[24]) : 0) - parseNum(rawValues[14])) : 0;
+    const scDue = isHire ? Math.round(parseNum(rawValues[23]) - parseNum(rawValues[9]) - (rawValues.length > 24 ? parseNum(rawValues[24]) : 0) - parseNum(rawValues[11]) - parseNum(rawValues[14])) : 0;
     trip.scDue = scDue;
     rawValues[13] = scDue;
 

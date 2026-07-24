@@ -349,6 +349,7 @@ export default function FleetApp() {
     finalPrice: '',
     fuelStationMeter: '',
     fuelLiterCount: '',
+    repairStationMeter: '',
   });
 
   const [files, setFiles] = useState<{ [key: string]: File | null }>({
@@ -357,10 +358,13 @@ export default function FleetApp() {
     fuelReceipt: null,
     repairReceipt: null,
     fuelStationMeterImage: null,
+    repairStationMeterImage: null,
   });
 
   const [isFuelSubmitted, setIsFuelSubmitted] = useState(false);
   const [fuelSubmitCount, setFuelSubmitCount] = useState(0);
+  const [showRepairDetails, setShowRepairDetails] = useState(false);
+  const [isRepairSubmitted, setIsRepairSubmitted] = useState(false);
 
   const handleAddMoreFuel = () => {
     if (fuelSubmitCount >= 2) {
@@ -476,6 +480,71 @@ export default function FleetApp() {
       setStage('dashboard');
     } catch (err: any) {
       setAlert({ type: 'error', message: err.message || 'Failed to submit fuel details' });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
+  const handleRepairDetailsSubmit = async () => {
+    if (!formData.repairStationMeter && !formData.repairCost) {
+      setAlert({ type: 'error', message: 'Please enter some repair details to submit.' });
+      return;
+    }
+    if (formData.repairStationMeter && !files.repairStationMeterImage) {
+      setAlert({ type: 'error', message: 'Please upload the Meter Image.' });
+      return;
+    }
+    if (formData.repairCost && !files.repairReceipt) {
+      setAlert({ type: 'error', message: 'Please upload the Repair Receipt.' });
+      return;
+    }
+
+    setLoading(true);
+    setAlert({ type: 'warning', message: 'Submitting repair details to database...' });
+
+    try {
+      let uploadFiles: any[] = [];
+      if (files.repairReceipt) {
+        const repairFiles = Array.isArray(files.repairReceipt) ? files.repairReceipt : [files.repairReceipt];
+        for (let i = 0; i < repairFiles.length; i++) {
+          uploadFiles.push({
+            name: `${currentRef}_Repair_${Date.now()}_${i + 1}`,
+            dataUrl: await fileToBase64(repairFiles[i] as File)
+          });
+        }
+      }
+      if (files.repairStationMeterImage) {
+        uploadFiles.push({ name: `${currentRef}_RepairStationMeter`, dataUrl: await fileToBase64(files.repairStationMeterImage as File) });
+      }
+
+      let array: any[] = new Array(24).fill('');
+      array[0] = user[0];
+      array[1] = formData.vehicle;
+      array[2] = formData.purpose;
+      array[3] = formData.garageStartMeter;
+      array[4] = formData.endTs || '';
+      array[5] = formData.garageEndMeter || '';
+
+      array[6] = formData.fuelCost || '';
+      array[7] = formData.comments || '';
+      array[8] = formData.repairCost || '';
+      array[24] = formData.repairStationMeter || '';
+
+      const updateRes = await fetch('/api/fleet/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: 'repair', ref: currentRef, array, files: uploadFiles }),
+      });
+      const updateData = await updateRes.json();
+      if (updateData.error) throw new Error(updateData.error);
+
+      setIsRepairSubmitted(true);
+      setAlert({ type: 'success', message: 'Repair details saved to database successfully!' });
+      window.history.pushState({ stage: 'dashboard' }, '');
+      setStage('dashboard');
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to submit repair details' });
     } finally {
       setLoading(false);
       setTimeout(() => setAlert(null), 3000);
@@ -1358,6 +1427,7 @@ export default function FleetApp() {
         totalMileage: details[22] || '',
         finalPrice: details[23] || '',
         tripPrice: details[23] || '',
+        repairStationMeter: details[27] || '',
       }));
       setCurrentRef(ref);
       
@@ -1435,7 +1505,8 @@ export default function FleetApp() {
 
           const fuel1 = Number(prev.firstFuelCost) || 0;
           const fuel2 = Number(prev.fuelCost) || 0;
-          const dueAmount = Math.round(finalPriceNum - fuel1 - fuel2 - Number(rawSalary));
+          const repair = Number(prev.repairCost) || 0;
+          const dueAmount = Math.round(finalPriceNum - fuel1 - fuel2 - repair - Number(rawSalary));
 
           return {
             ...prev,
@@ -1472,14 +1543,15 @@ export default function FleetApp() {
     setFormData((prev: any) => ({ ...prev, [id]: value }));
 
     // Auto-calcs
-    if (['fuelCost', 'firstFuelCost', 'tripPrice', 'drvComms'].includes(id)) {
-      // Calc scDueAmount = Final price - fuel cost 1 - fuel cost 2 - driver salary
+    if (['fuelCost', 'firstFuelCost', 'tripPrice', 'drvComms', 'repairCost'].includes(id)) {
+      // Calc scDueAmount = Final price - fuel cost 1 - fuel cost 2 - repair cost - driver salary
       setFormData((prev: any) => {
         const fuel1 = Number(prev.firstFuelCost) || 0;
         const fuel2 = Number(prev.fuelCost) || 0;
+        const repair = Number(prev.repairCost) || 0;
         const tripPrice = Number((prev.tripPrice || '').toString().replace(/[^\d.]/g, '')) || 0;
         const salary = Number(prev.drvComms) || 0;
-        const due = Math.round(tripPrice - fuel1 - fuel2 - salary);
+        const due = Math.round(tripPrice - fuel1 - fuel2 - repair - salary);
         return { ...prev, scDueAmount: due };
       });
     }
@@ -1696,7 +1768,7 @@ export default function FleetApp() {
           array[6] = formData.fuelCost;
           array[7] = finalComments;
         }
-        array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
+        array[8] = formData.repairCost || '';
         array[9] = formData.tripRef || '';
         array[10] = formData.scDueAmount || '';
         array[11] = formData.drvComms || '';
@@ -1709,6 +1781,7 @@ export default function FleetApp() {
         array[18] = formData.folderId || '';
         array[19] = totalMileage || '';
         array[20] = formData.tripPrice || '';
+        array[24] = formData.repairStationMeter || '';
 
         await fetch('/api/fleet/update', {
           method: 'POST',
@@ -2840,15 +2913,19 @@ export default function FleetApp() {
                           <div className="flex items-center gap-2">
                             <button 
                               onClick={() => {
-                                const headers = ["Vehicle", "Hire Income", "KM", "Fuel Cost", "Fuel (L)", "Fuel %"];
-                                const rows = (adminData.tables.topVehicles || []).map((v: any) => [
-                                  v.vehicle,
-                                  Math.round(v.hireIncome).toLocaleString(),
-                                  Math.round(v.mileage).toLocaleString(),
-                                  `Rs.${Math.round(v.fuelCost).toLocaleString()}`,
-                                  `${(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L`,
-                                  `${v.fuelPercentage.toFixed(2)}%`
-                                ]);
+                                const headers = ["Vehicle", "Hire Income", "KM", "Fuel Cost", "Fuel (L)", "KM/L", "Fuel %"];
+                                const rows = (adminData.tables.topVehicles || []).map((v: any) => {
+                                  const kmpl = v.fuelLiters ? (v.mileage / v.fuelLiters) : 0;
+                                  return [
+                                    v.vehicle,
+                                    Math.round(v.hireIncome).toLocaleString(),
+                                    Math.round(v.mileage).toLocaleString(),
+                                    `Rs.${Math.round(v.fuelCost).toLocaleString()}`,
+                                    `${(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L`,
+                                    kmpl.toFixed(2),
+                                    `${v.fuelPercentage.toFixed(2)}%`
+                                  ];
+                                });
                                 const csvContent = [headers.join("\t"), ...rows.map((r: any) => r.join("\t"))].join("\n");
                                 navigator.clipboard.writeText(csvContent);
                                 setAlert({ type: 'success', message: 'Copied to clipboard!' });
@@ -2870,20 +2947,25 @@ export default function FleetApp() {
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel Cost</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel (L)</th>
+                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM/L</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel %</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                              {(adminData.tables.topVehicles || []).map((v: any, i: number) => (
-                                <tr key={i} className="hover:bg-white/5 transition-colors">
-                                  <td className="py-3 px-2 font-bold text-slate-300 whitespace-nowrap w-28">{v.vehicle}</td>
-                                  <td className="py-3 px-2 text-right text-white font-mono whitespace-nowrap">{Math.round(v.hireIncome).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-right text-slate-300 font-mono whitespace-nowrap">{Math.round(v.mileage).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-right text-amber-400 font-mono whitespace-nowrap">{(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L</td>
-                                  <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">{v.fuelPercentage.toFixed(2)}%</td>
-                                </tr>
-                              ))}
+                              {(adminData.tables.topVehicles || []).map((v: any, i: number) => {
+                                const kmpl = v.fuelLiters ? (v.mileage / v.fuelLiters) : 0;
+                                return (
+                                  <tr key={i} className="hover:bg-white/5 transition-colors">
+                                    <td className="py-3 px-2 font-bold text-slate-300 whitespace-nowrap w-28">{v.vehicle}</td>
+                                    <td className="py-3 px-2 text-right text-white font-mono whitespace-nowrap">{Math.round(v.hireIncome).toLocaleString()}</td>
+                                    <td className="py-3 px-2 text-right text-slate-300 font-mono whitespace-nowrap">{Math.round(v.mileage).toLocaleString()}</td>
+                                    <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
+                                    <td className="py-3 px-2 text-right text-amber-400 font-mono whitespace-nowrap">{(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L</td>
+                                    <td className="py-3 px-2 text-right text-blue-400 font-mono whitespace-nowrap">{kmpl.toFixed(2)}</td>
+                                    <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">{v.fuelPercentage.toFixed(2)}%</td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
@@ -3116,7 +3198,7 @@ export default function FleetApp() {
                           {[
                             'Status', 'STAFF COMMENT', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
                             'Purpose', 'Garage Start', 'Garage End', 'End TS',
-                            'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
+                            'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
                             'Loss (End)', 'Total Mileage', 'Final Price',
@@ -3164,7 +3246,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => (
+                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 27, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => (
                               <td 
                                 key={idx} 
                                 className={cn(
@@ -5442,6 +5524,109 @@ export default function FleetApp() {
                   >
                     + Add More Details
                   </button>
+                )}
+              </div>
+            )}
+
+            {!showRepairDetails && stage === 'update' && currentRef && (
+              <button
+                onClick={() => setShowRepairDetails(true)}
+                className="w-full py-3 mt-4 font-black rounded-xl border border-rose-500/50 text-rose-400 hover:bg-rose-500 hover:text-black transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+              >
+                <Wrench className="w-4 h-4" />
+                Add Repair Details
+              </button>
+            )}
+
+            {showRepairDetails && stage === 'update' && currentRef && (
+              <div className="glass-card p-6 space-y-6 border-rose-500/20 bg-rose-500/5 mt-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
+                    <Wrench className="w-5 h-5 text-rose-500" />
+                    Details in the Repair Station
+                  </div>
+                  <button onClick={() => setShowRepairDetails(false)} className="text-slate-400 hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Meter in the Repair Station</label>
+                    <input
+                      id="repairStationMeter"
+                      type="number"
+                      min="0"
+                      disabled={isRepairSubmitted}
+                      className="w-full input-field py-3 disabled:opacity-50"
+                      value={formData.repairStationMeter || ''}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Meter Image Upload</label>
+                    <input
+                      id="repairStationMeterImage"
+                      type="file"
+                      accept="image/*"
+                      disabled={isRepairSubmitted}
+                      className="w-full input-field py-2 text-[10px] disabled:opacity-50"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Repair Cost (Rs.)</label>
+                    <input
+                      id="repairCost"
+                      type="number"
+                      min="0"
+                      disabled={isRepairSubmitted}
+                      className="w-full input-field py-3 disabled:opacity-50"
+                      value={formData.repairCost || ''}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Repair Receipt</label>
+                    <input
+                      id="repairReceipt"
+                      type="file"
+                      accept="image/*"
+                      disabled={isRepairSubmitted}
+                      className="w-full input-field py-2 text-[10px] disabled:opacity-50"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleRepairDetailsSubmit}
+                  disabled={isRepairSubmitted || loading}
+                  className={cn(
+                    "w-full py-4 font-black rounded-xl transition-all shadow-lg uppercase tracking-widest text-xs flex items-center justify-center gap-2",
+                    (isRepairSubmitted || loading) 
+                      ? "bg-slate-500/50 text-slate-400 cursor-not-allowed" 
+                      : "bg-rose-500 hover:bg-rose-400 text-black shadow-rose-500/20"
+                  )}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : isRepairSubmitted ? (
+                    'Details Submitted'
+                  ) : (
+                    'Submit Repair Details'
+                  )}
+                </button>
+                {isRepairSubmitted && (
+                   <p className="text-center text-[10px] text-emerald-400 font-bold uppercase mt-2">
+                     Submitted details displayed above.
+                   </p>
                 )}
               </div>
             )}

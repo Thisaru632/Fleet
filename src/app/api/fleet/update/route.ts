@@ -48,6 +48,19 @@ export async function POST(request: Request) {
       }
       
       trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...existingArray];
+    } else if (stage === 'repair') {
+      trip.repair = parseNum(array[8]);
+      
+      const isHire = trip.purpose === "Hire";
+      const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission - trip.repair) : 0;
+      trip.scDue = scDue;
+
+      const existingArray = trip.rawValues.slice(3);
+      existingArray[8] = array[8];
+      existingArray[10] = scDue;
+      existingArray[24] = array[24];
+      
+      trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...existingArray];
     } else {
       trip.driverId = array[0] || trip.driverId;
       trip.vehicle = array[1] || trip.vehicle;
@@ -60,7 +73,7 @@ export async function POST(request: Request) {
       
       // Recalculate scDue: only for Hire trips, else 0
       const isHire = trip.purpose === "Hire";
-      const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission) : 0;
+      const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission - trip.repair) : 0;
       trip.scDue = scDue;
       if (array.length > 10) {
         array[10] = scDue;
