@@ -2807,7 +2807,7 @@ export default function FleetApp() {
                           { title: 'FUEL COST', value: `Rs. ${adminData.kpis.totalFuel.toLocaleString()}`, color: 'text-rose-400', trend: '-10%', isUp: false },
                           { title: 'REPAIR COST', value: `Rs. ${adminData.kpis.totalRepairCost.toLocaleString()}`, color: 'text-rose-400', trend: '+49%', isUp: true },
                           { title: 'FUEL LITERS', value: `${(adminData.kpis.totalFuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L`, color: 'text-white', trend: 'N/A', isUp: true },
-                          { title: 'TOTAL MILEAGE', value: `${(adminData.tables.fleetData?.reduce((sum: number, row: any) => sum + (Number(String(row.values?.[22] || 0).replace(/[^\d.-]/g, '')) || 0), 0) || 0).toLocaleString()} KM`, color: 'text-slate-200', trend: 'N/A', isUp: true },
+                          { title: 'TOTAL MILEAGE', value: `${(adminData.kpis.totalMileage || 0).toLocaleString()} KM`, color: 'text-slate-200', trend: 'N/A', isUp: true },
                           { title: 'DRIVER COMMISSION', value: `Rs. ${(adminData.kpis.totalCommission || 0).toLocaleString()}`, color: 'text-rose-400', trend: 'N/A', isUp: true },
                         ].map((kpi, idx) => (
                           <div key={idx} className="flex-1 min-w-[120px] bg-[#0f172a] p-2 rounded-lg shadow-sm border border-slate-800 flex flex-col justify-between h-20">
@@ -2840,12 +2840,13 @@ export default function FleetApp() {
                           <div className="flex items-center gap-2">
                             <button 
                               onClick={() => {
-                                const headers = ["Vehicle", "Hire Income", "KM", "Fuel Cost", "Fuel %"];
+                                const headers = ["Vehicle", "Hire Income", "KM", "Fuel Cost", "Fuel (L)", "Fuel %"];
                                 const rows = (adminData.tables.topVehicles || []).map((v: any) => [
                                   v.vehicle,
                                   Math.round(v.hireIncome).toLocaleString(),
                                   Math.round(v.mileage).toLocaleString(),
                                   `Rs.${Math.round(v.fuelCost).toLocaleString()}`,
+                                  `${(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L`,
                                   `${v.fuelPercentage.toFixed(2)}%`
                                 ]);
                                 const csvContent = [headers.join("\t"), ...rows.map((r: any) => r.join("\t"))].join("\n");
@@ -2868,6 +2869,7 @@ export default function FleetApp() {
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Hire Income</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel Cost</th>
+                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel (L)</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel %</th>
                               </tr>
                             </thead>
@@ -2878,6 +2880,7 @@ export default function FleetApp() {
                                   <td className="py-3 px-2 text-right text-white font-mono whitespace-nowrap">{Math.round(v.hireIncome).toLocaleString()}</td>
                                   <td className="py-3 px-2 text-right text-slate-300 font-mono whitespace-nowrap">{Math.round(v.mileage).toLocaleString()}</td>
                                   <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
+                                  <td className="py-3 px-2 text-right text-amber-400 font-mono whitespace-nowrap">{(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L</td>
                                   <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">{v.fuelPercentage.toFixed(2)}%</td>
                                 </tr>
                               ))}
@@ -4544,7 +4547,7 @@ export default function FleetApp() {
                             
                             const driverCode = t.values[3] || '';
                             const driverName = adminData.driverNames?.[driverCode] || driverCode;
-                            const customerName = driverName ? `${driverName} - Cash` : '- Cash';
+                            let customerName = driverName ? `${driverName} - Cash` : '- Cash';
                             const driverComm = String(t.values[14] || '').replace(/Rs\.?\s*/gi, '');
 
                             if (tripRef && reportAccountData?.data) {
@@ -4561,6 +4564,13 @@ export default function FleetApp() {
                                   }
                                 }
                                 hireAmount = String(accMatch.rawValues[4] || '').replace(/Rs\.?\s*/gi, '');
+                                
+                                const hireType = String(accMatch.rawValues[31] || '').trim().toLowerCase();
+                                if (hireType === 'credit') {
+                                  customerName = 'Senu Cabs and Tours - Credit';
+                                } else if (hireType === 'cash') {
+                                  customerName = driverName ? `${driverName} - Cash` : '- Cash';
+                                }
                               }
                             }
                             

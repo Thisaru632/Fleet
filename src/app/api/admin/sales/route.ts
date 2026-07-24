@@ -29,13 +29,25 @@ export async function GET(request: Request) {
       if (endDate) query.timestamp.$lte = endDate + " 23:59:59";
     }
     if (purposeFilter && purposeFilter !== "All") query.purpose = purposeFilter;
-    if (statusFilter && statusFilter !== "All") query.status = statusFilter;
+    if (statusFilter && statusFilter !== "All") {
+      if (statusFilter.toLowerCase().includes("cancel")) {
+        query.$or = [
+          { status: { $regex: /cancel/i } },
+          { "rawValues.0": { $regex: /cancel/i } }
+        ];
+      } else {
+        query.status = statusFilter;
+      }
+    } else {
+      query.status = { $not: /cancel/i };
+      query["rawValues.0"] = { $not: /cancel/i };
+    }
     if (vehicleFilter && vehicleFilter !== "All") query.vehicle = vehicleFilter;
     if (driverFilter && driverFilter !== "All") query.driverId = driverFilter;
 
     if (search) {
       const searchRegex = new RegExp(search, "i");
-      query.$or = [
+      const searchConditions: any[] = [
         { reference: searchRegex },
         { vehicle: searchRegex },
         { driverId: searchRegex },
@@ -46,7 +58,17 @@ export async function GET(request: Request) {
 
       const searchNum = Number(search);
       if (!isNaN(searchNum)) {
-        query.$or.push({ rawValues: searchNum });
+        searchConditions.push({ rawValues: searchNum });
+      }
+
+      if (query.$or) {
+        query.$and = [
+          { $or: query.$or },
+          { $or: searchConditions }
+        ];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
       }
     }
 
@@ -149,7 +171,7 @@ export async function GET(request: Request) {
       Trip.distinct("driverId"),
       User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 }).lean(),
       SheetMetadata.findOne({ key: "added_vehicles" }).lean(),
-      Trip.find(query, { rawValues: 1 }).lean()
+      Trip.find(query, { rawValues: 1, vehicle: 1, status: 1 }).lean()
     ]);
 
     // KPI mapping
@@ -164,20 +186,32 @@ export async function GET(request: Request) {
     };
 
     let totalFuelLiters = 0;
+    const fuelLitersByVehicle: Record<string, number> = {};
     (allTripsRaw || []).forEach((t: any) => {
       const values = t.rawValues || [];
+      const status = String(values[0] || t.status || '').toLowerCase();
+      if (status.includes('cancel')) return;
+
+      const veh = t.vehicle || values[4] || "Unknown";
+      let tripLiters = 0;
+
       const rawComments = String(values[10] || '');
       const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
       if (fuelMatch) {
         const fuelStr = fuelMatch[1];
         const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
         if (m) {
-          totalFuelLiters += parseFloat(m[1]) || 0;
+          tripLiters += parseFloat(m[1]) || 0;
         }
       }
       const secondLiters = parseFloat(values[26]);
       if (!isNaN(secondLiters)) {
-        totalFuelLiters += secondLiters;
+        tripLiters += secondLiters;
+      }
+
+      totalFuelLiters += tripLiters;
+      if (tripLiters > 0 && veh) {
+        fuelLitersByVehicle[veh] = (fuelLitersByVehicle[veh] || 0) + tripLiters;
       }
     });
 
@@ -192,6 +226,7 @@ export async function GET(request: Request) {
       hireIncome: d.hireIncome || 0,
       mileage: d.totalMileage || 0,
       fuelCost: d.fuelCost || 0,
+      fuelLiters: fuelLitersByVehicle[d._id] || 0,
       incomePerKm: d.totalMileage > 0 ? (d.hireIncome / d.totalMileage) : 0,
       fuelPercentage: d.hireIncome > 0 ? (d.fuelCost / d.hireIncome) * 100 : 0
     }));
