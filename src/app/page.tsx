@@ -2074,7 +2074,7 @@ export default function FleetApp() {
       
       const driverCode = t.values[3] || '';
       const driverName = adminData.driverNames?.[driverCode] || driverCode;
-      const customerName = driverName ? `${driverName} - Cash` : '- Cash';
+      let customerName = driverName ? `${driverName} - Cash` : '- Cash';
       const driverComm = String(t.values[14] || '').replace(/Rs\.?\s*/gi, '');
 
       if (tripRef && reportAccountData?.data) {
@@ -2091,6 +2091,13 @@ export default function FleetApp() {
             }
           }
           hireAmount = String(accMatch.rawValues[4] || '').replace(/Rs\.?\s*/gi, '');
+          
+          const hireType = String(accMatch.rawValues[31] || '').trim().toLowerCase();
+          if (hireType === 'credit') {
+            customerName = 'Senu Cabs and Tours';
+          } else if (hireType === 'cash') {
+            customerName = driverName ? `${driverName} - Cash` : '- Cash';
+          }
         }
       }
       
