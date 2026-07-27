@@ -55,6 +55,25 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const captureLocation = (): Promise<string> => {
+  return new Promise((resolve) => {
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          resolve(`https://maps.google.com/?q=${latitude},${longitude}`);
+        },
+        () => {
+          resolve(''); // Resolve with empty string if user denies or error occurs
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    } else {
+      resolve('');
+    }
+  });
+};
+
 export default function FleetApp() {
   const [user, setUser] = useState<any>(null);
   const [stage, setStage] = useState<'dashboard' | 'new' | 'update' | 'last-trip' | 'salary' | 'contact-office' | 'admin'>('dashboard');
@@ -417,7 +436,8 @@ export default function FleetApp() {
         uploadFiles.push({ name: `${currentRef}_FuelStationMeter${suffix}`, dataUrl: await fileToBase64(files.fuelStationMeterImage as File) });
       }
 
-      let array: any[] = new Array(24).fill('');
+      const locationUrl = await captureLocation();
+      let array: any[] = new Array(30).fill('');
       array[0] = user[0];
       array[1] = formData.vehicle;
       array[2] = formData.purpose;
@@ -443,12 +463,16 @@ export default function FleetApp() {
         array[21] = formData.fuelCost;
         array[22] = formData.fuelStationMeter;
         array[23] = formData.fuelLiterCount;
+        array[25] = new Date().toLocaleString();
+        array[28] = locationUrl;
       } else {
         array[6] = formData.fuelCost;
         array[7] = finalComments;
         array[21] = '';
         array[22] = '';
         array[23] = '';
+        array[25] = new Date().toLocaleString();
+        array[28] = locationUrl;
       }
 
       array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
@@ -557,6 +581,15 @@ export default function FleetApp() {
       const parsedUser = JSON.parse(savedUser);
       setUser(parsedUser);
       fetchInitialData(parsedUser[0]);
+    }
+
+    // Request Location Permission on mobile devices
+    if (typeof window !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent) && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        () => console.log('Location access granted'),
+        (err) => console.log('Location access denied/error', err),
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
     }
 
     // Register Service Worker
@@ -1057,14 +1090,14 @@ export default function FleetApp() {
       'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
       'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
       'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-      'Loss (End)', 'Total Mileage', 'Final Price'
+      'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS'
     ];
 
     const csvRows = [];
     csvRows.push(headers.join(','));
 
     adminData.tables.fleetData.forEach((t: any) => {
-      const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => {
+      const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28].map((idx) => {
         let val = '';
         if (idx === 'fuel_meter' || idx === 'fuel_liters') {
             const rawComments = t.values[10] || '';
@@ -1701,7 +1734,8 @@ export default function FleetApp() {
         // We use TBD so the backend can replace it with the generated FR number
         uploadFiles.push({ name: `TBD Garage Start`, dataUrl: fileData });
 
-        let array: any[] = new Array(24).fill('');
+        const locationUrl = await captureLocation();
+        let array: any[] = new Array(30).fill('');
         array[0] = user[0]; // Driver
         array[1] = formData.vehicle;
         array[2] = formData.purpose;
@@ -1710,6 +1744,9 @@ export default function FleetApp() {
         if (formData.purpose === 'Hire') array[9] = formData.tripRef;
         if (formData.purpose === 'Repair') array[8] = formData.repairCost;
         if (formData.purpose === 'Fuel') array[6] = formData.fuelCost;
+
+        // Capture Start Location at index 26
+        array[26] = locationUrl;
 
         const createRes = await fetch('/api/fleet/create-record', {
           method: 'POST',
@@ -1782,6 +1819,10 @@ export default function FleetApp() {
         array[19] = totalMileage || '';
         array[20] = formData.tripPrice || '';
         array[24] = formData.repairStationMeter || '';
+        
+        const endLocationUrl = await captureLocation();
+        // Capture End Location at index 27
+        array[27] = endLocationUrl;
 
         await fetch('/api/fleet/update', {
           method: 'POST',
@@ -3201,7 +3242,7 @@ export default function FleetApp() {
                             'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-                            'Loss (End)', 'Total Mileage', 'Final Price',
+                            'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS',
                             'Actions'
                           ].map(h => (
                             <th key={h} className={cn(
@@ -3246,7 +3287,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 27, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23].map((idx) => (
+                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 27, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28].map((idx) => (
                               <td 
                                 key={idx} 
                                 className={cn(
@@ -5883,6 +5924,7 @@ export default function FleetApp() {
                       { label: 'Staff Comment', idx: 27, type: 'text' },
                       { label: 'FR Ref', idx: 1, type: 'text', readOnly: true },
                       { label: 'Start TS', idx: 2, type: 'text', readOnly: true },
+                      { label: 'Start Loc', idx: 29, type: 'text', readOnly: true },
                       { label: 'Driver', idx: 3, type: 'text' },
                       { label: 'Vehicle Num', idx: 4, type: 'select', options: adminData?.filterOptions?.vehicles || [] },
                       { label: 'Purpose', idx: 5, type: 'select', options: ['Hire', 'Repair', 'Personal', 'Fuel'] },
@@ -5892,6 +5934,8 @@ export default function FleetApp() {
                   {
                     title: 'Fuel / Repair Details',
                     fields: [
+                      { label: 'Fuel Update TS', idx: 28, type: 'text', readOnly: true },
+                      { label: 'Fuel Loc', idx: 31, type: 'text', readOnly: true },
                       { label: 'Fuel Cost', idx: 9, type: 'number' },
                       { label: 'Fuel Meter', idx: 'fuel_meter', type: 'number' },
                       { label: 'Fuel Liters', idx: 'fuel_liters', type: 'number' },
@@ -5909,6 +5953,7 @@ export default function FleetApp() {
                     fields: [
                       { label: 'Garage End', idx: 8, type: 'number' },
                       { label: 'End TS', idx: 7, type: 'text', readOnly: true },
+                      { label: 'End Loc', idx: 30, type: 'text', readOnly: true },
                       { label: 'Trip Ref', idx: 12, type: 'text' },
                       { label: 'SC Due Amount', idx: 13, type: 'number', readOnly: true },
                       { label: 'Drv Comms', idx: 14, type: 'number' },
@@ -6117,6 +6162,7 @@ export default function FleetApp() {
                       { label: 'Staff Comment', idx: 27 },
                       { label: 'FR Ref', idx: 1 },
                       { label: 'Start TS', idx: 2 },
+                      { label: 'Start Loc', idx: 29 },
                       { label: 'Driver', idx: 3 },
                       { label: 'Vehicle Num', idx: 4 },
                       { label: 'Purpose', idx: 5 },
@@ -6126,6 +6172,8 @@ export default function FleetApp() {
                   {
                     title: 'Fuel / Repair Details',
                     fields: [
+                      { label: 'Fuel Update TS', idx: 28 },
+                      { label: 'Fuel Loc', idx: 31 },
                       { label: 'Fuel Cost', idx: 9 },
                       { label: 'Fuel Meter', idx: 'fuel_meter' },
                       { label: 'Fuel Liters', idx: 'fuel_liters' },
@@ -6143,6 +6191,7 @@ export default function FleetApp() {
                     fields: [
                       { label: 'Garage End', idx: 8 },
                       { label: 'End TS', idx: 7 },
+                      { label: 'End Loc', idx: 30 },
                       { label: 'Trip Ref', idx: 12 },
                       { label: 'SC Due Amount', idx: 13 },
                       { label: 'Drv Comms', idx: 14 },
@@ -6215,7 +6264,11 @@ export default function FleetApp() {
                           })()
                         ) : (
                           viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
-                            ? (field.idx === 10 && viewingTrip.values[5] === 'Fuel' ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() || '-' : viewingTrip.values[field.idx as number])
+                            ? (
+                                (field.idx === 29 || field.idx === 30 || field.idx === 31) && viewingTrip.values[field.idx as number].startsWith('http')
+                                  ? <a href={viewingTrip.values[field.idx as number]} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">View Map</a>
+                                  : field.idx === 10 && viewingTrip.values[5] === 'Fuel' ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() || '-' : viewingTrip.values[field.idx as number]
+                              )
                             : (field.idx === 18 ? '0' : '-')
                         )}
                       </p>

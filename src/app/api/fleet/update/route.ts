@@ -43,6 +43,12 @@ export async function POST(request: Request) {
         existingArray[22] = array[22] || existingArray[22] || '';
         existingArray[23] = array[23] || existingArray[23] || '';
       }
+      if (array.length > 25 && array[25]) {
+        existingArray[25] = array[25];
+      }
+      if (array.length > 28 && array[28]) {
+        existingArray[28] = array[28];
+      }
       if (existingArray.length > 10) {
         existingArray[10] = scDue;
       }
@@ -81,6 +87,16 @@ export async function POST(request: Request) {
 
       // Update rawValues to match the sheet structure
       // Column A and B and C are already in trip.status, trip.reference, trip.timestamp
+      
+      const existingArray = trip.rawValues.slice(3);
+      if (array.length < 30) {
+        array.length = 30;
+      }
+      // Preserve specific timestamps and locations if they aren't explicitly provided
+      if (existingArray[25] && !array[25]) array[25] = existingArray[25]; // Fuel Update TS
+      if (existingArray[26] && !array[26]) array[26] = existingArray[26]; // Start Location
+      if (existingArray[28] && !array[28]) array[28] = existingArray[28]; // Fuel Location
+
       trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...array];
     }
 
