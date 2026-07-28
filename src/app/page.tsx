@@ -1975,7 +1975,7 @@ export default function FleetApp() {
       const row = [
         tripRef, 
         tripRef ? `C${tripRef}` : "", 
-        "Senu Cabs & Tours", 
+        "Senu Cabs and Tours", 
         formattedDate, 
         "", 
         "", 
@@ -4579,7 +4579,7 @@ export default function FleetApp() {
                               <tr key={i} className="hover:bg-white/5 transition-colors border-b border-white/5">
                                 <td className="p-2 border-r border-white/5 text-slate-400">{tripRef}</td>
                                 <td className="p-2 border-r border-white/5 text-white">{tripRef ? `C${tripRef}` : ''}</td>
-                                <td className="p-2 border-r border-white/5 text-white">Senu Cabs & Tours</td>
+                                <td className="p-2 border-r border-white/5 text-white">Senu Cabs and Tours</td>
                                 <td className="p-2 border-r border-white/5 text-center text-white">{formattedDate}</td>
                                 <td className="p-2 border-r border-white/5"></td>
                                 <td className="p-2 border-r border-white/5"></td>
