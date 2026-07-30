@@ -15,13 +15,13 @@ mongoose.connect('mongodb+srv://user09senucabs_db_user:O929xNcJ71o7fQ34@cluster0
       const fuel2 = trip.rawValues.length > 24 ? parseNum(trip.rawValues[24]) : 0;
       const repair = parseNum(trip.rawValues[11]);
       const drvComms = parseNum(trip.rawValues[14]);
-      
+
       const scDue = Math.round(finalPrice - fuel1 - fuel2 - repair - drvComms);
-      
+
       if (trip.scDue !== scDue || trip.rawValues[13] !== scDue) {
         trip.scDue = scDue;
         trip.rawValues[13] = scDue;
-        
+
         await db.collection('trips').updateOne(
           { _id: trip._id },
           { $set: { scDue: scDue, rawValues: trip.rawValues } }

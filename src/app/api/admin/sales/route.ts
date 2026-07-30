@@ -4,6 +4,7 @@ import Trip from "@/models/Trip";
 import User from "@/models/User";
 import SheetMetadata from "@/models/SheetMetadata";
 import DriverAdjustment from "@/models/DriverAdjustment";
+import AccountSheet from "@/models/AccountSheet";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -126,6 +127,7 @@ export async function GET(request: Request) {
                   _id: { $ifNull: ["$vehicle", "Unknown"] },
                   sales: { $sum: "$finalPrice" },
                   hireIncome: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, "$finalPrice", 0] } },
+                  hireCount: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, 1, 0] } },
                   totalMileage: { $sum: "$mileage" },
                   fuelCost: { $sum: "$fuel" }
                 }
@@ -171,7 +173,7 @@ export async function GET(request: Request) {
       Trip.distinct("driverId"),
       User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 }).lean(),
       SheetMetadata.findOne({ key: "added_vehicles" }).lean(),
-      Trip.find(query, { rawValues: 1, vehicle: 1, status: 1 }).lean()
+      Trip.find(query, { rawValues: 1, vehicle: 1, status: 1, finalPrice: 1, purpose: 1 }).lean()
     ]);
 
     // KPI mapping
@@ -215,21 +217,71 @@ export async function GET(request: Request) {
       }
     });
 
+    const tripRefs = (allTripsRaw || []).map((t: any) => String(t.rawValues?.[12] || '').trim()).filter(Boolean);
+    const accountData = await AccountSheet.find({
+        $or: [
+           { bookingRef: { $in: tripRefs } },
+           { rawValues: { $in: tripRefs } }
+        ]
+    }).lean();
+    const accountTypeMap = new Map();
+    accountData.forEach((acc: any) => {
+        const hireType = String(acc.rawValues?.[31] || '').trim().toLowerCase();
+        const bRef = String(acc.bookingRef || '').trim();
+        if (bRef && tripRefs.includes(bRef)) {
+            accountTypeMap.set(bRef, hireType);
+        } else if (acc.rawValues && Array.isArray(acc.rawValues)) {
+            const matchedRef = tripRefs.find(r => acc.rawValues.some((v: any) => String(v || '').trim() === r));
+            if (matchedRef) {
+                accountTypeMap.set(matchedRef, hireType);
+            }
+        }
+    });
+
+    const incomeByVehicle: Record<string, { cash: number, credit: number, cashCount: number, creditCount: number }> = {};
+    (allTripsRaw || []).forEach((t: any) => {
+      const status = String(t.rawValues?.[0] || t.status || '').toLowerCase();
+      if (status.includes('cancel')) return;
+      const purpose = String(t.rawValues?.[5] || t.purpose || '');
+      if (purpose !== 'Hire') return;
+
+      const veh = t.vehicle || t.rawValues?.[4] || "Unknown";
+      const tripRef = String(t.rawValues?.[12] || '').trim();
+      const price = parseFloat(t.finalPrice || t.rawValues?.[15] || 0) || 0;
+      
+      const type = accountTypeMap.get(tripRef) || 'cash';
+      if (!incomeByVehicle[veh]) incomeByVehicle[veh] = { cash: 0, credit: 0, cashCount: 0, creditCount: 0 };
+      if (type === 'credit') {
+         incomeByVehicle[veh].credit += price;
+         incomeByVehicle[veh].creditCount += 1;
+      } else {
+         incomeByVehicle[veh].cash += price;
+         incomeByVehicle[veh].cashCount += 1;
+      }
+    });
+
     const netIncome = (kpis.totalSales || 0) - (kpis.totalCommission || 0) - (kpis.totalFuel || 0) - (kpis.totalRepairCost || 0);
 
     // Charts mapping
     const chartsData = chartsAggregation[0];
     const dailySales = chartsData.byDate.map((d: any) => ({ date: d._id, sales: d.sales }));
-    const vehicleSales = chartsData.byVehicle.map((d: any) => ({
+    const vehicleSales = chartsData.byVehicle.map((d: any) => {
+      const incomeData = incomeByVehicle[d._id] || { cash: 0, credit: 0, cashCount: 0, creditCount: 0 };
+      return {
       vehicle: d._id,
       sales: d.sales,
       hireIncome: d.hireIncome || 0,
+      hireCount: d.hireCount || 0,
+      cashIncome: incomeData.cash,
+      creditIncome: incomeData.credit,
+      cashHireCount: incomeData.cashCount,
+      creditHireCount: incomeData.creditCount,
       mileage: d.totalMileage || 0,
       fuelCost: d.fuelCost || 0,
       fuelLiters: fuelLitersByVehicle[d._id] || 0,
       incomePerKm: d.totalMileage > 0 ? (d.hireIncome / d.totalMileage) : 0,
       fuelPercentage: d.hireIncome > 0 ? (d.fuelCost / d.hireIncome) * 100 : 0
-    }));
+    }});
     const driverSales = chartsData.byDriver.map((d: any) => ({ driver: d._id, sales: d.sales }));
     const monthlySales = chartsData.byMonth.map((d: any) => ({ month: d._id, sales: d.sales }));
     
@@ -247,6 +299,7 @@ export async function GET(request: Request) {
       vehicle: trip.vehicle,
       purpose: trip.purpose,
       status: trip.status,
+      paymentType: accountTypeMap.get(String(trip.rawValues?.[12] || '').trim()) || 'cash',
       values: trip.rawValues || [],
     }));
 

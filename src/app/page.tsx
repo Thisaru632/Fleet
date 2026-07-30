@@ -121,8 +121,9 @@ export default function FleetApp() {
       driver: 'All'
     };
   });
+  const [recentTripsFilter, setRecentTripsFilter] = useState('All');
   const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report' | 'salary'>('overview');
-  const [reportCategory, setReportCategory] = useState<'Credit' | 'Invoice'>('Credit');
+  const [reportCategory, setReportCategory] = useState<'Credit' | 'Invoice' | 'Recent Trips'>('Credit');
   const [reportStartDate, setReportStartDate] = useState(() => {
     const today = new Date();
     const y = today.getFullYear();
@@ -2132,6 +2133,90 @@ export default function FleetApp() {
     setTimeout(() => setAlert(null), 3000);
   };
 
+  const generateRecentTripsCSV = () => {
+    if (!adminData?.tables?.fleetData) {
+      setAlert({ type: 'error', message: 'No fleet data available to generate report.' });
+      setTimeout(() => setAlert(null), 3000);
+      return;
+    }
+    
+    const headers = [
+      "FR", "Date", "Vehicle", "Driver Code", "Trip Ref", "Payment Type", "SC Due Amount"
+    ];
+    let csvContent = headers.join(",") + "\n";
+    
+    const parseDateToLocalMs = (dateStr: string | undefined): number => {
+      if (!dateStr) return 0;
+      const raw = String(dateStr).split(' ')[0].trim();
+      if (!raw) return 0;
+      if (raw.includes('-')) {
+        const parts = raw.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+          if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+        }
+      }
+      if (raw.includes('/')) {
+        const parts = raw.split('/');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+          if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+        }
+      }
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      return 0;
+    };
+    
+    const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+    const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+
+    const records = adminData.tables.fleetData.filter((t: any) => {
+      const statusStr = String(t.values[0] || '').toLowerCase();
+      if (statusStr.includes('cancel')) return false;
+      const purposeStr = String(t.purpose || t.values[5] || '');
+      if (purposeStr !== 'Hire') return false;
+      
+      const paymentTypeStr = String(t.paymentType || 'cash').toLowerCase();
+      if (recentTripsFilter !== 'All' && paymentTypeStr !== recentTripsFilter.toLowerCase()) return false;
+      
+      if (startMs || endMs !== Infinity) {
+        const recordMs = t.date ? parseDateToLocalMs(t.date) : 0;
+        if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
+      }
+      
+      return true;
+    });
+      
+    records.forEach((t: any) => {
+      const fr = t.values[1] || '';
+      const date = t.date ? String(t.date).split(',')[0] : 'N/A';
+      const vehicle = t.values[4] || '';
+      const driver = t.values[3] || '';
+      const ref = t.values[12] || '';
+      const pType = String(t.paymentType || 'cash');
+      const pTypeCap = pType.charAt(0).toUpperCase() + pType.slice(1);
+      
+      const scDueStr = String(t.values[13] || '0').replace(/[^\d.-]/g, '');
+      const scDue = Number(scDueStr) || 0;
+      
+      const row = [fr, date, vehicle, driver, ref, pTypeCap, scDue];
+      csvContent += row.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(",") + "\n";
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Recent_Trips_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setAlert({ type: 'success', message: 'Recent Trips Report generated successfully!' });
+    setTimeout(() => setAlert(null), 3000);
+  };
+
   if (!user) return <LoginModal onLogin={(u) => { setUser(u); fetchInitialData(u[0]); }} />;
 
   return (
@@ -2188,7 +2273,7 @@ export default function FleetApp() {
             <div>
               <h2 className="text-base font-black text-white uppercase tracking-tight">
                 {adminTab === 'overview' ? 'Sales Dashboard' : 
-                 adminTab === 'trips' ? 'Recent Trips' : 
+                 adminTab === 'trips' ? 'Income Summary' : 
                  adminTab === 'rankings' ? 'Rankings' : 
                  adminTab === 'fleet' ? 'Fleet Data' : 
                  adminTab === 'messages' ? 'Messages' : 
@@ -2622,7 +2707,7 @@ export default function FleetApp() {
               )}
             >
               <History className="w-4 h-4" />
-              RECENT TRIPS
+              INCOME SUMMARY
             </button>
             <button
               onClick={() => setAdminTab('rankings')}
@@ -2814,7 +2899,7 @@ export default function FleetApp() {
           </div>
           )}
           </div>
-          {fetchingAdmin ? (
+          {fetchingAdmin && !adminData ? (
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
               <div className="relative">
                 <div className="w-24 h-24 border-4 border-emerald-500/10 rounded-full"></div>
@@ -3108,60 +3193,139 @@ export default function FleetApp() {
               )}
 
               {adminTab === 'trips' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="glass-card overflow-hidden"
-                >
-                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
-                    <History className="w-4 h-4 text-emerald-500" />
+                <>
+                <div className="flex justify-end mb-4">
+                  <div className="glass-card p-2 px-4 flex items-center gap-3">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Calendar className="w-3 h-3" /> Filter Range</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider"
+                        value={adminFilters.startDate}
+                        onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
+                      />
+                      <span className="text-slate-500 text-[10px]">-</span>
+                      <input
+                        type="date"
+                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider"
+                        value={adminFilters.endDate}
+                        onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
+                      />
+                      <History className="w-4 h-4 text-emerald-500 ml-2" />
+                    </div>
                   </div>
-                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="border-b border-white/5 bg-white/[0.02]">
-                          {['FR Ref', 'Date', 'Driver', 'Vehicle', 'Purpose', 'Status', 'Sales', 'Commission', 'Fuel', 'Repair', 'Loss Mileage'].map(h => (
-                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {adminData.tables.recentTrips.map((t: any, i: number) => (
-                          <tr key={i} className="hover:bg-white/5 transition-colors group">
-                            <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{t.rf}</td>
-                            <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">{t.date.split(' ')[0]}</td>
-                            <td className="px-6 py-4 text-[10px] font-bold text-white whitespace-nowrap">{adminData.driverNames?.[t.driver] || t.driver}</td>
-                            <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.vehicle}</td>
-                            <td className="px-6 py-4">
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                t.purpose === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
-                              )}>
-                                {t.purpose}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                (t.status || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
-                                (t.status || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
-                                "bg-yellow-200 text-yellow-900"
-                              )}>
-                                {t.status || 'Pending'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-[10px] font-black text-emerald-500 whitespace-nowrap">Rs. {t.finalPrice?.toLocaleString()}</td>
-                            <td className="px-6 py-4 text-[10px] font-black text-blue-400 whitespace-nowrap">Rs. {t.comms.toLocaleString()}</td>
-                            <td className="px-6 py-4 text-[10px] text-rose-400 whitespace-nowrap">Rs. {t.fuel.toLocaleString()}</td>
-                            <td className="px-6 py-4 text-[10px] text-amber-400 whitespace-nowrap">Rs. {t.repair.toLocaleString()}</td>
-                            <td className="px-6 py-4 text-[10px] text-slate-400 whitespace-nowrap">{t.mileage} KM</td>
+                </div>
+                <div className="flex flex-col xl:flex-row gap-6 items-start w-full">
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="glass-card overflow-hidden w-full lg:w-max max-w-full"
+                  >
+                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fuel Summary</h3>
+                      <Activity className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-white/[0.02]">
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Vehicle</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Hire Income</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">KM</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel Cost</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel (L)</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">KM/L</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel %</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </motion.div>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {(adminData.tables.topVehicles || []).map((v: any, i: number) => (
+                            <tr key={i} className="hover:bg-white/5 transition-colors group">
+                              <td className="px-4 py-3 text-[10px] font-bold text-white whitespace-nowrap">{v.vehicle}</td>
+                              <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.hireIncome?.toLocaleString() || '0'}</td>
+                              <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.mileage?.toLocaleString() || '0'}</td>
+                              <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.fuelCost || 0).toLocaleString()}</td>
+                              <td className="px-4 py-3 text-[10px] text-amber-400 whitespace-nowrap text-right">{v.fuelLiters > 0 ? (Math.round(v.fuelLiters * 10) / 10) : '0'} L</td>
+                              <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">{v.fuelLiters > 0 ? (v.mileage / v.fuelLiters).toFixed(2) : '0.00'}</td>
+                              <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">{v.fuelPercentage > 0 ? v.fuelPercentage.toFixed(2) + '%' : '0.00%'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="glass-card overflow-hidden w-full lg:w-max max-w-full"
+                  >
+                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fleet Summaries</h3>
+                      <History className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-white/[0.02]">
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Vehicle</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Hire Count</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit Count</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash Count</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit Income</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash Income</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {(() => {
+                            const vehicles = adminData.tables.topVehicles || [];
+                            
+                            let totalHireCount = 0;
+                            let totalCreditCount = 0;
+                            let totalCashCount = 0;
+                            let totalCreditIncome = 0;
+                            let totalCashIncome = 0;
+
+                            const rows = vehicles.map((v: any, i: number) => {
+                              totalHireCount += v.hireCount || 0;
+                              totalCreditCount += v.creditHireCount || 0;
+                              totalCashCount += v.cashHireCount || 0;
+                              totalCreditIncome += v.creditIncome || 0;
+                              totalCashIncome += v.cashIncome || 0;
+                              
+                              return (
+                                <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                  <td className="px-4 py-3 text-[10px] font-bold text-white whitespace-nowrap">{v.vehicle}</td>
+                                  <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.hireCount || 0}</td>
+                                  <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.creditHireCount || 0}</td>
+                                  <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.cashHireCount || 0}</td>
+                                  <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">Rs. {Math.round(v.creditIncome || 0).toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.cashIncome || 0).toLocaleString()}</td>
+                                </tr>
+                              );
+                            });
+
+                            return (
+                              <>
+                                {rows}
+                                {vehicles.length > 0 && (
+                                  <tr className="bg-emerald-500/10 border-t-2 border-emerald-500/30">
+                                    <td className="px-4 py-4 text-xs font-black text-white whitespace-nowrap uppercase tracking-widest drop-shadow-md">Total</td>
+                                    <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalHireCount}</td>
+                                    <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalCreditCount}</td>
+                                    <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalCashCount}</td>
+                                    <td className="px-4 py-4 text-xs font-black text-blue-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCreditIncome).toLocaleString()}</td>
+                                    <td className="px-4 py-4 text-xs font-black text-rose-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCashIncome).toLocaleString()}</td>
+                                  </tr>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                </div>
+              </>
               )}
 
               {adminTab === 'fleet' && (
@@ -3522,7 +3686,7 @@ export default function FleetApp() {
 
 
 
-          {!fetchingAdmin && adminTab === 'driver-manage' && (
+          {adminTab === 'driver-manage' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -3692,7 +3856,7 @@ export default function FleetApp() {
             </motion.div>
           )}
 
-          {!fetchingAdmin && adminTab === 'accounts' && (
+          {adminTab === 'accounts' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -3818,7 +3982,7 @@ export default function FleetApp() {
             </motion.div>
           )}
 
-          {!fetchingAdmin && adminTab === 'messages' && (
+          {adminTab === 'messages' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -4200,7 +4364,7 @@ export default function FleetApp() {
           )}
 
           {/* DRIVER COMMISSION TAB */}
-          {!fetchingAdmin && adminTab === 'commission' && (
+          {adminTab === 'commission' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -4340,7 +4504,7 @@ export default function FleetApp() {
           )}
 
           {/* REPORT TAB */}
-          {!fetchingAdmin && adminTab === 'report' && (
+          {adminTab === 'report' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -4366,10 +4530,11 @@ export default function FleetApp() {
                       <select
                         className="w-full input-field py-0 px-3 text-xs text-white h-9"
                         value={reportCategory}
-                        onChange={(e) => setReportCategory(e.target.value as 'Credit' | 'Invoice')}
+                        onChange={(e) => setReportCategory(e.target.value as 'Credit' | 'Invoice' | 'Recent Trips')}
                       >
                         <option value="Credit">Credit Report</option>
                         <option value="Invoice">Invoice Report</option>
+                        <option value="Recent Trips">Recent Trips</option>
                       </select>
                     </div>
 
@@ -4456,13 +4621,15 @@ export default function FleetApp() {
                   </div>
 
                   <div className="flex gap-2 mt-4 md:mt-0">
-                    <button
-                      onClick={() => {
-                        if (reportCategory === 'Credit') {
-                          generateCreditReportCSV();
-                        } else if (reportCategory === 'Invoice') {
-                          generateInvoiceReportCSV();
-                        } else {
+                      <button
+                        onClick={() => {
+                          if (reportCategory === 'Credit') {
+                            generateCreditReportCSV();
+                          } else if (reportCategory === 'Invoice') {
+                            generateInvoiceReportCSV();
+                          } else if (reportCategory === 'Recent Trips') {
+                            generateRecentTripsCSV();
+                          } else {
                           setAlert({ type: 'warning', message: `Generating ${reportCategory} Report... Please wait.` });
                           setTimeout(() => setAlert(null), 3000);
                         }
@@ -4728,10 +4895,132 @@ export default function FleetApp() {
                 </div>
                 )
               )}
+
+              {reportCategory === 'Recent Trips' && (
+                <div className="glass-card overflow-hidden">
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
+                      <select
+                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none cursor-pointer uppercase tracking-wider"
+                        value={recentTripsFilter}
+                        onChange={(e) => setRecentTripsFilter(e.target.value)}
+                      >
+                        <option value="All">All Payments</option>
+                        <option value="cash">Cash Trips</option>
+                        <option value="credit">Credit Trips</option>
+                      </select>
+                    </div>
+                    <History className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+                    <table className="w-full text-left border-collapse min-w-max">
+                      <thead className="sticky top-0 bg-slate-900 shadow-md z-10">
+                        <tr className="border-b border-white/10 text-[9px] font-bold text-slate-400 uppercase tracking-widest bg-white/5">
+                          <th className="p-2 border-r border-white/10">FR</th>
+                          <th className="p-2 border-r border-white/10">Date</th>
+                          <th className="p-2 border-r border-white/10">Vehicle</th>
+                          <th className="p-2 border-r border-white/10">Driver Code</th>
+                          <th className="p-2 border-r border-white/10">Trip Ref</th>
+                          <th className="p-2 border-r border-white/10">Payment Type</th>
+                          <th className="p-2 text-right">SC Due Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {(() => {
+                          const parseDateToLocalMs = (dateStr: string | undefined): number => {
+                            if (!dateStr) return 0;
+                            const raw = String(dateStr).split(' ')[0].trim();
+                            if (!raw) return 0;
+                            if (raw.includes('-')) {
+                              const parts = raw.split('-');
+                              if (parts.length === 3) {
+                                if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                              }
+                            }
+                            if (raw.includes('/')) {
+                              const parts = raw.split('/');
+                              if (parts.length === 3) {
+                                if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                              }
+                            }
+                            const d = new Date(raw);
+                            if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+                            return 0;
+                          };
+                          
+                          const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+                          const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+
+                          const filteredRecords = (adminData.tables.fleetData || []).filter((t: any) => {
+                            const statusStr = String(t.values[0] || '').toLowerCase();
+                            if (statusStr.includes('cancel')) return false; // Hide cancelled trips
+                            
+                            const purposeStr = String(t.purpose || t.values[5] || '');
+                            if (purposeStr !== 'Hire') return false; // Only Hire purposes
+                            
+                            const paymentTypeStr = String(t.paymentType || 'cash').toLowerCase();
+                            if (recentTripsFilter !== 'All' && paymentTypeStr !== recentTripsFilter.toLowerCase()) return false; // Filter by payment
+                            
+                            if (startMs || endMs !== Infinity) {
+                              const recordMs = t.date ? parseDateToLocalMs(t.date) : 0;
+                              if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
+                            }
+                            
+                            return true;
+                          });
+                          
+                          let totalScDue = 0;
+
+                          const rows = filteredRecords.map((t: any, i: number) => {
+                            const scDueStr = String(t.values[13] || '0').replace(/[^\d.-]/g, '');
+                            const scDue = Number(scDueStr) || 0;
+                            totalScDue += scDue;
+
+                            return (
+                            <tr key={i} className="hover:bg-white/5 transition-colors group">
+                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-white whitespace-nowrap">{t.values[1]}</td>
+                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-slate-300 whitespace-nowrap">{t.date ? String(t.date).split(',')[0] : 'N/A'}</td>
+                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-emerald-500 whitespace-nowrap">{t.values[4]}</td>
+                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-blue-400 whitespace-nowrap">{t.values[3]}</td>
+                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-amber-400 whitespace-nowrap">{t.values[12]}</td>
+                              <td className="p-2 border-r border-white/5 text-[10px] font-medium whitespace-nowrap capitalize">
+                                <span className={t.paymentType === 'credit' ? 'text-blue-400' : 'text-emerald-400'}>
+                                  {t.paymentType || 'Cash'}
+                                </span>
+                              </td>
+                              <td className="p-2 text-[10px] font-medium text-purple-400 whitespace-nowrap text-right">Rs. {scDue.toLocaleString()}</td>
+                            </tr>
+                          );
+                        });
+                        
+                        return (
+                          <>
+                            {rows}
+                            {rows.length > 0 && (
+                              <tr className="bg-white/10 border-t border-white/20">
+                                <td colSpan={6} className="p-2 border-r border-white/5 text-[11px] font-black text-white text-right tracking-widest uppercase">
+                                  Total SC Due
+                                </td>
+                                <td className="p-2 text-[11px] font-black text-amber-400 whitespace-nowrap text-right">
+                                  Rs. {totalScDue.toLocaleString()}
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
-          {!fetchingAdmin && adminTab === 'salary' && (
+          {adminTab === 'salary' && (
             <>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
