@@ -129,7 +129,10 @@ export async function GET(request: Request) {
                   hireIncome: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, "$finalPrice", 0] } },
                   hireCount: { $sum: { $cond: [{ $eq: ["$purpose", "Hire"] }, 1, 0] } },
                   totalMileage: { $sum: "$mileage" },
-                  fuelCost: { $sum: "$fuel" }
+                  fuelCost: { $sum: "$fuel" },
+                  scDue: { $sum: "$scDue" },
+                  drvComm: { $sum: "$commission" },
+                  repairCost: { $sum: "$repair" }
                 }
               },
               { $sort: { _id: 1 } }
@@ -238,7 +241,7 @@ export async function GET(request: Request) {
         }
     });
 
-    const incomeByVehicle: Record<string, { cash: number, credit: number, cashCount: number, creditCount: number }> = {};
+    const incomeByVehicle: Record<string, { cash: number, credit: number, cashCount: number, creditCount: number, cashScDue: number, creditScDue: number }> = {};
     (allTripsRaw || []).forEach((t: any) => {
       const status = String(t.rawValues?.[0] || t.status || '').toLowerCase();
       if (status.includes('cancel')) return;
@@ -248,15 +251,19 @@ export async function GET(request: Request) {
       const veh = t.vehicle || t.rawValues?.[4] || "Unknown";
       const tripRef = String(t.rawValues?.[12] || '').trim();
       const price = parseFloat(t.finalPrice || t.rawValues?.[15] || 0) || 0;
+      const scDueStr = String(t.rawValues?.[13] || '0').replace(/[^\d.-]/g, '');
+      const scDue = Number(scDueStr) || 0;
       
       const type = accountTypeMap.get(tripRef) || 'cash';
-      if (!incomeByVehicle[veh]) incomeByVehicle[veh] = { cash: 0, credit: 0, cashCount: 0, creditCount: 0 };
+      if (!incomeByVehicle[veh]) incomeByVehicle[veh] = { cash: 0, credit: 0, cashCount: 0, creditCount: 0, cashScDue: 0, creditScDue: 0 };
       if (type === 'credit') {
          incomeByVehicle[veh].credit += price;
          incomeByVehicle[veh].creditCount += 1;
+         incomeByVehicle[veh].creditScDue += scDue;
       } else {
          incomeByVehicle[veh].cash += price;
          incomeByVehicle[veh].cashCount += 1;
+         incomeByVehicle[veh].cashScDue += scDue;
       }
     });
 
@@ -276,11 +283,14 @@ export async function GET(request: Request) {
       creditIncome: incomeData.credit,
       cashHireCount: incomeData.cashCount,
       creditHireCount: incomeData.creditCount,
+      cashScDue: incomeData.cashScDue,
+      creditScDue: incomeData.creditScDue,
       mileage: d.totalMileage || 0,
       fuelCost: d.fuelCost || 0,
       fuelLiters: fuelLitersByVehicle[d._id] || 0,
       incomePerKm: d.totalMileage > 0 ? (d.hireIncome / d.totalMileage) : 0,
-      fuelPercentage: d.hireIncome > 0 ? (d.fuelCost / d.hireIncome) * 100 : 0
+      fuelPercentage: d.hireIncome > 0 ? (d.fuelCost / d.hireIncome) * 100 : 0,
+      scDue: d.scDue || 0
     }});
     const driverSales = chartsData.byDriver.map((d: any) => ({ driver: d._id, sales: d.sales }));
     const monthlySales = chartsData.byMonth.map((d: any) => ({ month: d._id, sales: d.sales }));

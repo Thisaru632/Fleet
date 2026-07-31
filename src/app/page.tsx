@@ -291,7 +291,7 @@ export default function FleetApp() {
   }, [adminTab]);
 
   useEffect(() => {
-    if (adminTab === 'report' && (reportCategory === 'Credit' || reportCategory === 'Invoice') && (!reportAccountData || !reportFleetData) && !fetchingReportData) {
+    if (adminTab === 'report' && (reportCategory === 'Credit' || reportCategory === 'Invoice' || reportCategory === 'Recent Trips') && (!reportAccountData || !reportFleetData) && !fetchingReportData) {
       setFetchingReportData(true);
       Promise.all([
         fetch('/api/admin/account-data?page=1&limit=5000').then(res => res.json()),
@@ -2141,7 +2141,7 @@ export default function FleetApp() {
     }
     
     const headers = [
-      "FR", "Date", "Vehicle", "Driver Code", "Trip Ref", "Payment Type", "SC Due Amount"
+      "FR", "Date", "Vehicle", "Driver Code", "Trip Ref", "Payment Type", "SC Due Amount", "Hire Income"
     ];
     let csvContent = headers.join(",") + "\n";
     
@@ -2171,7 +2171,7 @@ export default function FleetApp() {
     const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
     const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
 
-    const records = adminData.tables.fleetData.filter((t: any) => {
+    const records = (reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || []).filter((t: any) => {
       const statusStr = String(t.values[0] || '').toLowerCase();
       if (statusStr.includes('cancel')) return false;
       const purposeStr = String(t.purpose || t.values[5] || '');
@@ -2200,7 +2200,10 @@ export default function FleetApp() {
       const scDueStr = String(t.values[13] || '0').replace(/[^\d.-]/g, '');
       const scDue = Number(scDueStr) || 0;
       
-      const row = [fr, date, vehicle, driver, ref, pTypeCap, scDue];
+      const hireIncomeStr = String(t.values[15] || t.finalPrice || '0').replace(/[^\d.-]/g, '');
+      const hireIncome = Number(hireIncomeStr) || 0;
+      
+      const row = [fr, date, vehicle, driver, ref, pTypeCap, scDue, hireIncome];
       csvContent += row.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(",") + "\n";
     });
     
@@ -3273,6 +3276,8 @@ export default function FleetApp() {
                             <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash Count</th>
                             <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit Income</th>
                             <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash Income</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit SC Due</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash SC Due</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -3284,6 +3289,8 @@ export default function FleetApp() {
                             let totalCashCount = 0;
                             let totalCreditIncome = 0;
                             let totalCashIncome = 0;
+                            let totalCreditScDue = 0;
+                            let totalCashScDue = 0;
 
                             const rows = vehicles.map((v: any, i: number) => {
                               totalHireCount += v.hireCount || 0;
@@ -3291,6 +3298,8 @@ export default function FleetApp() {
                               totalCashCount += v.cashHireCount || 0;
                               totalCreditIncome += v.creditIncome || 0;
                               totalCashIncome += v.cashIncome || 0;
+                              totalCreditScDue += v.creditScDue || 0;
+                              totalCashScDue += v.cashScDue || 0;
                               
                               return (
                                 <tr key={i} className="hover:bg-white/5 transition-colors group">
@@ -3300,6 +3309,8 @@ export default function FleetApp() {
                                   <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.cashHireCount || 0}</td>
                                   <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">Rs. {Math.round(v.creditIncome || 0).toLocaleString()}</td>
                                   <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.cashIncome || 0).toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">Rs. {Math.round(v.creditScDue || 0).toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.cashScDue || 0).toLocaleString()}</td>
                                 </tr>
                               );
                             });
@@ -3315,6 +3326,8 @@ export default function FleetApp() {
                                     <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalCashCount}</td>
                                     <td className="px-4 py-4 text-xs font-black text-blue-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCreditIncome).toLocaleString()}</td>
                                     <td className="px-4 py-4 text-xs font-black text-rose-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCashIncome).toLocaleString()}</td>
+                                    <td className="px-4 py-4 text-xs font-black text-blue-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCreditScDue).toLocaleString()}</td>
+                                    <td className="px-4 py-4 text-xs font-black text-rose-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCashScDue).toLocaleString()}</td>
                                   </tr>
                                 )}
                               </>
@@ -4923,7 +4936,8 @@ export default function FleetApp() {
                           <th className="p-2 border-r border-white/10">Driver Code</th>
                           <th className="p-2 border-r border-white/10">Trip Ref</th>
                           <th className="p-2 border-r border-white/10">Payment Type</th>
-                          <th className="p-2 text-right">SC Due Amount</th>
+                          <th className="p-2 border-r border-white/10 text-right">SC Due Amount</th>
+                          <th className="p-2 text-right">Hire Income</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
@@ -4954,7 +4968,7 @@ export default function FleetApp() {
                           const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
                           const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
 
-                          const filteredRecords = (adminData.tables.fleetData || []).filter((t: any) => {
+                          const filteredRecords = (reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || []).filter((t: any) => {
                             const statusStr = String(t.values[0] || '').toLowerCase();
                             if (statusStr.includes('cancel')) return false; // Hide cancelled trips
                             
@@ -4973,11 +4987,16 @@ export default function FleetApp() {
                           });
                           
                           let totalScDue = 0;
+                          let totalHireIncome = 0;
 
                           const rows = filteredRecords.map((t: any, i: number) => {
                             const scDueStr = String(t.values[13] || '0').replace(/[^\d.-]/g, '');
                             const scDue = Number(scDueStr) || 0;
                             totalScDue += scDue;
+
+                            const hireIncomeStr = String(t.values[15] || t.finalPrice || '0').replace(/[^\d.-]/g, '');
+                            const hireIncome = Number(hireIncomeStr) || 0;
+                            totalHireIncome += hireIncome;
 
                             return (
                             <tr key={i} className="hover:bg-white/5 transition-colors group">
@@ -4991,7 +5010,8 @@ export default function FleetApp() {
                                   {t.paymentType || 'Cash'}
                                 </span>
                               </td>
-                              <td className="p-2 text-[10px] font-medium text-purple-400 whitespace-nowrap text-right">Rs. {scDue.toLocaleString()}</td>
+                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-purple-400 whitespace-nowrap text-right">Rs. {scDue.toLocaleString()}</td>
+                              <td className="p-2 text-[10px] font-medium text-emerald-400 whitespace-nowrap text-right">Rs. {hireIncome.toLocaleString()}</td>
                             </tr>
                           );
                         });
@@ -5002,10 +5022,13 @@ export default function FleetApp() {
                             {rows.length > 0 && (
                               <tr className="bg-white/10 border-t border-white/20">
                                 <td colSpan={6} className="p-2 border-r border-white/5 text-[11px] font-black text-white text-right tracking-widest uppercase">
-                                  Total SC Due
+                                  Total
                                 </td>
-                                <td className="p-2 text-[11px] font-black text-amber-400 whitespace-nowrap text-right">
+                                <td className="p-2 border-r border-white/5 text-[11px] font-black text-amber-400 whitespace-nowrap text-right">
                                   Rs. {totalScDue.toLocaleString()}
+                                </td>
+                                <td className="p-2 text-[11px] font-black text-emerald-400 whitespace-nowrap text-right">
+                                  Rs. {totalHireIncome.toLocaleString()}
                                 </td>
                               </tr>
                             )}
