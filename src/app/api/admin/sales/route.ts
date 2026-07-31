@@ -250,7 +250,7 @@ export async function GET(request: Request) {
 
       const veh = t.vehicle || t.rawValues?.[4] || "Unknown";
       const tripRef = String(t.rawValues?.[12] || '').trim();
-      const price = parseFloat(t.finalPrice || t.rawValues?.[15] || 0) || 0;
+      const price = parseFloat(t.finalPrice || t.rawValues?.[23] || 0) || 0;
       const scDueStr = String(t.rawValues?.[13] || '0').replace(/[^\d.-]/g, '');
       const scDue = Number(scDueStr) || 0;
       

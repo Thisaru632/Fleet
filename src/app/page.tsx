@@ -2200,7 +2200,7 @@ export default function FleetApp() {
       const scDueStr = String(t.values[13] || '0').replace(/[^\d.-]/g, '');
       const scDue = Number(scDueStr) || 0;
       
-      const hireIncomeStr = String(t.values[15] || t.finalPrice || '0').replace(/[^\d.-]/g, '');
+      const hireIncomeStr = String(t.values[23] || t.finalPrice || '0').replace(/[^\d.-]/g, '');
       const hireIncome = Number(hireIncomeStr) || 0;
       
       const row = [fr, date, vehicle, driver, ref, pTypeCap, scDue, hireIncome];
@@ -4994,7 +4994,7 @@ export default function FleetApp() {
                             const scDue = Number(scDueStr) || 0;
                             totalScDue += scDue;
 
-                            const hireIncomeStr = String(t.values[15] || t.finalPrice || '0').replace(/[^\d.-]/g, '');
+                            const hireIncomeStr = String(t.values[23] || t.finalPrice || '0').replace(/[^\d.-]/g, '');
                             const hireIncome = Number(hireIncomeStr) || 0;
                             totalHireIncome += hireIncome;
 
