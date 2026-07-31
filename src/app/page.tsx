@@ -3235,6 +3235,7 @@ export default function FleetApp() {
                             <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Vehicle</th>
                             <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Hire Income</th>
                             <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">KM</th>
+                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Personal</th>
                             <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel Cost</th>
                             <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel (L)</th>
                             <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">KM/L</th>
@@ -3247,6 +3248,7 @@ export default function FleetApp() {
                               <td className="px-4 py-3 text-[10px] font-bold text-white whitespace-nowrap">{v.vehicle}</td>
                               <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.hireIncome?.toLocaleString() || '0'}</td>
                               <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.mileage?.toLocaleString() || '0'}</td>
+                              <td className="px-4 py-3 text-[10px] font-bold text-amber-500 whitespace-nowrap text-right">{v.personalMileage?.toLocaleString() || '0'}</td>
                               <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.fuelCost || 0).toLocaleString()}</td>
                               <td className="px-4 py-3 text-[10px] text-amber-400 whitespace-nowrap text-right">{v.fuelLiters > 0 ? (Math.round(v.fuelLiters * 10) / 10) : '0'} L</td>
                               <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">{v.fuelLiters > 0 ? (v.mileage / v.fuelLiters).toFixed(2) : '0.00'}</td>
