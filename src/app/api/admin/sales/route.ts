@@ -291,7 +291,13 @@ export async function GET(request: Request) {
       fuelCost: d.fuelCost || 0,
       fuelLiters: fuelLitersByVehicle[d._id] || 0,
       incomePerKm: d.totalMileage > 0 ? (d.hireIncome / d.totalMileage) : 0,
-      fuelPercentage: d.hireIncome > 0 ? (d.fuelCost / d.hireIncome) * 100 : 0,
+      fuelPercentage: (() => {
+        if (!d.hireIncome) return 0;
+        const costPerKm = (d.totalMileage || 0) > 0 ? (d.fuelCost || 0) / d.totalMileage : 0;
+        const personalFuelCost = (d.personalMileage || 0) * costPerKm;
+        const adjustedFuelCost = (d.fuelCost || 0) - personalFuelCost;
+        return (adjustedFuelCost / d.hireIncome) * 100;
+      })(),
       scDue: d.scDue || 0
     }});
     const driverSales = chartsData.byDriver.map((d: any) => ({ driver: d._id, sales: d.sales }));
