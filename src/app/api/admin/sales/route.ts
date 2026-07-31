@@ -461,7 +461,7 @@ export async function GET(request: Request) {
       filterOptions: {
         vehicles: Array.from(new Set(["PK-3991", ...uniqueVehicles.filter(Boolean), ...(addedVehiclesMeta?.value || [])])),
         drivers: uniqueDrivers.filter(Boolean),
-        purposes: ["All", "Hire", "Repair", "Personal", "Fuel"],
+        purposes: ["All", "Hire", "Repair", "Personal", "Fuel", "Office Use"],
         statuses: ["All", "Approved", "Pending"]
       }
     });
