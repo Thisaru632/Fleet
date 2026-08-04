@@ -137,6 +137,7 @@ export default function FleetApp() {
     const d = String(today.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   });
+  const [reportVehicleFilter, setReportVehicleFilter] = useState('All');
   const [vehicleCommissions, setVehicleCommissions] = useState<Record<string, number>>({});
   const [accountSheetData, setAccountSheetData] = useState<any>(null);
   const [fetchingAccountData, setFetchingAccountData] = useState(false);
@@ -4539,7 +4540,7 @@ export default function FleetApp() {
                     </div>
                   </div>
 
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className={cn("flex-1 grid grid-cols-1 gap-3", reportCategory === 'Tank wise fuel analyzing' ? "md:grid-cols-3" : "md:grid-cols-2")}>
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Category</label>
                       <select
@@ -4634,6 +4635,21 @@ export default function FleetApp() {
                         </div>
                       </div>
                     </div>
+                    {reportCategory === 'Tank wise fuel analyzing' && (
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vehicle</label>
+                        <select
+                          className="w-full input-field py-0 px-3 text-xs text-white h-9"
+                          value={reportVehicleFilter}
+                          onChange={(e) => setReportVehicleFilter(e.target.value)}
+                        >
+                          <option value="All">All Vehicles</option>
+                          {options.vehicles.map(v => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-2 mt-4 md:mt-0">
@@ -5105,19 +5121,26 @@ export default function FleetApp() {
                               const statusStr = String(t.values[0] || '').toLowerCase();
                               if (statusStr.includes('cancel')) return false;
 
+                              if (reportVehicleFilter !== 'All' && t.values[4] !== reportVehicleFilter) return false;
+
                               if (startMs || endMs !== Infinity) {
                                 const recordMs = t.date ? parseDateToLocalMs(t.date) : 0;
                                 if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
                               }
                               
                               const rawComments = String(t.values[10] || '');
-                              const hasFirstFuelMeter = /\(Fuel( -| Meter)/.test(rawComments);
+                              let tempMeter = 0;
+                              const fuelRegex = /\(Fuel - (.*?)\)/;
+                              const fuelMatch = rawComments.match(fuelRegex);
+                              if (fuelMatch) {
+                                const meterMatch = fuelMatch[1].match(/Meter:\s*([\d.]+)\s*KM/i);
+                                if (meterMatch) tempMeter = Number(meterMatch[1]);
+                              } else {
+                                const oldFuelMatch = rawComments.match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
+                                if (oldFuelMatch) tempMeter = Number(oldFuelMatch[1]);
+                              }
 
-                              const fuelMeter2 = t.values[25];
-                              const fuelLiters2 = t.values[26];
-                              const fuelCost1 = t.values[9];
-                              const fuelCost2 = t.values[24];
-                              if (!fuelMeter2 && !fuelLiters2 && !fuelCost1 && !fuelCost2 && !hasFirstFuelMeter) return false;
+                              if (tempMeter <= 0) return false;
 
                               return true;
                             });
