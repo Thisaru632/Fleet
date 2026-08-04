@@ -123,7 +123,7 @@ export default function FleetApp() {
   });
   const [recentTripsFilter, setRecentTripsFilter] = useState('All');
   const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report' | 'salary'>('overview');
-  const [reportCategory, setReportCategory] = useState<'Credit' | 'Invoice' | 'Recent Trips'>('Credit');
+  const [reportCategory, setReportCategory] = useState<'Credit' | 'Invoice' | 'Recent Trips' | 'Tank wise fuel analyzing'>('Credit');
   const [reportStartDate, setReportStartDate] = useState(() => {
     const today = new Date();
     const y = today.getFullYear();
@@ -291,7 +291,7 @@ export default function FleetApp() {
   }, [adminTab]);
 
   useEffect(() => {
-    if (adminTab === 'report' && (reportCategory === 'Credit' || reportCategory === 'Invoice' || reportCategory === 'Recent Trips') && (!reportAccountData || !reportFleetData) && !fetchingReportData) {
+    if (adminTab === 'report' && (reportCategory === 'Credit' || reportCategory === 'Invoice' || reportCategory === 'Recent Trips' || reportCategory === 'Tank wise fuel analyzing') && (!reportAccountData || !reportFleetData) && !fetchingReportData) {
       setFetchingReportData(true);
       Promise.all([
         fetch('/api/admin/account-data?page=1&limit=5000').then(res => res.json()),
@@ -4545,11 +4545,12 @@ export default function FleetApp() {
                       <select
                         className="w-full input-field py-0 px-3 text-xs text-white h-9"
                         value={reportCategory}
-                        onChange={(e) => setReportCategory(e.target.value as 'Credit' | 'Invoice' | 'Recent Trips')}
+                        onChange={(e) => setReportCategory(e.target.value as 'Credit' | 'Invoice' | 'Recent Trips' | 'Tank wise fuel analyzing')}
                       >
                         <option value="Credit">Credit Report</option>
                         <option value="Invoice">Invoice Report</option>
                         <option value="Recent Trips">Recent Trips</option>
+                        <option value="Tank wise fuel analyzing">Tank wise fuel analyzing</option>
                       </select>
                     </div>
 
@@ -5041,6 +5042,184 @@ export default function FleetApp() {
                     </table>
                   </div>
                 </div>
+              )}
+
+              {/* Tank wise fuel analyzing Report Table */}
+              {reportCategory === 'Tank wise fuel analyzing' && reportFleetData?.tables?.fleetData && (
+                fetchingReportData ? (
+                  <div className="flex flex-col items-center justify-center p-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
+                    <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
+                  </div>
+                ) : (
+                  <div className="glass-card overflow-hidden">
+                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tank wise fuel analyzing</h3>
+                      </div>
+                      <Fuel className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+                      <table className="w-full text-left border-collapse min-w-max">
+                        <thead className="sticky top-0 bg-slate-900 shadow-md z-10">
+                          <tr className="border-b border-white/10 text-[9px] font-bold text-slate-400 uppercase tracking-widest bg-white/5">
+                            <th className="p-2 border-r border-white/10">FR</th>
+                            <th className="p-2 border-r border-white/10">Date</th>
+                            <th className="p-2 border-r border-white/10">Vehicle</th>
+                            <th className="p-2 border-r border-white/10 text-right">Fuel Meter</th>
+                            <th className="p-2 border-r border-white/10 text-right">Last Fuel Meter</th>
+                            <th className="p-2 border-r border-white/10 text-right">Fuel Liters</th>
+                            <th className="p-2 border-r border-white/10 text-right">km count</th>
+                            <th className="p-2 text-right">KM/L</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {(() => {
+                            const parseDateToLocalMs = (dateStr: string | undefined): number => {
+                              if (!dateStr) return 0;
+                              const raw = String(dateStr).split(' ')[0].trim();
+                              if (!raw) return 0;
+                              if (raw.includes('-')) {
+                                const parts = raw.split('-');
+                                if (parts.length === 3) {
+                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                                }
+                              }
+                              if (raw.includes('/')) {
+                                const parts = raw.split('/');
+                                if (parts.length === 3) {
+                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                                }
+                              }
+                              const d = new Date(raw);
+                              if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+                              return 0;
+                            };
+                            
+                            const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+                            const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+
+                            const filteredRecords = reportFleetData.tables.fleetData.filter((t: any) => {
+                              const statusStr = String(t.values[0] || '').toLowerCase();
+                              if (statusStr.includes('cancel')) return false;
+
+                              if (startMs || endMs !== Infinity) {
+                                const recordMs = t.date ? parseDateToLocalMs(t.date) : 0;
+                                if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
+                              }
+                              
+                              const rawComments = String(t.values[10] || '');
+                              const hasFirstFuelMeter = /\(Fuel( -| Meter)/.test(rawComments);
+
+                              const fuelMeter2 = t.values[25];
+                              const fuelLiters2 = t.values[26];
+                              const fuelCost1 = t.values[9];
+                              const fuelCost2 = t.values[24];
+                              if (!fuelMeter2 && !fuelLiters2 && !fuelCost1 && !fuelCost2 && !hasFirstFuelMeter) return false;
+
+                              return true;
+                            });
+
+                            return filteredRecords.map((t: any, i: number) => {
+                              const fr = t.values[1] || 'N/A';
+                              const date = t.date ? String(t.date).split(',')[0] : 'N/A';
+                              const vehicle = t.values[4] || 'N/A';
+
+                              let rawComments = String(t.values[10] || '');
+                              let firstFuelMeter = '';
+                              let firstFuelLiters = 0;
+
+                              const fuelRegex = /\(Fuel - (.*?)\)/;
+                              const fuelMatch = rawComments.match(fuelRegex);
+                              if (fuelMatch) {
+                                const fuelStr = fuelMatch[1];
+                                const meterMatch = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                if (meterMatch) firstFuelMeter = meterMatch[1];
+                                const literMatch = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                if (literMatch) firstFuelLiters = Number(literMatch[1]);
+                              } else {
+                                const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                                const oldFuelMatch = rawComments.match(oldFuelRegex);
+                                if (oldFuelMatch) {
+                                  firstFuelMeter = oldFuelMatch[1];
+                                }
+                              }
+
+                              const secondFuelLiters = Number(String(t.values[26] || '0').replace(/[^\d.-]/g, '')) || 0;
+                              const totalFuelLiters = firstFuelLiters + secondFuelLiters;
+                              
+                              const displayFuelMeter = firstFuelMeter || '0';
+                              const currentMeter = Number(String(displayFuelMeter).replace(/[^\d.-]/g, '')) || 0;
+
+                              let prevFuelMeter = 0;
+                              const fullData = reportFleetData.tables.fleetData;
+                              const currentOriginalIndex = fullData.indexOf(t);
+                              
+                              if (currentOriginalIndex !== -1) {
+                                for (let j = currentOriginalIndex + 1; j < fullData.length; j++) {
+                                  const prevRecord = fullData[j];
+                                  const prevStatus = String(prevRecord.values[0] || '').toLowerCase();
+                                  if (prevStatus.includes('cancel')) continue;
+                                  
+                                  const prevVehicle = prevRecord.values[4] || 'N/A';
+                                  if (prevVehicle === vehicle) {
+                                    let pRawComments = String(prevRecord.values[10] || '');
+                                    let pMeter = 0;
+                                    
+                                    const pFuelRegex = /\(Fuel - (.*?)\)/;
+                                    const pFuelMatch = pRawComments.match(pFuelRegex);
+                                    if (pFuelMatch) {
+                                      const pMeterMatch = pFuelMatch[1].match(/Meter:\s*([\d.]+)\s*KM/i);
+                                      if (pMeterMatch) pMeter = Number(pMeterMatch[1]);
+                                    } else {
+                                      const pOldFuelMatch = pRawComments.match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
+                                      if (pOldFuelMatch) pMeter = Number(pOldFuelMatch[1]);
+                                    }
+                                    
+                                    if (pMeter > 0) {
+                                      prevFuelMeter = pMeter;
+                                      break;
+                                    }
+                                  }
+                                }
+                              }
+
+                              let kmCount = 0;
+                              let kmPerLiter = 0;
+                              
+                              if (currentMeter > 0 && prevFuelMeter > 0 && currentMeter >= prevFuelMeter) {
+                                kmCount = currentMeter - prevFuelMeter;
+                              }
+                              
+                              if (kmCount > 0 && totalFuelLiters > 0) {
+                                kmPerLiter = kmCount / totalFuelLiters;
+                              }
+                              
+                              const displayKmCount = kmCount > 0 ? kmCount.toString() : 'N/A';
+                              const displayKmPerLiter = kmPerLiter > 0 ? kmPerLiter.toFixed(2) : 'N/A';
+                              const displayPrevFuelMeter = prevFuelMeter > 0 ? prevFuelMeter.toString() : 'N/A';
+
+                              return (
+                                <tr key={i} className="hover:bg-white/5 transition-colors">
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-white whitespace-nowrap">{fr}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-slate-300 whitespace-nowrap">{date}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-emerald-500 whitespace-nowrap">{vehicle}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-amber-400 whitespace-nowrap text-right">{displayFuelMeter}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-amber-400/70 whitespace-nowrap text-right">{displayPrevFuelMeter}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-blue-400 whitespace-nowrap text-right">{totalFuelLiters > 0 ? totalFuelLiters.toFixed(2) : '0'}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-blue-400 whitespace-nowrap text-right">{displayKmCount}</td>
+                                  <td className="p-2 text-[10px] font-medium text-emerald-400 whitespace-nowrap text-right">{displayKmPerLiter}</td>
+                                </tr>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
               )}
             </motion.div>
           )}
