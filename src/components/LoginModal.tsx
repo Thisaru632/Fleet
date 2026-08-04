@@ -50,8 +50,8 @@ export default function LoginModal({ onLogin }: LoginModalProps) {
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
         
         <div className="flex flex-col items-center text-center mb-8">
-          <img src="/logo.jpg" alt="Logo" className="w-24 h-24 object-contain mb-4" />
-          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">SC FLEET</h1>
+          <img src="/logo.jpg" alt="Logo" className="h-24 w-auto object-contain mb-4" />
+          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">YSM FLEET</h1>
           <p className="text-xs uppercase tracking-widest text-slate-400">Driver Portal</p>
         </div>
 

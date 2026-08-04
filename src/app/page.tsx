@@ -1876,7 +1876,7 @@ export default function FleetApp() {
           className="flex flex-col items-center gap-4"
         >
           <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-          <h2 className="text-sm sm:text-base font-black text-slate-800 tracking-[0.4em] uppercase">SC Fleet</h2>
+          <h2 className="text-sm sm:text-base font-black text-slate-800 tracking-[0.4em] uppercase">YSM Fleet</h2>
         </motion.div>
       </div>
     );
@@ -2263,9 +2263,9 @@ export default function FleetApp() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-3">
-          <img src="/logo.jpg" alt="Logo" className="w-10 h-10 object-contain rounded-md" />
+          <img src="/logo.jpg" alt="Logo" className="h-12 w-auto object-contain rounded-md" />
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-white uppercase">
-            SC FLEET MANAGEMENT
+            YSM FLEET MANAGEMENT
           </h1>
         </div>
         
