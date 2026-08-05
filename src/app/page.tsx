@@ -371,6 +371,7 @@ export default function FleetApp() {
     fuelStationMeter: '',
     fuelLiterCount: '',
     repairStationMeter: '',
+    paymentType: 'Office card',
   });
 
   const [files, setFiles] = useState<{ [key: string]: File | null }>({
@@ -456,7 +457,8 @@ export default function FleetApp() {
       if (litersToAppend) fuelDetails.push(`Liters: ${litersToAppend}`);
       
       if (fuelDetails.length > 0) {
-          finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')})`;
+          const paymentInfo = formData.paymentType ? ` - Paid via: ${formData.paymentType}` : '';
+          finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')}${paymentInfo})`;
       }
 
       if (isSecondTime) {
@@ -467,6 +469,7 @@ export default function FleetApp() {
         array[23] = formData.fuelLiterCount;
         array[25] = new Date().toLocaleString();
         array[28] = locationUrl;
+        array[29] = formData.paymentType || 'Office card';
       } else {
         array[6] = formData.fuelCost;
         array[7] = finalComments;
@@ -475,6 +478,7 @@ export default function FleetApp() {
         array[23] = '';
         array[25] = new Date().toLocaleString();
         array[28] = locationUrl;
+        array[29] = formData.paymentType || 'Office card';
       }
 
       array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
@@ -2182,7 +2186,8 @@ export default function FleetApp() {
       if (recentTripsFilter !== 'All' && paymentTypeStr !== recentTripsFilter.toLowerCase()) return false;
       
       if (startMs || endMs !== Infinity) {
-        const recordMs = t.date ? parseDateToLocalMs(t.date) : 0;
+        const endDateVal = t.values?.[7] || t.tripEndDate || t.date;
+        const recordMs = endDateVal ? parseDateToLocalMs(endDateVal) : 0;
         if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
       }
       
@@ -3429,7 +3434,7 @@ export default function FleetApp() {
                             'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-                            'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS',
+                            'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS', 'Payment Type',
                             'Actions'
                           ].map(h => (
                             <th key={h} className={cn(
@@ -3474,7 +3479,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 27, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28].map((idx) => (
+                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 27, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => (
                               <td 
                                 key={idx} 
                                 className={cn(
@@ -5124,7 +5129,8 @@ export default function FleetApp() {
                               if (reportVehicleFilter !== 'All' && t.values[4] !== reportVehicleFilter) return false;
 
                               if (startMs || endMs !== Infinity) {
-                                const recordMs = t.date ? parseDateToLocalMs(t.date) : 0;
+                                const endDateVal = t.values?.[7] || t.tripEndDate || t.date;
+                                const recordMs = endDateVal ? parseDateToLocalMs(endDateVal) : 0;
                                 if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
                               }
                               
@@ -6027,6 +6033,21 @@ export default function FleetApp() {
                       onChange={handleInputChange}
                     />
                   </div>
+                  <div className="space-y-2 col-span-2 md:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Payment Type</label>
+                    <select
+                      id="paymentType"
+                      disabled={isFuelSubmitted}
+                      className="w-full input-field py-3 disabled:opacity-50"
+                      value={formData.paymentType || 'Office card'}
+                      onChange={handleInputChange}
+                    >
+                      <option value="Office card">Office card</option>
+                      <option value="Bank transfer">Bank transfer</option>
+                      <option value="Hire cash">Hire cash</option>
+                      <option value="Driver cash">Driver cash</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -6462,6 +6483,7 @@ export default function FleetApp() {
                       { label: 'Fuel Cost', idx: 9, type: 'number' },
                       { label: 'Fuel Meter', idx: 'fuel_meter', type: 'number' },
                       { label: 'Fuel Liters', idx: 'fuel_liters', type: 'number' },
+                      { label: 'Payment Type', idx: 32, type: 'select', options: ['Office card', 'Bank transfer', 'Hire cash', 'Driver cash'] },
                       { label: '2nd Fuel Cost', idx: 24, type: 'number' },
                       { label: '2nd Fuel Meter', idx: 25, type: 'number' },
                       { label: '2nd Fuel Liters', idx: 26, type: 'number' },
@@ -6499,7 +6521,7 @@ export default function FleetApp() {
                       {field.type === 'select' ? (
                         <select
                           disabled={field.readOnly}
-                          value={editingTrip.values[field.idx as number] || ''}
+                          value={editingTrip.values[field.idx as number] || (field.idx === 32 ? 'Office card' : '')}
                           onChange={(e) => {
                             const newValues = [...editingTrip.values];
                             newValues[field.idx as number] = e.target.value;
@@ -6700,6 +6722,7 @@ export default function FleetApp() {
                       { label: 'Fuel Cost', idx: 9 },
                       { label: 'Fuel Meter', idx: 'fuel_meter' },
                       { label: 'Fuel Liters', idx: 'fuel_liters' },
+                      { label: 'Payment Type', idx: 32 },
                       { label: '2nd Fuel Cost', idx: 24 },
                       { label: '2nd Fuel Meter', idx: 25 },
                       { label: '2nd Fuel Liters', idx: 26 },

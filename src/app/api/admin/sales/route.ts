@@ -25,9 +25,9 @@ export async function GET(request: Request) {
     // Build query
     const query: any = {};
     if (startDate || endDate) {
-      query.timestamp = {};
-      if (startDate) query.timestamp.$gte = startDate;
-      if (endDate) query.timestamp.$lte = endDate + " 23:59:59";
+      query["rawValues.7"] = {};
+      if (startDate) query["rawValues.7"].$gte = startDate;
+      if (endDate) query["rawValues.7"].$lte = endDate + " 23:59:59";
     }
     if (purposeFilter && purposeFilter !== "All") query.purpose = purposeFilter;
     if (statusFilter && statusFilter !== "All") {
@@ -115,7 +115,7 @@ export async function GET(request: Request) {
             byDate: [
               {
                 $group: {
-                  _id: { $substrBytes: [{ $ifNull: ["$timestamp", "Unknown   "] }, 0, 10] },
+                  _id: { $substrBytes: [{ $ifNull: [{ $arrayElemAt: ["$rawValues", 7] }, "Unknown   "] }, 0, 10] },
                   sales: { $sum: "$finalPrice" }
                 }
               },
@@ -150,7 +150,7 @@ export async function GET(request: Request) {
             byMonth: [
               {
                 $group: {
-                  _id: { $substrBytes: [{ $ifNull: ["$timestamp", "Unknown   "] }, 0, 7] },
+                  _id: { $substrBytes: [{ $ifNull: [{ $arrayElemAt: ["$rawValues", 7] }, "Unknown   "] }, 0, 7] },
                   sales: { $sum: "$finalPrice" }
                 }
               },
@@ -312,7 +312,7 @@ export async function GET(request: Request) {
     // Format Fleet Data for the current page
     const fleetData = tripsForPage.map((trip: any) => ({
       rf: trip.reference,
-      date: trip.timestamp,
+      date: trip.rawValues?.[7] || trip.timestamp,
       driver: trip.driverId,
       vehicle: trip.vehicle,
       purpose: trip.purpose,
@@ -324,7 +324,7 @@ export async function GET(request: Request) {
     // Format Recent Trips
     const recentTrips = recentTripsRaw.map((trip: any) => ({
       rf: trip.reference,
-      date: trip.timestamp,
+      date: trip.rawValues?.[7] || trip.timestamp,
       driver: trip.driverId,
       vehicle: trip.vehicle,
       purpose: trip.purpose,
@@ -363,20 +363,16 @@ export async function GET(request: Request) {
       const driverCode = String(values[3] || '');
       if (!driverCode) return;
 
-      let month = 'Unknown';
-      if (t.timestamp) {
-        const d = new Date(t.timestamp);
-        month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      } else {
-        const tripDateStr = String(values[2] || '');
-        if (tripDateStr.length >= 7) {
-            month = tripDateStr.substring(0, 7);
-        }
-      }
-
       const tripRef = String(values[12] || '');
       const rawCommStr = String(values[14] || '0');
       const tripEndDateStr = String(values[7] || '');
+
+      let month = 'Unknown';
+      if (tripEndDateStr && tripEndDateStr.length >= 7) {
+        month = tripEndDateStr.substring(0, 7);
+      } else if (t.timestamp && t.timestamp.length >= 7) {
+        month = t.timestamp.substring(0, 7);
+      }
 
       const rawComm = rawCommStr.replace(/[^\d.-]/g, '');
       const comm = parseFloat(rawComm) || 0;

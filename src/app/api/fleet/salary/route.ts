@@ -33,10 +33,10 @@ export async function GET(request: Request) {
         {
           driverId: { $regex: new RegExp(`^${drvId}$`, "i") },
           purpose: { $regex: /^Hire$/i },
-          timestamp: { $gte: startDateStr, $lte: endDateStr }
+          "rawValues.7": { $gte: startDateStr, $lte: endDateStr }
         },
         null,
-        { sort: { timestamp: 1 }, allowDiskUse: true }
+        { sort: { "rawValues.7": 1 }, allowDiskUse: true }
       ),
       DriverAdjustment.findOne({
         driverCode: { $regex: new RegExp(`^${drvId.trim()}$`, "i") },
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
     const salaryDetails = trips.map((trip: any) => ({
       tripRef: (trip.rawValues && trip.rawValues[12]) || trip.reference,
-      date: trip.timestamp,
+      date: (trip.rawValues && trip.rawValues[7]) || trip.timestamp,
       salary: trip.commission || 0
     }));
 
