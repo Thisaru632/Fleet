@@ -54,8 +54,10 @@ export async function GET(request: Request) {
     const salaryAdvance = adj ? adj.salaryAdvance || 0 : 0;
     const shorts = adj ? adj.shorts || 0 : 0;
     const inclusions = adj ? adj.inclusions || 0 : 0;
+    const exclusions = adj ? adj.exclusions || 0 : 0;
     const comment = adj ? adj.comment || "" : "";
-    const totalSalary = baseSalary - salaryAdvance - shorts + inclusions;
+    const exclusionsComment = adj ? adj.exclusionsComment || "" : "";
+    const totalSalary = baseSalary - salaryAdvance - shorts + inclusions - exclusions;
 
     return NextResponse.json({ 
       salaryDetails, 
@@ -63,7 +65,9 @@ export async function GET(request: Request) {
       salaryAdvance, 
       shorts, 
       inclusions,
+      exclusions,
       comment, 
+      exclusionsComment,
       totalSalary 
     });
   } catch (error: any) {

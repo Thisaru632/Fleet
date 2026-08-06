@@ -159,7 +159,9 @@ export default function FleetApp() {
   const [adjAdvance, setAdjAdvance] = useState<string>('');
   const [adjShorts, setAdjShorts] = useState<string>('');
   const [adjInclusions, setAdjInclusions] = useState<string>('');
+  const [adjExclusions, setAdjExclusions] = useState<string>('');
   const [adjComment, setAdjComment] = useState<string>('');
+  const [adjExclusionsComment, setAdjExclusionsComment] = useState<string>('');
   const [savingAdjustment, setSavingAdjustment] = useState(false);
   const [showDriverDropdown, setShowDriverDropdown] = useState(false);
   const driverDropdownRef = useRef<HTMLDivElement>(null);
@@ -906,7 +908,9 @@ export default function FleetApp() {
     setAdjAdvance(item.salaryAdvance !== undefined && item.salaryAdvance !== null ? item.salaryAdvance.toString() : '0');
     setAdjShorts(item.shorts !== undefined && item.shorts !== null ? item.shorts.toString() : '0');
     setAdjInclusions(item.inclusions !== undefined && item.inclusions !== null ? item.inclusions.toString() : '0');
+    setAdjExclusions(item.exclusions !== undefined && item.exclusions !== null ? item.exclusions.toString() : '0');
     setAdjComment(item.comment || '');
+    setAdjExclusionsComment(item.exclusionsComment || '');
     setShowAdjustmentModal(true);
   };
 
@@ -923,7 +927,9 @@ export default function FleetApp() {
           salaryAdvance: parseFloat(adjAdvance) || 0,
           shorts: parseFloat(adjShorts) || 0,
           inclusions: parseFloat(adjInclusions) || 0,
-          comment: adjComment
+          exclusions: parseFloat(adjExclusions) || 0,
+          comment: adjComment,
+          exclusionsComment: adjExclusionsComment
         })
       });
       const data = await res.json();
@@ -951,12 +957,14 @@ export default function FleetApp() {
     const salaryAdvanceNum = item.salaryAdvance || 0;
     const shortsNum = item.shorts || 0;
     const inclusionsNum = item.inclusions || 0;
-    const totalCommNum = item.totalComm !== undefined ? item.totalComm : (baseCommNum - salaryAdvanceNum - shortsNum + inclusionsNum);
+    const exclusionsNum = item.exclusions || 0;
+    const totalCommNum = item.totalComm !== undefined ? item.totalComm : (baseCommNum - salaryAdvanceNum - shortsNum + inclusionsNum - exclusionsNum);
 
     const baseComm = baseCommNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const salaryAdvance = salaryAdvanceNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const shorts = shortsNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const inclusions = inclusionsNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const exclusions = exclusionsNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const totalComm = totalCommNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const tripRowsHtml = trips.map((t: any) => `
@@ -1039,6 +1047,7 @@ export default function FleetApp() {
           <span>(+) Inclusions ${item.comment ? `<span style="color: #475569; font-weight: normal; font-style: italic; font-size: 9px; margin-left: 4px;">(${item.comment})</span>` : ''}</span>
           <strong style="font-family: monospace;">+ Rs. ${inclusions}</strong>
         </div>
+        <div class="breakdown-row" style="color: #9333ea;"><span>(-) Exclusions ${item.exclusionsComment ? `<span style="color: #475569; font-weight: normal; font-style: italic; font-size: 9px; margin-left: 4px;">(${item.exclusionsComment})</span>` : ''}</span><strong style="font-family: monospace;">- Rs. ${exclusions}</strong></div>
         <div class="breakdown-row total"><span>Total Driver Commission</span><span style="font-family: monospace;">Rs. ${totalComm}</span></div>
       </div>
 
@@ -5283,6 +5292,7 @@ export default function FleetApp() {
                             <th className="p-3 border-r border-white/5 font-medium text-right">Salary Advance</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Shorts</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Inclusions</th>
+                            <th className="p-3 border-r border-white/5 font-medium text-right">Exclusions</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Total Driver Comm</th>
                             <th className="p-3 font-medium text-center w-24">Action</th>
                           </tr>
@@ -5290,7 +5300,7 @@ export default function FleetApp() {
                         <tbody className="divide-y divide-white/5">
                           {salaryList.length === 0 ? (
                             <tr>
-                              <td colSpan={8} className="p-8 text-center text-slate-500 text-sm">
+                              <td colSpan={9} className="p-8 text-center text-slate-500 text-sm">
                                 No salary data available
                               </td>
                             </tr>
@@ -5309,6 +5319,9 @@ export default function FleetApp() {
                                   </td>
                                   <td className="p-3 border-r border-white/5 text-sm font-medium text-blue-400 text-right">
                                     {(item.inclusions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-purple-400 text-right">
+                                    {(item.exclusions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </td>
                                   <td className="p-3 border-r border-white/5 text-sm font-bold text-emerald-400 text-right">{item.totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                   <td className="p-3 text-center">
@@ -5427,7 +5440,8 @@ export default function FleetApp() {
                         const salaryAdvance = currentItem.salaryAdvance || 0;
                         const shorts = currentItem.shorts || 0;
                         const inclusions = currentItem.inclusions || 0;
-                        const totalComm = currentItem.totalComm !== undefined ? currentItem.totalComm : (baseComm - salaryAdvance - shorts + inclusions);
+                        const exclusions = currentItem.exclusions || 0;
+                        const totalComm = currentItem.totalComm !== undefined ? currentItem.totalComm : (baseComm - salaryAdvance - shorts + inclusions - exclusions);
 
                         return (
                           <div className="mt-6 p-4 rounded-xl bg-slate-800/40 border border-white/10 space-y-3">
@@ -5455,6 +5469,15 @@ export default function FleetApp() {
                                   )}
                                 </span>
                                 <span className="font-mono font-bold text-blue-400">+ Rs. {inclusions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-slate-300">
+                                <span className="text-slate-400 font-medium flex items-center gap-1.5">
+                                  (-) Exclusions
+                                  {currentItem.exclusionsComment && (
+                                    <span className="text-xs text-purple-300/80 italic font-normal">({currentItem.exclusionsComment})</span>
+                                  )}
+                                </span>
+                                <span className="font-mono font-bold text-purple-400">- Rs. {exclusions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                               <div className="pt-2 border-t border-white/10 flex justify-between items-center text-base font-black">
                                 <span className="text-white uppercase tracking-wider">Total Driver Commission</span>
@@ -5558,6 +5581,34 @@ export default function FleetApp() {
                           placeholder="e.g. Festival Bonus, Special Allowance..."
                           value={adjComment}
                           onChange={(e) => setAdjComment(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                          Exclusions (Rs.)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-purple-500 focus:outline-none rounded-xl font-mono"
+                          placeholder="Enter exclusions amount..."
+                          value={adjExclusions}
+                          onChange={(e) => setAdjExclusions(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                          Exclusions Comment / Reason
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-purple-500 focus:outline-none rounded-xl"
+                          placeholder="e.g. Damage Penalty, Loan Deduction..."
+                          value={adjExclusionsComment}
+                          onChange={(e) => setAdjExclusionsComment(e.target.value)}
                         />
                       </div>
                     </div>
