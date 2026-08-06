@@ -24,10 +24,24 @@ export async function GET(request: Request) {
 
     // Build query
     const query: any = {};
+    const andConditions: any[] = [];
+
     if (startDate || endDate) {
-      query["rawValues.7"] = {};
-      if (startDate) query["rawValues.7"].$gte = startDate;
-      if (endDate) query["rawValues.7"].$lte = endDate + " 23:59:59";
+      const dateCond: any = {};
+      if (startDate) dateCond.$gte = startDate;
+      if (endDate) dateCond.$lte = endDate + " 23:59:59";
+      
+      andConditions.push({
+        $or: [
+          { "rawValues.7": dateCond },
+          { 
+            $and: [
+              { "rawValues.7": { $in: [null, ""] } },
+              { timestamp: dateCond }
+            ]
+          }
+        ]
+      });
     }
     if (purposeFilter && purposeFilter !== "All") query.purpose = purposeFilter;
     if (statusFilter && statusFilter !== "All") {
@@ -63,14 +77,16 @@ export async function GET(request: Request) {
       }
 
       if (query.$or) {
-        query.$and = [
-          { $or: query.$or },
-          { $or: searchConditions }
-        ];
+        andConditions.push({ $or: query.$or });
+        andConditions.push({ $or: searchConditions });
         delete query.$or;
       } else {
-        query.$or = searchConditions;
+        andConditions.push({ $or: searchConditions });
       }
+    }
+
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
     }
 
     // Pagination setup
