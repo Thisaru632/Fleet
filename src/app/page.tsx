@@ -158,6 +158,7 @@ export default function FleetApp() {
   const [selectedAdjustmentItem, setSelectedAdjustmentItem] = useState<any>(null);
   const [adjAdvance, setAdjAdvance] = useState<string>('');
   const [adjShorts, setAdjShorts] = useState<string>('');
+  const [adjExcess, setAdjExcess] = useState<string>('');
   const [adjInclusions, setAdjInclusions] = useState<string>('');
   const [adjExclusions, setAdjExclusions] = useState<string>('');
   const [adjComment, setAdjComment] = useState<string>('');
@@ -907,6 +908,7 @@ export default function FleetApp() {
     setSelectedAdjustmentItem(item);
     setAdjAdvance(item.salaryAdvance !== undefined && item.salaryAdvance !== null ? item.salaryAdvance.toString() : '0');
     setAdjShorts(item.shorts !== undefined && item.shorts !== null ? item.shorts.toString() : '0');
+    setAdjExcess(item.excess !== undefined && item.excess !== null ? item.excess.toString() : '0');
     setAdjInclusions(item.inclusions !== undefined && item.inclusions !== null ? item.inclusions.toString() : '0');
     setAdjExclusions(item.exclusions !== undefined && item.exclusions !== null ? item.exclusions.toString() : '0');
     setAdjComment(item.comment || '');
@@ -926,6 +928,7 @@ export default function FleetApp() {
           month: selectedAdjustmentItem.month,
           salaryAdvance: parseFloat(adjAdvance) || 0,
           shorts: parseFloat(adjShorts) || 0,
+          excess: parseFloat(adjExcess) || 0,
           inclusions: parseFloat(adjInclusions) || 0,
           exclusions: parseFloat(adjExclusions) || 0,
           comment: adjComment,
@@ -956,16 +959,21 @@ export default function FleetApp() {
     const baseCommNum = item.baseComm !== undefined ? item.baseComm : trips.reduce((sum: number, t: any) => sum + (parseFloat(String(t.comm).replace(/[^\d.-]/g, '')) || 0), 0);
     const salaryAdvanceNum = item.salaryAdvance || 0;
     const shortsNum = item.shorts || 0;
+    const excessNum = item.excess || 0;
     const inclusionsNum = item.inclusions || 0;
     const exclusionsNum = item.exclusions || 0;
-    const totalCommNum = item.totalComm !== undefined ? item.totalComm : (baseCommNum - salaryAdvanceNum - shortsNum + inclusionsNum - exclusionsNum);
+    const totalCommNum = item.totalComm !== undefined ? item.totalComm : (baseCommNum - salaryAdvanceNum - shortsNum + excessNum + inclusionsNum - exclusionsNum);
 
     const baseComm = baseCommNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const salaryAdvance = salaryAdvanceNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const shorts = shortsNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const excess = excessNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const inclusions = inclusionsNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const exclusions = exclusionsNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const totalComm = totalCommNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const incComment = (item.comment || item.inclusionsComment || '').trim();
+    const excComment = (item.exclusionsComment || '').trim();
 
     const tripRowsHtml = trips.map((t: any) => `
       <tr>
@@ -989,7 +997,6 @@ export default function FleetApp() {
       <style>
         .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 10px; }
         .brand { font-size: 18px; font-weight: 900; color: #0f172a; letter-spacing: 0.5px; }
-        .title { font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 2px; }
         .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
         .meta-label { font-weight: 800; color: #64748b; text-transform: uppercase; font-size: 8px; letter-spacing: 0.5px; margin-bottom: 2px; }
         .meta-val { font-size: 12px; font-weight: 700; color: #0f172a; }
@@ -1001,15 +1008,12 @@ export default function FleetApp() {
         .breakdown-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
         .breakdown-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
         .breakdown-row.total { border-top: 1.5px solid #0f172a; padding-top: 6px; margin-top: 4px; font-size: 13px; font-weight: 900; color: #059669; }
-        .signatures { margin-top: 24px; display: flex; justify-content: space-between; padding: 0 16px; }
-        .sig-line { border-top: 1px dashed #94a3b8; width: 180px; text-align: center; padding-top: 4px; font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
       </style>
       <div class="header">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <img src="${typeof window !== 'undefined' ? window.location.origin : ''}/logo.jpg" style="height: 36px; width: auto; object-fit: contain; border-radius: 4px;" alt="SENU CABS AND TOURS" />
+          <img src="${typeof window !== 'undefined' ? window.location.origin : ''}/logo.jpg" style="height: 36px; width: auto; object-fit: contain; border-radius: 4px;" alt="YSM Transport" />
           <div>
-            <div class="brand">SENU CABS AND TOURS</div>
-            <div class="title">Official Driver Salary Paysheet</div>
+            <div class="brand">YSM Transport</div>
           </div>
         </div>
         <div style="text-align: right; font-size: 10px; color: #64748b; font-weight: 600;">
@@ -1043,17 +1047,16 @@ export default function FleetApp() {
         <div class="breakdown-row"><span>Sum of Trip Commissions</span><strong style="font-family: monospace;">Rs. ${baseComm}</strong></div>
         <div class="breakdown-row" style="color: #d97706;"><span>(-) Salary Advance</span><strong style="font-family: monospace;">- Rs. ${salaryAdvance}</strong></div>
         <div class="breakdown-row" style="color: #dc2626;"><span>(-) Shorts</span><strong style="font-family: monospace;">- Rs. ${shorts}</strong></div>
+        <div class="breakdown-row" style="color: #0d9488;"><span>(+) Excess</span><strong style="font-family: monospace;">+ Rs. ${excess}</strong></div>
         <div class="breakdown-row" style="color: #2563eb;">
-          <span>(+) Inclusions ${item.comment ? `<span style="color: #475569; font-weight: normal; font-style: italic; font-size: 9px; margin-left: 4px;">(${item.comment})</span>` : ''}</span>
+          <span>(+) Inclusions ${incComment ? `<span style="color: #475569; font-weight: normal; font-style: italic; font-size: 9px; margin-left: 4px;">(${incComment})</span>` : ''}</span>
           <strong style="font-family: monospace;">+ Rs. ${inclusions}</strong>
         </div>
-        <div class="breakdown-row" style="color: #9333ea;"><span>(-) Exclusions ${item.exclusionsComment ? `<span style="color: #475569; font-weight: normal; font-style: italic; font-size: 9px; margin-left: 4px;">(${item.exclusionsComment})</span>` : ''}</span><strong style="font-family: monospace;">- Rs. ${exclusions}</strong></div>
+        <div class="breakdown-row" style="color: #9333ea;">
+          <span>(-) Exclusions ${excComment ? `<span style="color: #475569; font-weight: normal; font-style: italic; font-size: 9px; margin-left: 4px;">(${excComment})</span>` : ''}</span>
+          <strong style="font-family: monospace;">- Rs. ${exclusions}</strong>
+        </div>
         <div class="breakdown-row total"><span>Total Driver Commission</span><span style="font-family: monospace;">Rs. ${totalComm}</span></div>
-      </div>
-
-      <div class="signatures">
-        <div class="sig-line">Driver Signature</div>
-        <div class="sig-line">Authorized Signature</div>
       </div>
     `;
 
@@ -5291,6 +5294,7 @@ export default function FleetApp() {
                             <th className="p-3 border-r border-white/5 font-medium">Month</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Salary Advance</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Shorts</th>
+                            <th className="p-3 border-r border-white/5 font-medium text-right">Excess</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Inclusions</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Exclusions</th>
                             <th className="p-3 border-r border-white/5 font-medium text-right">Total Driver Comm</th>
@@ -5300,7 +5304,7 @@ export default function FleetApp() {
                         <tbody className="divide-y divide-white/5">
                           {salaryList.length === 0 ? (
                             <tr>
-                              <td colSpan={9} className="p-8 text-center text-slate-500 text-sm">
+                              <td colSpan={10} className="p-8 text-center text-slate-500 text-sm">
                                 No salary data available
                               </td>
                             </tr>
@@ -5316,6 +5320,9 @@ export default function FleetApp() {
                                   </td>
                                   <td className="p-3 border-r border-white/5 text-sm font-medium text-rose-400 text-right">
                                     {(item.shorts || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-teal-400 text-right">
+                                    {(item.excess || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </td>
                                   <td className="p-3 border-r border-white/5 text-sm font-medium text-blue-400 text-right">
                                     {(item.inclusions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -5439,9 +5446,10 @@ export default function FleetApp() {
                         const baseComm = currentItem.baseComm !== undefined ? currentItem.baseComm : (currentItem.trips || []).reduce((sum: number, t: any) => sum + (parseFloat(String(t.comm).replace(/[^\d.-]/g, '')) || 0), 0);
                         const salaryAdvance = currentItem.salaryAdvance || 0;
                         const shorts = currentItem.shorts || 0;
+                        const excess = currentItem.excess || 0;
                         const inclusions = currentItem.inclusions || 0;
                         const exclusions = currentItem.exclusions || 0;
-                        const totalComm = currentItem.totalComm !== undefined ? currentItem.totalComm : (baseComm - salaryAdvance - shorts + inclusions - exclusions);
+                        const totalComm = currentItem.totalComm !== undefined ? currentItem.totalComm : (baseComm - salaryAdvance - shorts + excess + inclusions - exclusions);
 
                         return (
                           <div className="mt-6 p-4 rounded-xl bg-slate-800/40 border border-white/10 space-y-3">
@@ -5460,6 +5468,10 @@ export default function FleetApp() {
                               <div className="flex justify-between items-center text-slate-300">
                                 <span className="text-slate-400 font-medium">(-) Shorts</span>
                                 <span className="font-mono font-bold text-rose-400">- Rs. {shorts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-slate-300">
+                                <span className="text-slate-400 font-medium">(+) Excess</span>
+                                <span className="font-mono font-bold text-teal-400">+ Rs. {excess.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                               <div className="flex justify-between items-center text-slate-300">
                                 <span className="text-slate-400 font-medium flex items-center gap-1.5">
@@ -5553,6 +5565,21 @@ export default function FleetApp() {
                           placeholder="Enter shorts amount..."
                           value={adjShorts}
                           onChange={(e) => setAdjShorts(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                          Excess (Rs.)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-teal-500 focus:outline-none rounded-xl font-mono"
+                          placeholder="Enter excess amount..."
+                          value={adjExcess}
+                          onChange={(e) => setAdjExcess(e.target.value)}
                         />
                       </div>
 

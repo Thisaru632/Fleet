@@ -53,17 +53,19 @@ export async function GET(request: Request) {
     const baseSalary = salaryDetails.reduce((sum: number, item: any) => sum + item.salary, 0);
     const salaryAdvance = adj ? adj.salaryAdvance || 0 : 0;
     const shorts = adj ? adj.shorts || 0 : 0;
+    const excess = adj ? adj.excess || 0 : 0;
     const inclusions = adj ? adj.inclusions || 0 : 0;
     const exclusions = adj ? adj.exclusions || 0 : 0;
     const comment = adj ? adj.comment || "" : "";
     const exclusionsComment = adj ? adj.exclusionsComment || "" : "";
-    const totalSalary = baseSalary - salaryAdvance - shorts + inclusions - exclusions;
+    const totalSalary = baseSalary - salaryAdvance - shorts + excess + inclusions - exclusions;
 
     return NextResponse.json({ 
       salaryDetails, 
       baseSalary,
       salaryAdvance, 
       shorts, 
+      excess,
       inclusions,
       exclusions,
       comment, 

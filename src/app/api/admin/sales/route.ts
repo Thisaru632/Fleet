@@ -403,6 +403,7 @@ export async function GET(request: Request) {
           baseComm: 0,
           salaryAdvance: 0, 
           shorts: 0, 
+          excess: 0,
           inclusions: 0,
           exclusions: 0,
           totalComm: 0, 
@@ -424,18 +425,20 @@ export async function GET(request: Request) {
       const adj = adjMap.get(item.key);
       const salaryAdvance = adj ? adj.salaryAdvance || 0 : 0;
       const shorts = adj ? adj.shorts || 0 : 0;
+      const excess = adj ? adj.excess || 0 : 0;
       const inclusions = adj ? adj.inclusions || 0 : 0;
       const exclusions = adj ? adj.exclusions || 0 : 0;
       const comment = adj ? adj.comment || "" : "";
       const exclusionsComment = adj ? adj.exclusionsComment || "" : "";
       const baseComm = item.baseComm || 0;
-      const totalComm = baseComm - salaryAdvance - shorts + inclusions - exclusions;
+      const totalComm = baseComm - salaryAdvance - shorts + excess + inclusions - exclusions;
 
       return {
         ...item,
         baseComm,
         salaryAdvance,
         shorts,
+        excess,
         inclusions,
         exclusions,
         comment,

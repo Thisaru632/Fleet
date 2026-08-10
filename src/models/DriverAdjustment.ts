@@ -5,6 +5,7 @@ const DriverAdjustmentSchema: Schema = new Schema({
   month: { type: String, required: true },
   salaryAdvance: { type: Number, default: 0 },
   shorts: { type: Number, default: 0 },
+  excess: { type: Number, default: 0 },
   inclusions: { type: Number, default: 0 },
   exclusions: { type: Number, default: 0 },
   comment: { type: String, default: "" },
