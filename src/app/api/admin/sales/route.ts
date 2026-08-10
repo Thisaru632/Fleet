@@ -384,10 +384,15 @@ export async function GET(request: Request) {
       const tripEndDateStr = String(values[7] || '');
 
       let month = 'Unknown';
-      if (tripEndDateStr && tripEndDateStr.length >= 7) {
+      if (tripEndDateStr && tripEndDateStr.length >= 7 && /^\d{4}-\d{2}/.test(tripEndDateStr)) {
         month = tripEndDateStr.substring(0, 7);
-      } else if (t.timestamp && t.timestamp.length >= 7) {
-        month = t.timestamp.substring(0, 7);
+      } else if (t.timestamp && String(t.timestamp).length >= 7 && /^\d{4}-\d{2}/.test(String(t.timestamp))) {
+        month = String(t.timestamp).substring(0, 7);
+      } else if (t.createdAt) {
+        const d = new Date(t.createdAt);
+        if (!isNaN(d.getTime())) {
+          month = d.toISOString().substring(0, 7);
+        }
       }
 
       const rawComm = rawCommStr.replace(/[^\d.-]/g, '');
@@ -446,7 +451,15 @@ export async function GET(request: Request) {
         totalComm
       };
     });
-    salaryData.sort((a: any, b: any) => b.month.localeCompare(a.month) || a.driverCode.localeCompare(b.driverCode));
+
+    const filteredSalaryData = salaryData.filter((item: any) => {
+      if (item.month === 'Unknown' && (item.baseComm === 0 || item.trips.length === 0) && item.totalComm === 0) {
+        return false;
+      }
+      return true;
+    });
+
+    filteredSalaryData.sort((a: any, b: any) => b.month.localeCompare(a.month) || a.driverCode.localeCompare(b.driverCode));
 
     const totalPages = Math.ceil(totalItems / limit);
 
@@ -475,7 +488,7 @@ export async function GET(request: Request) {
         recentTrips,
         fleetData,
         driversList,
-        salaryData
+        salaryData: filteredSalaryData
       },
       pagination: {
         page,
