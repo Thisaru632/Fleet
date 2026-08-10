@@ -38,6 +38,7 @@ import {
   Eye,
   MoreVertical,
   Image as ImageIcon,
+  FileText,
   Copy,
   Wallet
 } from 'lucide-react';
@@ -1557,6 +1558,16 @@ export default function FleetApp() {
           const repair = Number(prev.repairCost) || 0;
           const dueAmount = Math.round(finalPriceNum - fuel1 - fuel2 - repair - Number(rawSalary));
 
+          const startDate = details[13] || '';
+          const startTime = details[14] || '';
+          const endDate = details[15] || '';
+          const endTime = details[16] || '';
+          const vehicleType = details[17] || '';
+          const noOfPax = details[18] || '';
+          const pickupStreet = details[24] || '';
+          const dropoffStreet = details[25] || details[26] || details[27] || '';
+          const journeyType = details[30] || (details[27] ? 'Round tour' : '');
+
           return {
             ...prev,
             tripStartMeter: prev.tripStartMeter || accStartMeter,
@@ -1564,7 +1575,16 @@ export default function FleetApp() {
             drvComms: rawSalary,
             tripPrice: rawFinalPrice,
             pkgBalanceMileage: rawPkgBalance,
-            scDueAmount: dueAmount
+            scDueAmount: dueAmount,
+            accStartDate: startDate,
+            accStartTime: startTime,
+            accEndDate: endDate,
+            accEndTime: endTime,
+            accVehicleType: vehicleType,
+            accNoOfPax: noOfPax,
+            accPickupStreet: pickupStreet,
+            accDropoffStreet: dropoffStreet,
+            accJourneyType: journeyType,
           };
         });
       }
@@ -6055,6 +6075,62 @@ export default function FleetApp() {
                     })()}
                   </select>
                 </div>
+
+                {formData.tripRef && (formData.accStartDate || formData.accVehicleType || formData.accPickupStreet || fetchingDetails) && (
+                  <div className="mt-4 p-4 rounded-xl bg-slate-900/60 border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                      <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5" /> Account Sheet Trip Details
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">Ref: {formData.tripRef}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Start Date</p>
+                        <p className="font-semibold text-white">{formData.accStartDate || '-'}</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Start Time</p>
+                        <p className="font-semibold text-white">{formData.accStartTime || '-'}</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">End Date</p>
+                        <p className="font-semibold text-white">{formData.accEndDate || '-'}</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">End Time</p>
+                        <p className="font-semibold text-white">{formData.accEndTime || '-'}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs pt-2 border-t border-white/5">
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Vehicle Type</p>
+                        <p className="font-semibold text-white">{formData.accVehicleType || '-'}</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">No of pax</p>
+                        <p className="font-semibold text-white">{formData.accNoOfPax || '-'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-white/5 text-xs">
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Pick up Street</p>
+                        <p className="font-semibold text-white leading-tight">{formData.accPickupStreet || '-'}</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Drop off Str</p>
+                        <p className="font-semibold text-white leading-tight">{formData.accDropoffStreet || '-'}</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Journey Type</p>
+                        <p className="font-bold text-emerald-400 leading-tight">{formData.accJourneyType || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {stage === 'update' ? (
                   <div className="grid grid-cols-2 gap-4">
