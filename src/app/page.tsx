@@ -202,7 +202,7 @@ export default function FleetApp() {
     vehicle: 'All'
   });
 
-  const [debouncedFleetSearch, setDebouncedFleetSearch] = useState('');
+  const [appliedFleetSearch, setAppliedFleetSearch] = useState('');
   const [newVehicleNumber, setNewVehicleNumber] = useState('');
   const [addingVehicle, setAddingVehicle] = useState(false);
 
@@ -268,12 +268,10 @@ export default function FleetApp() {
     return () => clearTimeout(handler);
   }, [accountSearch]);
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedFleetSearch(fleetSearch);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [fleetSearch]);
+  const handleExecuteFleetSearch = () => {
+    setAdminPage(1);
+    setAppliedFleetSearch(fleetSearch.trim());
+  };
 
   const resetAdminFilters = () => {
     const today = new Date();
@@ -762,7 +760,7 @@ export default function FleetApp() {
         ...adminFilters,
         page: adminPage.toString(),
         limit: '50',
-        ...(debouncedFleetSearch ? { search: debouncedFleetSearch } : {})
+        ...(appliedFleetSearch ? { search: appliedFleetSearch } : {})
       });
       const res = await fetch(`/api/admin/sales?${params.toString()}`);
       const data = await res.json();
@@ -790,7 +788,7 @@ export default function FleetApp() {
         fetchAdminSales();
       }
     }
-  }, [stage, adminFilters, adminPage, user, adminTab, debouncedSearch, debouncedFleetSearch]);
+  }, [stage, adminFilters, adminPage, user, adminTab, debouncedSearch, appliedFleetSearch]);
 
   // Periodic polling to auto-update tables and views without manual refresh
   useEffect(() => {
@@ -3395,15 +3393,31 @@ export default function FleetApp() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <div className="relative mr-2 w-80 hidden sm:block">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Search fleet data..."
-                          className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-1.5 pl-8 pr-3 text-[10px] text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
-                          value={fleetSearch}
-                          onChange={(e) => setFleetSearch(e.target.value)}
-                        />
+                      <div className="flex items-center gap-1.5 mr-2 w-80 hidden sm:flex">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search fleet data..."
+                            className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-1.5 pl-8 pr-3 text-[10px] text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                            value={fleetSearch}
+                            onChange={(e) => setFleetSearch(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleExecuteFleetSearch();
+                              }
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleExecuteFleetSearch}
+                          className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] rounded-lg transition-all flex items-center gap-1 shadow-sm uppercase tracking-wider whitespace-nowrap"
+                          title="Search Fleet Data"
+                        >
+                          <Search className="w-3 h-3" />
+                          Search
+                        </button>
                       </div>
                       <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full hidden sm:inline-block">{adminData.tables.fleetData.length} Records</span>
                       <button
@@ -3491,7 +3505,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 27, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => (
+                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => (
                               <td 
                                 key={idx} 
                                 className={cn(
@@ -3519,6 +3533,10 @@ export default function FleetApp() {
                                     )}
                                     {t.values[27] && <Edit className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />}
                                   </div>
+                                ) : idx === 'repair_meter' ? (
+                                  <span className="text-white">
+                                    {t.values[5] === 'Repair' ? (t.values[6] || t.values[8] || '-') : '-'}
+                                  </span>
                                 ) : idx === 'fuel_meter' || idx === 'fuel_liters' ? (
                                   <span className="text-white">
                                     {(() => {

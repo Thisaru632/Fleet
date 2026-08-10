@@ -60,6 +60,12 @@ export async function GET(request: Request) {
     if (vehicleFilter && vehicleFilter !== "All") query.vehicle = vehicleFilter;
     if (driverFilter && driverFilter !== "All") query.driverId = driverFilter;
 
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
+    }
+
+    // Build fleetQuery specifically for Fleet Data table searching
+    const fleetQuery: any = { ...query };
     if (search) {
       const searchRegex = new RegExp(search, "i");
       const searchConditions: any[] = [
@@ -76,17 +82,9 @@ export async function GET(request: Request) {
         searchConditions.push({ rawValues: searchNum });
       }
 
-      if (query.$or) {
-        andConditions.push({ $or: query.$or });
-        andConditions.push({ $or: searchConditions });
-        delete query.$or;
-      } else {
-        andConditions.push({ $or: searchConditions });
-      }
-    }
-
-    if (andConditions.length > 0) {
-      query.$and = andConditions;
+      const fleetAnd = fleetQuery.$and ? [...fleetQuery.$and] : [];
+      fleetAnd.push({ $or: searchConditions });
+      fleetQuery.$and = fleetAnd;
     }
 
     // Pagination setup
@@ -107,8 +105,8 @@ export async function GET(request: Request) {
       addedVehiclesMeta,
       allTripsRaw
     ] = await Promise.all([
-      Trip.countDocuments(query),
-      Trip.find(query, { images: 0 }).sort({ reference: -1 }).skip(skip).limit(limit).lean(),
+      Trip.countDocuments(fleetQuery),
+      Trip.find(fleetQuery, { images: 0 }).sort({ reference: -1 }).skip(skip).limit(limit).lean(),
       Trip.find(query, { images: 0, rawValues: 0 }).sort({ reference: -1 }).limit(10).lean(),
       Trip.aggregate([
         { $match: query },
