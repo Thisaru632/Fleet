@@ -79,6 +79,7 @@ export default function FleetApp() {
   const [user, setUser] = useState<any>(null);
   const [stage, setStage] = useState<'dashboard' | 'new' | 'update' | 'last-trip' | 'salary' | 'contact-office' | 'admin'>('dashboard');
   const [loading, setLoading] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [fetchingDetails, setFetchingDetails] = useState(false);
   const [options, setOptions] = useState<{ vehicles: string[], purposes: string[] }>({ vehicles: [], purposes: [] });
   const [tripRefs, setTripRefs] = useState<any[]>([]);
@@ -413,6 +414,7 @@ export default function FleetApp() {
   };
 
   const handleFuelDetailsSubmit = async () => {
+    if (loading || isSubmittingRef.current) return;
     if (!formData.fuelStationMeter && !formData.fuelCost && !formData.fuelLiterCount) {
       setAlert({ type: 'error', message: 'Please enter some fuel details to submit.' });
       return;
@@ -426,6 +428,7 @@ export default function FleetApp() {
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     setAlert({ type: 'warning', message: 'Submitting fuel details to database...' });
 
@@ -514,11 +517,13 @@ export default function FleetApp() {
       setAlert({ type: 'error', message: err.message || 'Failed to submit fuel details' });
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
       setTimeout(() => setAlert(null), 3000);
     }
   };
 
   const handleRepairDetailsSubmit = async () => {
+    if (loading || isSubmittingRef.current) return;
     if (!formData.repairStationMeter && !formData.repairCost) {
       setAlert({ type: 'error', message: 'Please enter some repair details to submit.' });
       return;
@@ -532,6 +537,7 @@ export default function FleetApp() {
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     setAlert({ type: 'warning', message: 'Submitting repair details to database...' });
 
@@ -579,6 +585,7 @@ export default function FleetApp() {
       setAlert({ type: 'error', message: err.message || 'Failed to submit repair details' });
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
       setTimeout(() => setAlert(null), 3000);
     }
   };
@@ -1342,6 +1349,8 @@ export default function FleetApp() {
   };
 
   const handleNewRecord = () => {
+    isSubmittingRef.current = false;
+    setLoading(false);
     setCurrentRef('TBD'); // Temporary value until submit
     setFormData({
       vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '',
@@ -1361,6 +1370,8 @@ export default function FleetApp() {
   };
 
   const handleUpdateBtnClick = () => {
+    isSubmittingRef.current = false;
+    setLoading(false);
     setCurrentRef(null);
     setFormData({
       vehicle: '',
@@ -1712,52 +1723,50 @@ export default function FleetApp() {
   };
 
   const handleSubmit = async () => {
+    if (loading || isSubmittingRef.current) return;
+
+    // Validation
+    if (stage === 'new') {
+      if (!formData.vehicle || !formData.purpose || !formData.garageStartMeter || !files.garageStartImage) {
+        setAlert({ type: 'error', message: 'Please fill all required fields (Vehicle, Purpose, Start KM, and Start Image).' });
+        return;
+      }
+      if (formData.purpose === 'Hire' && !formData.tripRef) {
+        setAlert({ type: 'error', message: 'Please select a Trip Reference for Hire records.' });
+        return;
+      }
+    } else {
+      // Update stage validation
+      if (!formData.garageEndMeter || !files.garageEndImage) {
+        setAlert({ type: 'error', message: 'Please enter Garage End KM and upload the End Image.' });
+        return;
+      }
+
+      if (formData.purpose === 'Hire') {
+        if (
+          formData.tripStartMeter === '' || formData.tripStartMeter === null || formData.tripStartMeter === undefined ||
+          formData.tripEndMeter === '' || formData.tripEndMeter === null || formData.tripEndMeter === undefined ||
+          formData.tripPrice === '' || formData.tripPrice === null || formData.tripPrice === undefined ||
+          formData.drvComms === '' || formData.drvComms === null || formData.drvComms === undefined
+        ) {
+          setShowRefreshPopup(true);
+          return;
+        }
+      }
+
+      if (formData.purpose === 'Repair') {
+        if (!files.repairReceipt || (Array.isArray(files.repairReceipt) && files.repairReceipt.length === 0)) {
+          setAlert({ type: 'error', message: 'Please upload the repair bill before submitting.' });
+          return;
+        }
+      }
+    }
+
+    isSubmittingRef.current = true;
     setLoading(true);
     setAlert({ type: 'warning', message: 'Submitting record, please hold on...' });
 
     try {
-      // Validation
-      if (stage === 'new') {
-        if (!formData.vehicle || !formData.purpose || !formData.garageStartMeter || !files.garageStartImage) {
-          setAlert({ type: 'error', message: 'Please fill all required fields (Vehicle, Purpose, Start KM, and Start Image).' });
-          setLoading(false);
-          return;
-        }
-        if (formData.purpose === 'Hire' && !formData.tripRef) {
-          setAlert({ type: 'error', message: 'Please select a Trip Reference for Hire records.' });
-          setLoading(false);
-          return;
-        }
-      } else {
-        // Update stage validation
-        if (!formData.garageEndMeter || !files.garageEndImage) {
-          setAlert({ type: 'error', message: 'Please enter Garage End KM and upload the End Image.' });
-          setLoading(false);
-          return;
-        }
-
-        if (formData.purpose === 'Hire') {
-          if (
-            formData.tripStartMeter === '' || formData.tripStartMeter === null || formData.tripStartMeter === undefined ||
-            formData.tripEndMeter === '' || formData.tripEndMeter === null || formData.tripEndMeter === undefined ||
-            formData.tripPrice === '' || formData.tripPrice === null || formData.tripPrice === undefined ||
-            formData.drvComms === '' || formData.drvComms === null || formData.drvComms === undefined
-          ) {
-            setShowRefreshPopup(true);
-            setLoading(false);
-            return;
-          }
-        }
-
-        if (formData.purpose === 'Repair') {
-          if (!files.repairReceipt || (Array.isArray(files.repairReceipt) && files.repairReceipt.length === 0)) {
-            setAlert({ type: 'error', message: 'Please upload the repair bill before submitting.' });
-            setLoading(false);
-            return;
-          }
-        }
-      }
-
       const now = new Date();
       const endTs = now.toLocaleString('sv-SE').replace('T', ' ');
 
@@ -1878,12 +1887,16 @@ export default function FleetApp() {
         });
         setFiles({ garageStartImage: null, garageEndImage: null, fuelReceipt: null, repairReceipt: null, fuelStationMeterImage: null });
         setIsFuelSubmitted(false);
-        fetchInitialData(user[0]);
+        if (user && user[0]) {
+          fetchInitialData(user[0]);
+        }
+        setLoading(false);
+        isSubmittingRef.current = false;
       }, 3000);
     } catch (err) {
       setAlert({ type: 'error', message: 'Submission failed' });
-    } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -3503,7 +3516,7 @@ export default function FleetApp() {
                           const isPurposeFiltered = adminFilters.purpose !== 'All';
                           const prevTrip = vehicleNum ? adminData.tables.fleetData.slice(originalIndex + 1).find((pt: any) => pt.values[4] === vehicleNum && !String(pt.values[0] || '').toLowerCase().includes('cancel')) : null;
                           const rawPrevGarageEnd = prevTrip ? prevTrip.values[8] : null;
-                          
+
                           let mismatch = 0;
                           let hasMismatch = false;
                           
@@ -3520,19 +3533,53 @@ export default function FleetApp() {
                             }
                           }
 
+                          const getFuelLiterTooltip = (idx: string | number) => {
+                            if (idx === 'fuel_liters') {
+                              const rawCost = t.values[9];
+                              const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
+                              
+                              const rawComments = t.values[10] || '';
+                              const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+                              let litersStr = '';
+                              if (fuelMatch) {
+                                const fuelStr = fuelMatch[1];
+                                const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                if (m) litersStr = m[1];
+                              }
+                              const liters = Number(litersStr);
+                              if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
+                                return `Rs. ${(cost / liters).toFixed(2)} / L`;
+                              }
+                            } else if (idx === 26) {
+                              const rawCost = t.values[24];
+                              const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
+                              const rawLiters = t.values[26];
+                              const liters = Number(String(rawLiters || '').replace(/[^\d.-]/g, ''));
+                              if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
+                                return `Rs. ${(cost / liters).toFixed(2)} / L`;
+                              }
+                            }
+                            return undefined;
+                          };
+
                           return (
                             <tr 
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => (
+                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
+                              const cellTooltip = (hasMismatch && idx === 6)
+                                ? `${mismatch} km mismatch with the last trip for this vehicle`
+                                : getFuelLiterTooltip(idx);
+
+                              return (
                               <td 
                                 key={idx} 
                                 className={cn(
                                   "px-6 py-2 text-xs whitespace-nowrap",
                                   hasMismatch && idx === 6 ? "font-bold" : ""
                                 )}
-                                title={hasMismatch && idx === 6 ? `${mismatch} km mismatch with the last trip for this vehicle` : undefined}
+                                title={cellTooltip}
                               >
                                 {idx === 'staff_comment' ? (
                                   <div 
@@ -3558,7 +3605,7 @@ export default function FleetApp() {
                                     {t.values[5] === 'Repair' ? (t.values[6] || t.values[8] || '-') : '-'}
                                   </span>
                                 ) : idx === 'fuel_meter' || idx === 'fuel_liters' ? (
-                                  <span className="text-white">
+                                  <span className="text-white" title={getFuelLiterTooltip(idx)}>
                                     {(() => {
                                       const rawComments = t.values[10] || '';
                                       const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
@@ -3665,7 +3712,7 @@ export default function FleetApp() {
                                     "font-sans font-normal flex items-center gap-1.5",
                                     (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
                                       (idx === 9 || idx === 11 || idx === 24) ? "text-rose-400" : "text-white"
-                                  )}>
+                                  )} title={getFuelLiterTooltip(idx)}>
                                     {hasMismatch && idx === 6 && (
                                       <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0"></span>
                                     )}
@@ -3682,7 +3729,8 @@ export default function FleetApp() {
                                   </span>
                                 )}
                               </td>
-                            ))}
+                            );
+                            })}
                             <td className="px-6 py-2 text-xs whitespace-nowrap sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
                               <div className="relative group/action">
                                 <button className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer outline-none">
@@ -6544,7 +6592,7 @@ export default function FleetApp() {
                   </button>
                   <button
                     onClick={handleSubmit}
-                    disabled={loading || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef) || (formData.purpose === 'Fuel' && stage === 'update' && !isFuelSubmitted)}
+                    disabled={loading || isSubmittingRef.current || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef) || (formData.purpose === 'Fuel' && stage === 'update' && !isFuelSubmitted)}
                     className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
