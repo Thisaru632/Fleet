@@ -1792,6 +1792,7 @@ export default function FleetApp() {
 
         // Capture Start Location at index 26
         array[26] = locationUrl;
+        array[29] = formData.paymentType || 'Office card';
 
         const createRes = await fetch('/api/fleet/create-record', {
           method: 'POST',
@@ -1821,7 +1822,7 @@ export default function FleetApp() {
         // Calculate Total Mileage
         const totalMileage = Number(formData.garageEndMeter) - Number(formData.garageStartMeter);
 
-        let array: any[] = new Array(24).fill('');
+        let array: any[] = new Array(30).fill('');
         array[0] = user[0];
         array[1] = formData.vehicle;
         array[2] = formData.purpose;
@@ -1864,6 +1865,7 @@ export default function FleetApp() {
         array[19] = totalMileage || '';
         array[20] = formData.tripPrice || '';
         array[24] = formData.repairStationMeter || '';
+        array[29] = formData.paymentType || 'Office card';
         
         const endLocationUrl = await captureLocation();
         // Capture End Location at index 27
@@ -3145,7 +3147,7 @@ export default function FleetApp() {
                                     <td className="py-3 px-2 text-right text-white font-mono whitespace-nowrap">{Math.round(v.hireIncome).toLocaleString()}</td>
                                     <td className="py-3 px-2 text-right text-slate-300 font-mono whitespace-nowrap">{Math.round(v.mileage).toLocaleString()}</td>
                                     <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
-                                    <td className="py-3 px-2 text-right text-amber-400 font-mono whitespace-nowrap">{(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L</td>
+                                    <td className="py-3 px-2 text-right text-amber-400 font-mono whitespace-nowrap" title={v.fuelCost && v.fuelLiters > 0 ? `Rs. ${(v.fuelCost / v.fuelLiters).toFixed(2)} / L` : undefined}>{(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L</td>
                                     <td className="py-3 px-2 text-right text-blue-400 font-mono whitespace-nowrap">{kmpl.toFixed(2)}</td>
                                     <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">{v.fuelPercentage.toFixed(2)}%</td>
                                   </tr>
@@ -3299,7 +3301,7 @@ export default function FleetApp() {
                               <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.mileage?.toLocaleString() || '0'}</td>
                               <td className="px-4 py-3 text-[10px] font-bold text-amber-500 whitespace-nowrap text-right">{v.personalMileage?.toLocaleString() || '0'}</td>
                               <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.fuelCost || 0).toLocaleString()}</td>
-                              <td className="px-4 py-3 text-[10px] text-amber-400 whitespace-nowrap text-right">{v.fuelLiters > 0 ? (Math.round(v.fuelLiters * 10) / 10) : '0'} L</td>
+                              <td className="px-4 py-3 text-[10px] text-amber-400 whitespace-nowrap text-right" title={v.fuelCost && v.fuelLiters > 0 ? `Rs. ${(v.fuelCost / v.fuelLiters).toFixed(2)} / L` : undefined}>{v.fuelLiters > 0 ? (Math.round(v.fuelLiters * 10) / 10) : '0'} L</td>
                               <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">{v.fuelLiters > 0 ? (v.mileage / v.fuelLiters).toFixed(2) : '0.00'}</td>
                               <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">{v.fuelPercentage > 0 ? v.fuelPercentage.toFixed(2) + '%' : '0.00%'}</td>
                             </tr>
@@ -3707,6 +3709,10 @@ export default function FleetApp() {
                                     })()}
                                     <span className="text-white">{t.values[idx as number] !== undefined && t.values[idx as number] !== null ? t.values[idx as number].toString() : '-'}</span>
                                   </div>
+                                ) : idx === 32 ? (
+                                  <span className="font-sans font-normal text-white">
+                                    {t.values[32] || 'Office card'}
+                                  </span>
                                 ) : (
                                   <span className={cn(
                                     "font-sans font-normal flex items-center gap-1.5",

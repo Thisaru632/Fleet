@@ -49,6 +49,13 @@ export async function POST(request: Request) {
     array[17] = folderUrl || '';
     array[18] = folderId || '';
 
+    if (array.length < 30) {
+      array.length = 30;
+    }
+    if (!array[29]) {
+      array[29] = 'Office card';
+    }
+
     // Map array values to fields
     const driverId = array[0] || drvId;
     const vehicle = array[1] || "";

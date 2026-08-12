@@ -49,6 +49,11 @@ export async function POST(request: Request) {
       if (array.length > 28 && array[28]) {
         existingArray[28] = array[28];
       }
+      if (array.length > 29 && array[29]) {
+        existingArray[29] = array[29];
+      } else if (!existingArray[29]) {
+        existingArray[29] = 'Office card';
+      }
       if (existingArray.length > 10) {
         existingArray[10] = scDue;
       }
@@ -96,6 +101,8 @@ export async function POST(request: Request) {
       if (existingArray[25] && !array[25]) array[25] = existingArray[25]; // Fuel Update TS
       if (existingArray[26] && !array[26]) array[26] = existingArray[26]; // Start Location
       if (existingArray[28] && !array[28]) array[28] = existingArray[28]; // Fuel Location
+      if (!array[29] && existingArray[29]) array[29] = existingArray[29]; // Payment Type
+      if (!array[29]) array[29] = 'Office card';
 
       trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...array];
     }
