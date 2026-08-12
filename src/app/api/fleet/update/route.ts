@@ -101,8 +101,10 @@ export async function POST(request: Request) {
       if (existingArray[25] && !array[25]) array[25] = existingArray[25]; // Fuel Update TS
       if (existingArray[26] && !array[26]) array[26] = existingArray[26]; // Start Location
       if (existingArray[28] && !array[28]) array[28] = existingArray[28]; // Fuel Location
+      const hasFuel = Boolean(trip.fuel > 0 || parseNum(array[6]) > 0 || (array.length > 21 && parseNum(array[21]) > 0));
       if (!array[29] && existingArray[29]) array[29] = existingArray[29]; // Payment Type
-      if (!array[29]) array[29] = 'Office card';
+      if (!array[29] && hasFuel) array[29] = 'Office card';
+      if (!hasFuel && !existingArray[29]) array[29] = '';
 
       trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...array];
     }

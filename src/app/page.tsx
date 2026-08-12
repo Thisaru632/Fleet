@@ -5,8 +5,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   RefreshCw,
+  RotateCw,
+  Clock,
+  ShieldCheck,
+  Home,
+  Sliders,
+  User,
   LogOut,
   Car,
+  Send,
   MapPin,
   Fuel,
   Wrench,
@@ -40,7 +47,8 @@ import {
   Image as ImageIcon,
   FileText,
   Copy,
-  Wallet
+  Wallet,
+  Leaf
 } from 'lucide-react';
 
 import LoginModal from '@/components/LoginModal';
@@ -105,6 +113,7 @@ export default function FleetApp() {
   const [fetchingInboxMessages, setFetchingInboxMessages] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [showRefreshPopup, setShowRefreshPopup] = useState(false);
+  const [showDevPopup, setShowDevPopup] = useState(false);
 
   // Admin Dashboard States
   const [adminData, setAdminData] = useState<any>(null);
@@ -415,15 +424,23 @@ export default function FleetApp() {
 
   const handleFuelDetailsSubmit = async () => {
     if (loading || isSubmittingRef.current) return;
-    if (!formData.fuelStationMeter && !formData.fuelCost && !formData.fuelLiterCount) {
-      setAlert({ type: 'error', message: 'Please enter some fuel details to submit.' });
+    if (!formData.fuelStationMeter || String(formData.fuelStationMeter).trim() === '') {
+      setAlert({ type: 'error', message: 'Please enter Meter in the Fuel Station.' });
       return;
     }
-    if (formData.fuelStationMeter && !files.fuelStationMeterImage) {
+    if (!files.fuelStationMeterImage) {
       setAlert({ type: 'error', message: 'Please upload the Meter Image.' });
       return;
     }
-    if (formData.fuelCost && !files.fuelReceipt) {
+    if (!formData.fuelLiterCount || String(formData.fuelLiterCount).trim() === '') {
+      setAlert({ type: 'error', message: 'Please enter Fuel Liter Count.' });
+      return;
+    }
+    if (!formData.fuelCost || String(formData.fuelCost).trim() === '') {
+      setAlert({ type: 'error', message: 'Please enter Fuel Cost.' });
+      return;
+    }
+    if (!files.fuelReceipt) {
       setAlert({ type: 'error', message: 'Please upload the Fuel Receipt.' });
       return;
     }
@@ -1792,7 +1809,11 @@ export default function FleetApp() {
 
         // Capture Start Location at index 26
         array[26] = locationUrl;
-        array[29] = formData.paymentType || 'Office card';
+        if (formData.purpose === 'Fuel' || formData.fuelCost) {
+          array[29] = formData.paymentType || 'Office card';
+        } else {
+          array[29] = '';
+        }
 
         const createRes = await fetch('/api/fleet/create-record', {
           method: 'POST',
@@ -1865,7 +1886,11 @@ export default function FleetApp() {
         array[19] = totalMileage || '';
         array[20] = formData.tripPrice || '';
         array[24] = formData.repairStationMeter || '';
-        array[29] = formData.paymentType || 'Office card';
+        if (isFuelSubmitted || formData.fuelCost || fuelSubmitCount >= 1 || formData.firstFuelCost) {
+          array[29] = formData.paymentType || 'Office card';
+        } else {
+          array[29] = '';
+        }
         
         const endLocationUrl = await captureLocation();
         // Capture End Location at index 27
@@ -2309,9 +2334,15 @@ export default function FleetApp() {
           </motion.div>
         )}
       </AnimatePresence>
-      <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full" : "max-w-xl")}>
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+
+      {/* Mobile Light Background Override for Non-Admin stages */}
+      {stage !== 'admin' && (
+        <div className="fixed inset-0 bg-[#f4f7f9] z-[-1] md:hidden" />
+      )}
+
+      <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full" : "max-w-xl", stage === 'dashboard' && "max-w-full md:max-w-xl p-0 md:p-4")}>
+      {/* Desktop Header */}
+      <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-3">
           <img src="/logo.jpg" alt="Logo" className="h-12 w-auto object-contain rounded-md" />
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-white uppercase">
@@ -2357,8 +2388,8 @@ export default function FleetApp() {
                 <AlertCircle className="w-10 h-10 text-rose-500" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-black text-white">à¶¯à¶­à·Šà¶­ à¶ºà·à·€à¶­à·Š à¶šà·à¶½à·“à¶± à·€à·“à¶¸à·š à¶¯à·œà·à¶ºà¶šà·’</h3>
-                <p className="text-slate-400 text-sm">à·€à¶»à¶šà·Š App à¶‘à¶š Refresh à¶šà¶» à¶±à·à·€à¶­ à¶‹à¶­à·Šà·ƒà·„ à¶šà¶»à¶±à·Šà¶±</p>
+                <h3 className="text-xl font-black text-white">à¶¯à¶­à·Šà¶­ à¶ºà· à·€à¶­à·Š à¶šà· à¶½à·“à¶± à·€à·“à¶¸à·š à¶¯à·œà· à¶ºà¶šà·’</h3>
+                <p className="text-slate-400 text-sm">à·€à¶»à¶šà·Š App à¶‘à¶š Refresh à¶šà¶» à¶±à· à·€à¶­ à¶‹à¶­à·Šà·ƒà·„ à¶šà¶»à¶±à·Šà¶±</p>
               </div>
               <div className="flex gap-4">
                 <button
@@ -2373,33 +2404,63 @@ export default function FleetApp() {
         )}
       </AnimatePresence>
 
-      {/* Logout Confirmation Modal */}
+      {/* Under Development Modal */}
       <AnimatePresence>
-        {showLogoutConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        {showDevPopup && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="glass-card p-8 w-full max-w-sm text-center space-y-6 border-rose-500/20"
+              className="bg-white p-6 sm:p-8 w-full max-w-sm text-center space-y-5 rounded-3xl shadow-2xl border border-slate-100"
             >
-              <div className="w-20 h-20 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto">
-                <LogOut className="w-10 h-10 text-rose-500" />
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-8 h-8 text-amber-500" />
               </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-black text-white">ARE YOU SURE?</h3>
-                <p className="text-slate-400 text-sm">You will need to login again to access your fleet records.</p>
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">COMING SOON</h3>
+                <p className="text-slate-500 text-xs font-bold leading-relaxed">This feature is still under development. Please check back later!</p>
               </div>
-              <div className="flex gap-4">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDevPopup(false)}
+                  className="w-full py-3 rounded-2xl bg-amber-500 text-white hover:bg-amber-600 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
+                >
+                  OKAY, GOT IT
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white p-6 sm:p-8 w-full max-w-sm text-center space-y-5 rounded-3xl shadow-2xl border border-slate-100"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center mx-auto">
+                <LogOut className="w-8 h-8 text-rose-500" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">ARE YOU SURE?</h3>
+                <p className="text-slate-500 text-xs font-bold leading-relaxed">You will need to login again to access your fleet records.</p>
+              </div>
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all font-bold text-sm"
+                  className="flex-1 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
                 >
                   CANCEL
                 </button>
                 <button
                   onClick={confirmLogout}
-                  className="flex-1 py-3 rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition-all font-bold text-sm"
+                  className="flex-1 py-3 rounded-2xl bg-rose-500 text-white hover:bg-rose-600 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
                 >
                   YES, LOGOUT
                 </button>
@@ -2413,39 +2474,39 @@ export default function FleetApp() {
       {/* Staff Comment Modal */}
       <AnimatePresence>
         {showCommentModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="glass-card p-6 w-full max-w-md text-center space-y-6 border-blue-500/20 bg-slate-900/90"
+              className="bg-white p-6 w-full max-w-md text-center space-y-5 rounded-3xl shadow-2xl border border-slate-100"
             >
-              <div className="flex items-center gap-3 text-white font-bold text-sm mb-2 justify-center">
-                <MessageSquare className="w-5 h-5 text-blue-500" />
+              <div className="flex items-center gap-2.5 text-slate-800 font-extrabold text-sm mb-1 justify-center">
+                <MessageSquare className="w-5 h-5 text-[#18859c]" />
                 STAFF COMMENT
               </div>
-              <p className="text-xs text-slate-400 mb-4">Enter or update the staff comment for this trip.</p>
+              <p className="text-xs font-bold text-slate-500 mb-2">Enter or update the staff comment for this trip.</p>
               
               <textarea
-                className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#18859c] transition-all resize-none font-medium shadow-inner"
                 placeholder="Enter staff comment here..."
                 rows={4}
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
               />
 
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowCommentModal(false)}
                   disabled={savingComment}
-                  className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all font-bold text-sm"
+                  className="flex-1 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
                 >
                   CANCEL
                 </button>
                 <button
                   onClick={handleSaveComment}
                   disabled={savingComment || commentText === commentTarget?.comment}
-                  className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-all font-bold text-sm flex justify-center items-center gap-2"
+                  className="flex-1 py-3 rounded-2xl bg-[#18859c] hover:bg-[#157489] disabled:opacity-50 text-white transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm flex justify-center items-center gap-2 cursor-pointer"
                 >
                   {savingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SAVE'}
                 </button>
@@ -2455,9 +2516,9 @@ export default function FleetApp() {
         )}
       </AnimatePresence>
 
-      {/* Driver Info Bar */}
+      {/* Desktop Driver Info Bar (Shown on Desktop only) */}
       {stage !== 'admin' && (
-        <div className="flex items-center gap-4 mb-6">
+        <div className="hidden md:flex items-center gap-4 mb-6">
           <div className="glass-card p-4 flex items-center justify-between gap-4 flex-1">
             <div className="flex items-center gap-4">
               <div className="flex flex-col items-center px-3 border-r border-white/10">
@@ -2499,240 +2560,469 @@ export default function FleetApp() {
         </div>
       )}
 
-      {/* Dashboard Actions */}
+      {/* Driver Dashboard View */}
       <AnimatePresence mode="wait">
         {stage === 'dashboard' ? (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="grid grid-cols-2 gap-4 mb-8"
           >
-            <button
-              onClick={handleNewRecord}
-              disabled={loading}
-              className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
-            >
-              <div className="p-4 rounded-2xl bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-4">
-                <Plus className="w-8 h-8 text-emerald-500 group-hover:text-white" />
-              </div>
-              <span className="font-bold text-sm">NEW RECORD</span>
-            </button>
-            <button
-              onClick={handleUpdateBtnClick}
-              disabled={loading}
-              className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group"
-            >
-              <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
-                <RefreshCw className="w-8 h-8 text-blue-500 group-hover:text-white" />
-              </div>
-              <span className="font-bold text-sm text-center">UPDATE RECORD</span>
-            </button>
+            {/* Desktop Dashboard View (Original Design) */}
+            <div className="hidden md:grid grid-cols-2 gap-4 mb-8">
+              <button
+                onClick={handleNewRecord}
+                disabled={loading}
+                className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
+              >
+                <div className="p-4 rounded-2xl bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-4">
+                  <Plus className="w-8 h-8 text-emerald-500 group-hover:text-white" />
+                </div>
+                <span className="font-bold text-sm">NEW RECORD</span>
+              </button>
+              <button
+                onClick={handleUpdateBtnClick}
+                disabled={loading}
+                className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group"
+              >
+                <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
+                  <RefreshCw className="w-8 h-8 text-blue-500 group-hover:text-white" />
+                </div>
+                <span className="font-bold text-sm text-center">UPDATE RECORD</span>
+              </button>
 
-            <button
-              onClick={() => {
-                window.history.pushState({ stage: 'last-trip' }, '');
-                setStage('last-trip');
-              }}
-              disabled={loading}
-              className="flex flex-col items-center justify-center p-8 glass-card hover:border-purple-500/50 transition-all group"
-            >
-              <div className="p-4 rounded-2xl bg-purple-500/10 group-hover:bg-purple-500 group-hover:text-white transition-all mb-4">
-                <MapPin className="w-8 h-8 text-purple-500 group-hover:text-white" />
-              </div>
-              <span className="font-bold text-sm text-center uppercase">Last Trip Details</span>
-            </button>
-
-            <button
-              onClick={() => {
-                window.history.pushState({ stage: 'salary' }, '');
-                setStage('salary');
-              }}
-              disabled={loading}
-              className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
-            >
-              <div className="p-4 rounded-2xl bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-4">
-                <IdCard className="w-8 h-8 text-emerald-500 group-hover:text-white" />
-              </div>
-              <span className="font-bold text-sm text-center uppercase">Salary Details</span>
-            </button>
-
-            <button
-              onClick={() => {
-                window.history.pushState({ stage: 'contact-office' }, '');
-                setStage('contact-office');
-              }}
-              disabled={loading}
-              className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group relative"
-            >
-              {(() => {
-                const unreadCount = inboxMessages.filter((m: any) => !m.isRead).length;
-                if (unreadCount > 0) {
-                  return (
-                    <div className="absolute top-4 right-4 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse flex items-center justify-center min-w-[24px] h-[24px] px-1.5 z-10">
-                      <span className="text-[12px] font-black text-white">{unreadCount}</span>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-              <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
-                <MessageSquare className="w-8 h-8 text-blue-500 group-hover:text-white" />
-              </div>
-              <span className="font-bold text-sm text-center uppercase">Contact Office</span>
-            </button>
-
-            {user[2]?.toLowerCase() === 'admin' && (
               <button
                 onClick={() => {
-                  window.history.pushState({ stage: 'admin' }, '');
-                  setAlert(null);
-                  setStage('admin');
+                  window.history.pushState({ stage: 'last-trip' }, '');
+                  setStage('last-trip');
                 }}
                 disabled={loading}
-                className="flex flex-col items-center justify-center p-8 glass-card hover:border-rose-500/50 transition-all group"
+                className="flex flex-col items-center justify-center p-8 glass-card hover:border-purple-500/50 transition-all group"
               >
-                <div className="p-4 rounded-2xl bg-rose-500/10 group-hover:bg-rose-500 group-hover:text-white transition-all mb-4">
-                  <Lock className="w-8 h-8 text-rose-500 group-hover:text-white" />
+                <div className="p-4 rounded-2xl bg-purple-500/10 group-hover:bg-purple-500 group-hover:text-white transition-all mb-4">
+                  <MapPin className="w-8 h-8 text-purple-500 group-hover:text-white" />
                 </div>
-                <span className="font-bold text-sm text-center uppercase">Admin Dashboard</span>
+                <span className="font-bold text-sm text-center uppercase">Last Trip Details</span>
               </button>
-            )}
+
+              <button
+                onClick={() => {
+                  window.history.pushState({ stage: 'salary' }, '');
+                  setStage('salary');
+                }}
+                disabled={loading}
+                className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
+              >
+                <div className="p-4 rounded-2xl bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-4">
+                  <IdCard className="w-8 h-8 text-emerald-500 group-hover:text-white" />
+                </div>
+                <span className="font-bold text-sm text-center uppercase">Salary Details</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  window.history.pushState({ stage: 'contact-office' }, '');
+                  setStage('contact-office');
+                }}
+                disabled={loading}
+                className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group relative"
+              >
+                {(() => {
+                  const unreadCount = inboxMessages.filter((m: any) => !m.isRead).length;
+                  if (unreadCount > 0) {
+                    return (
+                      <div className="absolute top-4 right-4 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse flex items-center justify-center min-w-[24px] h-[24px] px-1.5 z-10">
+                        <span className="text-[12px] font-black text-white">{unreadCount}</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
+                  <MessageSquare className="w-8 h-8 text-blue-500 group-hover:text-white" />
+                </div>
+                <span className="font-bold text-sm text-center uppercase">Contact Office</span>
+              </button>
+
+              {user[2]?.toLowerCase() === 'admin' && (
+                <button
+                  onClick={() => {
+                    window.history.pushState({ stage: 'admin' }, '');
+                    setAlert(null);
+                    setStage('admin');
+                  }}
+                  disabled={loading}
+                  className="flex flex-col items-center justify-center p-8 glass-card hover:border-rose-500/50 transition-all group"
+                >
+                  <div className="p-4 rounded-2xl bg-rose-500/10 group-hover:bg-rose-500 group-hover:text-white transition-all mb-4">
+                    <Lock className="w-8 h-8 text-rose-500 group-hover:text-white" />
+                  </div>
+                  <span className="font-bold text-sm text-center uppercase">Admin Dashboard</span>
+                </button>
+              )}
+            </div>
+
+            {/* Mobile Driver Dashboard View (Yellow Outer Corners like YSM Logo) */}
+            <div className="md:hidden bg-[#f59e0b] p-1 sm:p-1.5 rounded-3xl max-w-md mx-auto">
+              <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-24 min-h-[calc(100vh-1rem)] flex flex-col justify-between">
+                {/* Mobile Brand Logo Header (At Top) */}
+                <div className="flex items-center gap-3 py-1 px-1 mb-6">
+                  <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain rounded-md shadow-sm" />
+                  <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
+                    YSM FLEET MANAGEMENT
+                  </h1>
+                </div>
+
+                {/* Dashboard Content Cards Container (Pushed Down) */}
+                <div className="space-y-4 mt-auto">
+
+
+
+
+
+              {/* Records Section */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-slate-400 tracking-wide px-1">Records</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {/* New */}
+                  <button
+                    onClick={handleNewRecord}
+                    disabled={loading}
+                    className="bg-[#ebf9f1] border border-emerald-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                  >
+                    <Plus className="w-6 h-6 text-emerald-600 group-hover:scale-110 transition-transform" />
+                    <span className="font-bold text-emerald-700 text-xs">New</span>
+                  </button>
+
+                  {/* Update */}
+                  <button
+                    onClick={handleUpdateBtnClick}
+                    disabled={loading}
+                    className="bg-[#fffbf0] border border-amber-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                  >
+                    <RotateCw className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform" />
+                    <span className="font-bold text-amber-700 text-xs">Update</span>
+                  </button>
+
+                  {/* Leave Request */}
+                  <button
+                    onClick={() => setShowDevPopup(true)}
+                    disabled={loading}
+                    className="bg-[#f0f4ff] border border-blue-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                  >
+                    <Calendar className="w-6 h-6 text-blue-600 group-hover:scale-110 transition-transform" />
+                    <span className="font-bold text-blue-700 text-xs text-center leading-tight">Leave<br/>Request</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Menu Section */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-slate-400 tracking-wide px-1">Menu</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Last trip */}
+                  <button
+                    onClick={() => {
+                      window.history.pushState({ stage: 'last-trip' }, '');
+                      setStage('last-trip');
+                    }}
+                    disabled={loading}
+                    className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center">
+                      <MapPin className="w-5 h-5 text-purple-500" />
+                    </div>
+                    <span className="font-bold text-slate-700 text-xs">Last trip</span>
+                  </button>
+
+                  {/* Salary */}
+                  <button
+                    onClick={() => {
+                      window.history.pushState({ stage: 'salary' }, '');
+                      setStage('salary');
+                    }}
+                    disabled={loading}
+                    className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-teal-50 flex items-center justify-center">
+                      <Wallet className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <span className="font-bold text-slate-700 text-xs">Salary</span>
+                  </button>
+
+                  {/* Contact */}
+                  <button
+                    onClick={() => {
+                      window.history.pushState({ stage: 'contact-office' }, '');
+                      setStage('contact-office');
+                    }}
+                    disabled={loading}
+                    className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group relative"
+                  >
+                    {(() => {
+                      const unreadCount = inboxMessages.filter((m: any) => !m.isRead).length;
+                      if (unreadCount > 0) {
+                        return (
+                          <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-extrabold rounded-full w-5 h-5 flex items-center justify-center shadow-md animate-bounce">
+                            {unreadCount}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                    <div className="w-9 h-9 rounded-full bg-sky-50 flex items-center justify-center">
+                      <MessageSquare className="w-5 h-5 text-sky-500" />
+                    </div>
+                    <span className="font-bold text-slate-700 text-xs">Contact</span>
+                  </button>
+                </div>
+              </div>
+
+                {/* Yellow & White Message Send Box Card */}
+                <div className="bg-gradient-to-br from-amber-50 via-white to-amber-100/60 rounded-3xl p-3.5 shadow-sm border border-amber-200/80 space-y-2.5 mt-3">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="font-extrabold text-sm tracking-wide text-amber-900 flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4 text-amber-600" />
+                      Send Message to Office
+                    </span>
+                    <span className="text-[10px] font-bold bg-amber-500/20 text-amber-800 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                      Senu Cabs
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white rounded-2xl p-1.5 border border-amber-200 shadow-inner">
+                    <input
+                      type="text"
+                      placeholder="Type message to office..."
+                      value={officeMessage}
+                      onChange={(e) => setOfficeMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && officeMessage.trim() && !sendingMessage) {
+                          handleSendMessage();
+                        }
+                      }}
+                      className="flex-1 bg-transparent px-3 py-1.5 text-sm text-slate-800 placeholder:text-amber-700/50 focus:outline-none font-medium"
+                    />
+                    <button 
+                      onClick={handleSendMessage}
+                      disabled={sendingMessage || !officeMessage.trim()}
+                      className="w-9 h-9 rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:hover:bg-amber-500 text-white flex items-center justify-center shadow-sm transition-all shrink-0 cursor-pointer"
+                      title="Send Message to Office"
+                    >
+                      {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Send className="w-4 h-4 text-white translate-x-0.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+                {/* Bottom Navigation Bar */}
+              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-white border border-slate-100 rounded-full p-2 shadow-xl flex items-center justify-around z-50">
+                <button 
+                  onClick={() => setStage('dashboard')}
+                  className="p-2 rounded-full text-sky-500 hover:bg-sky-50 transition-colors cursor-pointer" 
+                  title="Home"
+                >
+                  <Home className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={handleSyncAccountSheet}
+                  disabled={isSyncingAccounts}
+                  className="p-2 rounded-full text-emerald-500 hover:bg-emerald-50 transition-colors cursor-pointer" 
+                  title="Sync Data"
+                >
+                  <RotateCw className={cn("w-5 h-5", isSyncingAccounts && "animate-spin")} />
+                </button>
+                {user[2]?.toLowerCase() === 'admin' && (
+                  <button 
+                    onClick={() => {
+                      window.history.pushState({ stage: 'admin' }, '');
+                      setAlert(null);
+                      setStage('admin');
+                    }}
+                    disabled={loading}
+                    className="p-2 rounded-full text-amber-500 hover:bg-amber-50 transition-colors cursor-pointer" 
+                    title="Admin Dashboard"
+                  >
+                    <ShieldCheck className="w-5 h-5" />
+                  </button>
+                )}
+                <button 
+                  onClick={handleLogout}
+                  className="p-2 rounded-full text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer" 
+                  title="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
 
       {stage === 'contact-office' && (
-        <div className="space-y-6">
-          <div className="flex gap-2 p-1 bg-slate-900 border border-white/5 rounded-xl">
+        <div className="bg-[#f59e0b] p-1 sm:p-1.5 rounded-3xl max-w-md mx-auto">
+          <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
+            {/* Header */}
+            <div className="flex items-center justify-between py-1 px-1">
+              <div className="flex items-center gap-3">
+                <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain rounded-md shadow-sm" />
+                <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
+                  CONTACT OFFICE
+                </h1>
+              </div>
+              <button
+                onClick={() => setStage('dashboard')}
+                className="w-9 h-9 rounded-full bg-white text-slate-600 border border-slate-200 flex items-center justify-center shadow-sm hover:bg-slate-50 transition-all cursor-pointer"
+                title="Back to Dashboard"
+              >
+                <ChevronLeft className="w-5 h-5 text-slate-700" />
+              </button>
+            </div>
+
+            {/* Tab Selection */}
+            <div className="flex gap-2 p-1.5 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
+              <button
+                onClick={() => setOfficeTab('send')}
+                className={cn(
+                  "flex-1 py-2.5 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all cursor-pointer",
+                  officeTab === 'send' 
+                    ? "bg-[#18859c] text-white shadow-sm" 
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                )}
+              >
+                Send Message
+              </button>
+              <button
+                onClick={() => setOfficeTab('inbox')}
+                className={cn(
+                  "flex-1 py-2.5 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all cursor-pointer relative",
+                  officeTab === 'inbox' 
+                    ? "bg-[#18859c] text-white shadow-sm" 
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                )}
+              >
+                Inbox
+                {inboxMessages.some((m: any) => !m.isRead) && (
+                  <span className="absolute top-2 right-3 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                )}
+              </button>
+            </div>
+
+            {officeTab === 'send' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-br from-amber-50 via-white to-amber-100/60 rounded-3xl p-5 shadow-sm border border-amber-200/80 space-y-4"
+              >
+                <div className="flex items-center gap-2.5 text-amber-900 font-extrabold text-sm">
+                  <MessageSquare className="w-5 h-5 text-amber-600" />
+                  SEND MESSAGE TO SENU CABS OFFICE
+                </div>
+                <p className="text-xs font-bold text-amber-900/80 leading-relaxed bg-amber-500/10 p-3.5 rounded-2xl border border-amber-500/20">
+                  Senu cabs කාර්යාලය වෙත පැමිණිල්ලක්, පණිවුඩයක් හා කිසියම් දැනුම් දීමක් කිරීමට අවශ්‍ය නම් පහත "Send Message" පහසුකම භාවිත කරන්න.
+                </p>
+                <textarea
+                  className="w-full bg-white border border-amber-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-amber-700/50 focus:outline-none focus:border-amber-400 transition-all resize-none font-medium shadow-inner"
+                  placeholder="Type your message here..."
+                  rows={5}
+                  value={officeMessage}
+                  onChange={(e) => setOfficeMessage(e.target.value)}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={sendingMessage || !officeMessage.trim()}
+                  className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer"
+                >
+                  {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> SEND MESSAGE</>}
+                </button>
+
+                <div className="mt-6 pt-4 border-t border-amber-200/60 space-y-3">
+                  <h4 className="text-xs font-extrabold text-amber-900/70 uppercase tracking-wider">Last 10 Sent Messages</h4>
+                  {fetchingSentMessages ? (
+                    <div className="py-4 text-center text-amber-700 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2"/>Loading...</div>
+                  ) : sentMessages.length === 0 ? (
+                    <div className="py-4 text-center text-slate-400 text-xs font-bold bg-white rounded-2xl border border-amber-100">No messages sent yet.</div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {sentMessages.map((msg, i) => (
+                        <div key={i} className="bg-white border border-amber-200/80 p-3.5 rounded-2xl shadow-sm">
+                          <div className="text-[10px] font-extrabold text-amber-600 mb-1 uppercase tracking-wider">{msg.timestamp}</div>
+                          <p className="text-xs font-medium text-slate-700 whitespace-pre-wrap">{msg.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {officeTab === 'inbox' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200/80 space-y-4"
+              >
+                <div className="flex items-center gap-2.5 text-slate-800 font-extrabold text-sm mb-2">
+                  <MessageSquare className="w-5 h-5 text-sky-500" />
+                  INBOX
+                </div>
+                
+                <div className="space-y-3">
+                  {fetchingInboxMessages ? (
+                    <div className="py-10 text-center text-slate-400 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2"/>Loading...</div>
+                  ) : inboxMessages.length === 0 ? (
+                    <div className="py-10 flex flex-col items-center justify-center text-center gap-3 bg-slate-50 rounded-2xl border border-slate-100">
+                      <MessageSquare className="w-8 h-8 text-slate-400" />
+                      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">No messages in inbox</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {inboxMessages.map((msg: any, i) => (
+                        <div 
+                          key={i} 
+                          onClick={async () => {
+                            if (!msg.isRead) {
+                              try {
+                                await fetch('/api/fleet/message', {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ id: msg._id })
+                                });
+                                setInboxMessages(prev => prev.map(m => m._id === msg._id ? { ...m, isRead: true } : m));
+                              } catch (e) {}
+                            }
+                          }}
+                          className={cn(
+                            "p-3.5 rounded-2xl transition-all border",
+                            !msg.isRead 
+                              ? "bg-amber-50/60 border-amber-300 shadow-sm cursor-pointer" 
+                              : "bg-slate-50 border-slate-100"
+                          )}
+                        >
+                          <div className="flex justify-between items-center mb-1.5">
+                            <div className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider flex items-center gap-2">
+                              {!msg.isRead && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>}
+                              {msg.isRead && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
+                              FROM ADMIN
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{msg.timestamp}</div>
+                          </div>
+                          <p className={cn("text-xs whitespace-pre-wrap transition-colors", !msg.isRead ? "text-slate-900 font-extrabold" : "text-slate-600 font-medium")}>{msg.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             <button
-              onClick={() => setOfficeTab('send')}
-              className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", officeTab === 'send' ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
+              onClick={() => setStage('dashboard')}
+              className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
-              Send Message
-            </button>
-            <button
-              onClick={() => setOfficeTab('inbox')}
-              className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", officeTab === 'inbox' ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
-            >
-              Inbox
+              <ChevronLeft className="w-4 h-4 text-slate-500" /> Back to Dashboard
             </button>
           </div>
-
-          {officeTab === 'send' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-card p-6 space-y-4 border-blue-500/20 bg-blue-500/5"
-            >
-              <div className="flex items-center gap-3 text-white font-bold text-sm mb-2">
-                <MessageSquare className="w-5 h-5 text-blue-500" />
-                SEND MESSAGE TO SENU CABS OFFICE
-              </div>
-              <p className="text-sm font-bold text-slate-200 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
-                Senu cabs à¶šà·à¶»à·Šà¶ºà·à¶½à¶º à·€à·™à¶­ à¶´à·à¶¸à·’à¶±à·’à¶½à·Šà¶½à¶šà·Š, à¶´à¶«à·’à·€à·”à¶©à¶ºà¶šà·Š à·„à· à¶šà·’à·ƒà·’à¶ºà¶¸à·Š à¶¯à·à¶±à·”à¶¸à·Š à¶¯à·“à¶¸à¶šà·Š à¶šà·’à¶»à·’à¶¸à¶§ à¶…à·€à·à·Šà¶º à¶±à¶¸à·Š à¶´à·„à¶­ "Send Message" à¶´à·„à·ƒà·”à¶šà¶¸ à¶·à·à·€à·’à¶­à· à¶šà¶»à¶±à·Šà¶±.
-              </p>
-              <textarea
-                className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
-                placeholder="Type your message here..."
-                rows={6}
-                value={officeMessage}
-                onChange={(e) => setOfficeMessage(e.target.value)}
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={sendingMessage || !officeMessage.trim()}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest"
-              >
-                {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SEND MESSAGE'}
-              </button>
-
-              <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Last 10 Sent Messages</h4>
-                {fetchingSentMessages ? (
-                  <div className="py-4 text-center text-slate-400 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2"/>Loading...</div>
-                ) : sentMessages.length === 0 ? (
-                  <div className="py-4 text-center text-slate-500 text-xs font-bold bg-slate-900/50 rounded-xl border border-white/5">No messages sent yet.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {sentMessages.map((msg, i) => (
-                      <div key={i} className="bg-slate-900/50 border border-white/5 p-4 rounded-xl">
-                        <div className="text-[10px] font-bold text-blue-400 mb-2 uppercase tracking-widest">{msg.timestamp}</div>
-                        <p className="text-xs font-medium text-slate-200 whitespace-pre-wrap">{msg.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {officeTab === 'inbox' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-card p-6 border-slate-500/20 bg-slate-500/5"
-            >
-              <div className="flex items-center gap-3 text-white font-bold text-sm mb-6">
-                <MessageSquare className="w-5 h-5 text-slate-400" />
-                INBOX
-              </div>
-              
-              <div className="space-y-4">
-                {fetchingInboxMessages ? (
-                  <div className="py-10 text-center text-slate-400 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2"/>Loading...</div>
-                ) : inboxMessages.length === 0 ? (
-                  <div className="py-10 flex flex-col items-center justify-center text-center gap-3 bg-slate-900/50 rounded-2xl border border-white/5">
-                    <MessageSquare className="w-8 h-8 text-slate-600" />
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No messages in inbox</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {inboxMessages.map((msg: any, i) => (
-                      <div 
-                        key={i} 
-                        onClick={async () => {
-                          if (!msg.isRead) {
-                            try {
-                              await fetch('/api/fleet/message', {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: msg._id })
-                              });
-                              setInboxMessages(prev => prev.map(m => m._id === msg._id ? { ...m, isRead: true } : m));
-                            } catch (e) {}
-                          }
-                        }}
-                        className={cn(
-                          "p-4 rounded-xl transition-all",
-                          !msg.isRead 
-                            ? "bg-blue-500/[0.05] border border-blue-500/30 cursor-pointer hover:bg-blue-500/[0.1]" 
-                            : "bg-slate-900/50 border border-white/5"
-                        )}
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
-                            {!msg.isRead && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>}
-                            {msg.isRead && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
-                            FROM ADMIN
-                          </div>
-                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{msg.timestamp}</div>
-                        </div>
-                        <p className={cn("text-xs whitespace-pre-wrap transition-colors", !msg.isRead ? "text-white font-bold" : "text-slate-400 font-medium")}>{msg.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          <button
-            onClick={() => setStage('dashboard')}
-            className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
-          >
-            Back to Dashboard
-          </button>
         </div>
       )}
 
@@ -3711,7 +4001,18 @@ export default function FleetApp() {
                                   </div>
                                 ) : idx === 32 ? (
                                   <span className="font-sans font-normal text-white">
-                                    {t.values[32] || 'Office card'}
+                                    {(() => {
+                                      const hasFuel = Boolean(
+                                        (t.values[9] !== undefined && t.values[9] !== null && String(t.values[9]).trim() !== '' && t.values[9] !== '0' && t.values[9] !== 0) ||
+                                        (t.values[24] !== undefined && t.values[24] !== null && String(t.values[24]).trim() !== '' && t.values[24] !== '0' && t.values[24] !== 0) ||
+                                        (t.values[25] !== undefined && t.values[25] !== null && String(t.values[25]).trim() !== '') ||
+                                        (t.values[26] !== undefined && t.values[26] !== null && String(t.values[26]).trim() !== '') ||
+                                        (t.values[28] !== undefined && t.values[28] !== null && String(t.values[28]).trim() !== '') ||
+                                        (t.values[10] && String(t.values[10]).includes('(Fuel'))
+                                      );
+                                      if (!hasFuel) return '-';
+                                      return t.values[32] || 'Office card';
+                                    })()}
                                   </span>
                                 ) : (
                                   <span className={cn(
@@ -5768,7 +6069,7 @@ export default function FleetApp() {
 
       {/* Alert Component */}
       <AnimatePresence>
-        {alert && stage !== 'new' && stage !== 'update' && (
+        {alert && stage !== 'dashboard' && stage !== 'new' && stage !== 'update' && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -5789,16 +6090,18 @@ export default function FleetApp() {
       {/* Form Content */}
       <AnimatePresence>
         {stage !== 'dashboard' && stage !== 'admin' && (
-          <motion.div
+          <div className="bg-[#f59e0b] p-1 sm:p-1.5 rounded-3xl max-w-md mx-auto">
+            <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
+              <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
             {stage === 'last-trip' && (
-              <div className="glass-card p-6 space-y-4">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center block">Select FR Number (Last 10)</label>
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-4">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center block">Select FR Number (Last 10)</label>
                 <select
-                  className="w-full input-field py-3"
+                  className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
                   value={currentRef || ''}
                   onChange={(e) => handleFrRefChange(e.target.value)}
                 >
@@ -5812,16 +6115,16 @@ export default function FleetApp() {
 
             {stage === 'salary' && (
               <div className="space-y-6">
-                <div className="glass-card p-6 space-y-4">
-                  <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-4">
+                  <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
                     <IdCard className="w-5 h-5 text-emerald-500" />
                     Salary Period
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Year</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Year</label>
                       <select
-                        className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4 text-sm"
+                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 rounded-xl px-4 text-sm"
                         value={salaryYear}
                         onChange={(e) => setSalaryYear(e.target.value)}
                       >
@@ -5831,9 +6134,9 @@ export default function FleetApp() {
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Month</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Month</label>
                       <select
-                        className="w-full input-field py-3 text-white bg-white/5 border-white/10 rounded-xl px-4 text-sm"
+                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 rounded-xl px-4 text-sm"
                         value={salaryMonth}
                         onChange={(e) => setSalaryMonth(e.target.value)}
                       >
@@ -5847,17 +6150,17 @@ export default function FleetApp() {
 
                 {/* Summary Card */}
                 {salaryData.length > 0 && (
-                  <div className="glass-card p-6 bg-emerald-500/10 border-emerald-500/20">
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 bg-emerald-500/10 border-emerald-500/20">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-8">
                         <div className="space-y-1">
                           <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block">Salary</span>
-                          <span className="text-3xl font-black text-white">Rs. {totalSalary.toLocaleString()}</span>
+                          <span className="text-3xl font-black text-slate-900">Rs. {totalSalary.toLocaleString()}</span>
                         </div>
-                        <div className="w-px h-10 bg-white/10" />
+                        <div className="w-px h-10 bg-slate-200" />
                         <div className="space-y-1">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Hire Count</span>
-                          <span className="text-2xl font-bold text-white">{salaryData.length} <span className="text-xs font-normal text-slate-400">Trips</span></span>
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Hire Count</span>
+                          <span className="text-2xl font-bold text-slate-900">{salaryData.length} <span className="text-xs font-normal text-slate-500">Trips</span></span>
                         </div>
                       </div>
                       <div className="text-right hidden sm:block">
@@ -5871,9 +6174,9 @@ export default function FleetApp() {
 
                 {/* Trip Table */}
                 {salaryData.length > 0 && (
-                  <div className="glass-card overflow-hidden">
-                    <div className="p-4 border-b border-white/10 bg-white/5">
-                      <div className="grid grid-cols-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
+                    <div className="p-4 border-b border-slate-200 bg-white">
+                      <div className="grid grid-cols-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                         <span>Trip Reference</span>
                         <span>Date</span>
                         <span className="text-right">Salary (Rs)</span>
@@ -5881,9 +6184,9 @@ export default function FleetApp() {
                     </div>
                     <div className="divide-y divide-white/5 max-h-[400px] overflow-y-auto">
                       {salaryData.map((item, idx) => (
-                        <div key={idx} className="p-4 grid grid-cols-3 items-center hover:bg-white/5 transition-colors">
-                          <span className="text-xs font-bold text-white">{item.tripRef}</span>
-                          <span className="text-[10px] text-slate-400">{item.date?.split(' ')[0]}</span>
+                        <div key={idx} className="p-4 grid grid-cols-3 items-center border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold shadow-sm rounded-3xl cursor-pointer">
+                          <span className="text-xs font-bold text-slate-900">{item.tripRef}</span>
+                          <span className="text-[10px] text-slate-500">{item.date?.split(' ')[0]}</span>
                           <span className="text-xs font-bold text-emerald-400 text-right">{item.salary.toLocaleString()}</span>
                         </div>
                       ))}
@@ -5892,11 +6195,11 @@ export default function FleetApp() {
                 )}
 
                 {salaryData.length === 0 && !fetchingSalary && (
-                  <div className="glass-card p-12 text-center border-dashed border-white/10">
-                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-12 text-center border-dashed border-slate-200">
+                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mx-auto mb-4">
                       <IdCard className="w-8 h-8 text-emerald-500/50" />
                     </div>
-                    <p className="text-slate-400 text-sm font-medium">
+                    <p className="text-slate-500 text-sm font-medium">
                       No hire commissions found for this period.
                     </p>
                   </div>
@@ -5908,7 +6211,7 @@ export default function FleetApp() {
                     setSalaryData([]);
                     setTotalSalary(0);
                   }}
-                  className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+                  className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer"
                 >
                   Back to Dashboard
                 </button>
@@ -5916,19 +6219,19 @@ export default function FleetApp() {
             )}
 
             {stage === 'last-trip' && !currentRef && (
-              <div className="glass-card p-12 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-12 flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border border-slate-200">
                   <MapPin className="w-10 h-10 text-purple-500" />
                 </div>
-                <h2 className="text-xl font-bold text-white uppercase tracking-wider">
+                <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wider">
                   Last Trip Details
                 </h2>
-                <p className="text-slate-400 text-sm max-w-xs">
+                <p className="text-slate-500 text-sm max-w-xs">
                   Please select a reference number above to view trip details.
                 </p>
                 <button
                   onClick={() => window.history.back()}
-                  className="mt-6 px-8 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-bold"
+                  className="mt-6 px-8 py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-sm font-extrabold shadow-sm cursor-pointer"
                 >
                   GO BACK
                 </button>
@@ -5936,8 +6239,8 @@ export default function FleetApp() {
             )}
             {stage === 'last-trip' && currentRef && (
               <div className="space-y-6">
-                <div className="glass-card p-6 border-purple-500/30 bg-purple-500/5">
-                  <div className="flex items-center gap-3 text-white font-bold text-lg mb-6">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 border-purple-500/30 bg-purple-500/5">
+                  <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-6">
                     <ClipboardCheck className="w-6 h-6 text-purple-500" />
                     Detailed Trip Report: {currentRef}
                   </div>
@@ -5965,8 +6268,8 @@ export default function FleetApp() {
                       { label: 'Final Price', value: `Rs. ${formData.finalPrice}`, highlight: true },
                     ].map((item, idx) => (
                       <div key={idx} className="space-y-1">
-                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{item.label}</p>
-                        <p className={cn("text-sm font-bold", item.highlight ? "text-purple-400" : "text-white")}>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{item.label}</p>
+                        <p className={cn("text-sm font-bold", item.highlight ? "text-purple-400" : "text-slate-900")}>
                           {item.value || 'N/A'}
                         </p>
                       </div>
@@ -5974,9 +6277,9 @@ export default function FleetApp() {
                   </div>
 
                   {formData.comments && (
-                    <div className="mt-8 pt-6 border-t border-white/5">
-                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-2">Comments / Remarks</p>
-                      <p className="text-sm text-slate-200 italic leading-relaxed">"{formData.comments}"</p>
+                    <div className="mt-8 pt-6 border-t border-slate-100">
+                      <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">Comments / Remarks</p>
+                      <p className="text-sm text-slate-600 italic leading-relaxed">"{formData.comments}"</p>
                     </div>
                   )}
 
@@ -5992,7 +6295,7 @@ export default function FleetApp() {
                           tripPrice: '', totalMileage: '', finalPrice: '', startTs: '', endTs: ''
                         });
                       }}
-                      className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+                      className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer"
                     >
                       Close Report
                     </button>
@@ -6003,10 +6306,10 @@ export default function FleetApp() {
 
             {/* FR Reference Selection (Update Stage) */}
             {stage === 'update' && (
-              <div className="glass-card p-6 space-y-4">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Select Reference</label>
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-4">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Select Reference</label>
                 <select
-                  className="w-full input-field py-3"
+                  className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
                   value={currentRef || ''}
                   onChange={(e) => handleFrRefChange(e.target.value)}
                 >
@@ -6018,7 +6321,7 @@ export default function FleetApp() {
                 {!currentRef && (
                   <button
                     onClick={() => setStage('dashboard')}
-                    className="w-full py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-widest"
+                    className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer"
                   >
                     Back to Dashboard
                   </button>
@@ -6028,19 +6331,19 @@ export default function FleetApp() {
 
             {/* Core Details Card */}
             {(currentRef || stage === 'new') && stage !== 'last-trip' && stage !== 'salary' && stage !== 'contact-office' && (
-              <div className="glass-card p-6 space-y-6">
-                <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6">
+                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
                   <Car className="w-5 h-5 text-emerald-500" />
                   Vehicle & Purpose
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Vehicle</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Vehicle</label>
                     <select
                       id="vehicle"
                       disabled={stage === 'update'}
-                      className="w-full input-field py-3"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
                       value={formData.vehicle}
                       onChange={handleInputChange}
                     >
@@ -6049,11 +6352,11 @@ export default function FleetApp() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Purpose</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Purpose</label>
                     <select
                       id="purpose"
                       disabled={stage === 'update'}
-                      className="w-full input-field py-3"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
                       value={formData.purpose}
                       onChange={handleInputChange}
                     >
@@ -6065,27 +6368,27 @@ export default function FleetApp() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Garage Start (KM)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Garage Start (KM)</label>
                     <input
                       id="garageStartMeter"
                       type="number"
                       min="0"
                       disabled={stage === 'update'}
-                      className="w-full input-field py-3"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
                       value={formData.garageStartMeter}
                       onChange={handleInputChange}
                     />
                   </div>
                   {stage === 'new' && (
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Start Image</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Start Image</label>
                       <div className="relative">
                         <Camera className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                         <input
                           id="garageStartImage"
                           type="file"
                           accept="image/*"
-                          className="w-full input-field py-2 pr-10 text-[10px]"
+                          className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 pr-10 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner"
                           onChange={handleFileChange}
                         />
                       </div>
@@ -6097,23 +6400,23 @@ export default function FleetApp() {
 
             {/* Stage Specific Cards */}
             {formData.purpose === 'Hire' && (stage === 'new' || stage === 'update') && (
-              <div className="glass-card p-6 space-y-6 relative overflow-hidden">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 relative overflow-hidden">
                 {fetchingDetails && (
                   <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-20 flex flex-col items-center justify-center">
                     <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-2" />
                     <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Loading Trip Data...</span>
                   </div>
                 )}
-                <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
+                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
                   <MapPin className="w-5 h-5 text-blue-500" />
                   Hire Details
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Trip Reference</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Trip Reference</label>
                   <select
                     id="tripRef"
                     disabled={stage === 'update'}
-                    className="w-full input-field py-3"
+                    className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
                     value={formData.tripRef}
                     onChange={(e) => handleTripRefChange(e.target.value)}
                   >
@@ -6131,55 +6434,55 @@ export default function FleetApp() {
                 </div>
 
                 {formData.tripRef && (formData.accStartDate || formData.accVehicleType || formData.accPickupStreet || fetchingDetails) && (
-                  <div className="mt-4 p-4 rounded-xl bg-slate-900/60 border border-white/10 space-y-3">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5" /> Account Sheet Trip Details
                       </span>
-                      <span className="text-[10px] font-bold text-slate-400 font-mono">Ref: {formData.tripRef}</span>
+                      <span className="text-[10px] font-bold text-slate-500 font-mono">Ref: {formData.tripRef}</span>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                       <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Start Date</p>
-                        <p className="font-semibold text-white">{formData.accStartDate || '-'}</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">Start Date</p>
+                        <p className="font-semibold text-slate-900">{formData.accStartDate || '-'}</p>
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Start Time</p>
-                        <p className="font-semibold text-white">{formData.accStartTime || '-'}</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">Start Time</p>
+                        <p className="font-semibold text-slate-900">{formData.accStartTime || '-'}</p>
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">End Date</p>
-                        <p className="font-semibold text-white">{formData.accEndDate || '-'}</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">End Date</p>
+                        <p className="font-semibold text-slate-900">{formData.accEndDate || '-'}</p>
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">End Time</p>
-                        <p className="font-semibold text-white">{formData.accEndTime || '-'}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-xs pt-2 border-t border-white/5">
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Vehicle Type</p>
-                        <p className="font-semibold text-white">{formData.accVehicleType || '-'}</p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">No of pax</p>
-                        <p className="font-semibold text-white">{formData.accNoOfPax || '-'}</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">End Time</p>
+                        <p className="font-semibold text-slate-900">{formData.accEndTime || '-'}</p>
                       </div>
                     </div>
 
-                    <div className="space-y-2 pt-2 border-t border-white/5 text-xs">
+                    <div className="grid grid-cols-2 gap-3 text-xs pt-2 border-t border-slate-100">
                       <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Pick up Street</p>
-                        <p className="font-semibold text-white leading-tight">{formData.accPickupStreet || '-'}</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">Vehicle Type</p>
+                        <p className="font-semibold text-slate-900">{formData.accVehicleType || '-'}</p>
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Drop off Str</p>
-                        <p className="font-semibold text-white leading-tight">{formData.accDropoffStreet || '-'}</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">No of pax</p>
+                        <p className="font-semibold text-slate-900">{formData.accNoOfPax || '-'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">Pick up Street</p>
+                        <p className="font-semibold text-slate-900 leading-tight">{formData.accPickupStreet || '-'}</p>
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Journey Type</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">Drop off Str</p>
+                        <p className="font-semibold text-slate-900 leading-tight">{formData.accDropoffStreet || '-'}</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[9px] font-bold text-slate-500 uppercase">Journey Type</p>
                         <p className="font-bold text-emerald-400 leading-tight">{formData.accJourneyType || '-'}</p>
                       </div>
                     </div>
@@ -6189,24 +6492,24 @@ export default function FleetApp() {
                 {stage === 'update' ? (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <p className="text-[10px] text-slate-400 uppercase">Trip Start</p>
+                      <p className="text-[10px] text-slate-500 uppercase">Trip Start</p>
                       <p className="font-bold">{formData.tripStartMeter} KM</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-slate-400 uppercase">Trip End</p>
+                      <p className="text-[10px] text-slate-500 uppercase">Trip End</p>
                       <p className="font-bold">{formData.tripEndMeter} KM</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-slate-400 uppercase">Driver Salary</p>
+                      <p className="text-[10px] text-slate-500 uppercase">Driver Salary</p>
                       <p className="font-bold text-emerald-400">Rs. {formData.drvComms ? Number(formData.drvComms).toLocaleString() : ''}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-slate-400 uppercase">Pkg Balance</p>
+                      <p className="text-[10px] text-slate-500 uppercase">Pkg Balance</p>
                       <p className="font-bold text-amber-400">{formData.pkgBalanceMileage ? `${Number(formData.pkgBalanceMileage).toLocaleString()} KM` : ''}</p>
                     </div>
-                    <div className="space-y-1 col-span-2 border-t border-white/5 pt-3 mt-1">
+                    <div className="space-y-1 col-span-2 border-t border-slate-100 pt-3 mt-1">
                       <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Final Price</p>
-                      <p className="text-xl font-black text-white">Rs. {formData.tripPrice ? Number(formData.tripPrice).toLocaleString() : '0'}</p>
+                      <p className="text-xl font-black text-slate-900">Rs. {formData.tripPrice ? Number(formData.tripPrice).toLocaleString() : '0'}</p>
                     </div>
                   </div>
                 ) : null}
@@ -6216,55 +6519,71 @@ export default function FleetApp() {
 
 
             {stage === 'update' && currentRef && (
-              <div className="glass-card p-6 space-y-6 border-sky-500/20 bg-sky-500/5">
-                <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 border-sky-500/20 bg-sky-500/5">
+                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
                   <Fuel className="w-5 h-5 text-sky-500" />
                   Details in the Fuel Station
                 </div>
 
+                {alert && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={cn(
+                      "p-4 rounded-2xl flex items-center gap-3 border shadow-lg transition-all",
+                      alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
+                      alert.type === 'warning' && "bg-amber-500/10 border-amber-500/30 text-amber-400",
+                      alert.type === 'error' && "bg-rose-950/40 border-rose-800/60 text-rose-500"
+                    )}
+                  >
+                    {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />}
+                    <p className="text-sm font-medium">{alert.message}</p>
+                  </motion.div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Meter in the Fuel Station</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Meter in the Fuel Station</label>
                     <input
                       id="fuelStationMeter"
                       type="number"
                       min="0"
                       disabled={isFuelSubmitted}
-                      className="w-full input-field py-3 disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
                       value={formData.fuelStationMeter || ''}
                       onChange={handleInputChange}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Meter Image Upload</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Meter Image Upload</label>
                     <input
                       id="fuelStationMeterImage"
                       type="file"
                       accept="image/*"
                       disabled={isFuelSubmitted}
-                      className="w-full input-field py-2 text-[10px] disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
                       onChange={handleFileChange}
                     />
                   </div>
                   <div className="space-y-2 col-span-2 md:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Liter Count</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Fuel Liter Count</label>
                     <input
                       id="fuelLiterCount"
                       type="number"
                       min="0"
                       step="0.01"
                       disabled={isFuelSubmitted}
-                      className="w-full input-field py-3 disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
                       value={formData.fuelLiterCount || ''}
                       onChange={handleInputChange}
                     />
                   </div>
                   <div className="space-y-2 col-span-2 md:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Payment Type</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Payment Type</label>
                     <select
                       id="paymentType"
                       disabled={isFuelSubmitted}
-                      className="w-full input-field py-3 disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
                       value={formData.paymentType || 'Office card'}
                       onChange={handleInputChange}
                     >
@@ -6278,25 +6597,25 @@ export default function FleetApp() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Cost (Rs.)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Fuel Cost (Rs.)</label>
                     <input
                       id="fuelCost"
                       type="number"
                       min="0"
                       disabled={isFuelSubmitted}
-                      className="w-full input-field py-3 disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
                       value={formData.fuelCost}
                       onChange={handleInputChange}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Receipt</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Fuel Receipt</label>
                     <input
                       id="fuelReceipt"
                       type="file"
                       accept="image/*"
                       disabled={isFuelSubmitted}
-                      className="w-full input-field py-2 text-[10px] disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
                       onChange={handleFileChange}
                     />
                   </div>
@@ -6308,7 +6627,7 @@ export default function FleetApp() {
                   className={cn(
                     "w-full py-4 font-black rounded-xl transition-all shadow-lg uppercase tracking-widest text-xs flex items-center justify-center gap-2",
                     (isFuelSubmitted || loading) 
-                      ? "bg-slate-500/50 text-slate-400 cursor-not-allowed" 
+                      ? "bg-slate-500/50 text-slate-500 cursor-not-allowed" 
                       : "bg-sky-500 hover:bg-sky-400 text-black shadow-sky-500/20"
                   )}
                 >
@@ -6350,38 +6669,38 @@ export default function FleetApp() {
             )}
 
             {showRepairDetails && stage === 'update' && currentRef && (
-              <div className="glass-card p-6 space-y-6 border-rose-500/20 bg-rose-500/5 mt-4 mb-4">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 border-rose-500/20 bg-rose-500/5 mt-4 mb-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
+                  <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
                     <Wrench className="w-5 h-5 text-rose-500" />
                     Details in the Repair Station
                   </div>
-                  <button onClick={() => setShowRepairDetails(false)} className="text-slate-400 hover:text-white">
+                  <button onClick={() => setShowRepairDetails(false)} className="text-slate-500 hover:text-slate-900">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Meter in the Repair Station</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Meter in the Repair Station</label>
                     <input
                       id="repairStationMeter"
                       type="number"
                       min="0"
                       disabled={isRepairSubmitted}
-                      className="w-full input-field py-3 disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
                       value={formData.repairStationMeter || ''}
                       onChange={handleInputChange}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Meter Image Upload</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Meter Image Upload</label>
                     <input
                       id="repairStationMeterImage"
                       type="file"
                       accept="image/*"
                       disabled={isRepairSubmitted}
-                      className="w-full input-field py-2 text-[10px] disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
                       onChange={handleFileChange}
                     />
                   </div>
@@ -6389,25 +6708,25 @@ export default function FleetApp() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Repair Cost (Rs.)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Cost (Rs.)</label>
                     <input
                       id="repairCost"
                       type="number"
                       min="0"
                       disabled={isRepairSubmitted}
-                      className="w-full input-field py-3 disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
                       value={formData.repairCost || ''}
                       onChange={handleInputChange}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Repair Receipt</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Receipt</label>
                     <input
                       id="repairReceipt"
                       type="file"
                       accept="image/*"
                       disabled={isRepairSubmitted}
-                      className="w-full input-field py-2 text-[10px] disabled:opacity-50"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
                       onChange={handleFileChange}
                     />
                   </div>
@@ -6419,7 +6738,7 @@ export default function FleetApp() {
                   className={cn(
                     "w-full py-4 font-black rounded-xl transition-all shadow-lg uppercase tracking-widest text-xs flex items-center justify-center gap-2",
                     (isRepairSubmitted || loading) 
-                      ? "bg-slate-500/50 text-slate-400 cursor-not-allowed" 
+                      ? "bg-slate-500/50 text-slate-500 cursor-not-allowed" 
                       : "bg-rose-500 hover:bg-rose-400 text-black shadow-rose-500/20"
                   )}
                 >
@@ -6443,8 +6762,8 @@ export default function FleetApp() {
             )}
 
             {stage === 'update' && currentRef && (
-              <div className="glass-card p-6 space-y-6">
-                <div className="flex items-center gap-3 text-white font-bold text-lg mb-2">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6">
+                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
                   <ClipboardCheck className="w-5 h-5 text-emerald-500" />
                   End Trip Details
                 </div>
@@ -6453,22 +6772,22 @@ export default function FleetApp() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Garage End (KM)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Garage End (KM)</label>
                     <input
                       id="garageEndMeter"
                       type="number"
                       min="0"
-                      className="w-full input-field py-3"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
                       value={formData.garageEndMeter}
                       onChange={handleInputChange}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">End Image</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">End Image</label>
                     <input
                       id="garageEndImage"
                       type="file"
-                      className="w-full input-field py-2 text-[10px]"
+                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner"
                       onChange={handleFileChange}
                     />
                   </div>
@@ -6477,29 +6796,29 @@ export default function FleetApp() {
                 {formData.purpose === 'Repair' && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Repair Cost (Rs.)</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Cost (Rs.)</label>
                       <input
                         id="repairCost"
                         type="number"
                         min="0"
-                        className="w-full input-field py-3"
+                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
                         value={formData.repairCost}
                         onChange={handleInputChange}
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Repair Receipt</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Receipt</label>
                       <input
                         id="repairReceipt"
                         type="file"
                         multiple
-                        className="w-full input-field py-2 text-[10px]"
+                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner"
                         onChange={handleFileChange}
                       />
                       {files.repairReceipt && Array.isArray(files.repairReceipt) && files.repairReceipt.length > 0 && (
                         <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
                           {files.repairReceipt.map((f, i) => (
-                            <div key={i} className="flex items-center justify-between text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg border border-white/5">
+                            <div key={i} className="flex items-center justify-between text-[10px] text-slate-500 bg-white p-2 rounded-lg border border-slate-100">
                               <span className="truncate flex-1 mr-2">{f.name}</span>
                               <button
                                 onClick={(e) => {
@@ -6519,11 +6838,11 @@ export default function FleetApp() {
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Comments</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Comments</label>
                   <textarea
                     id="comments"
                     rows={3}
-                    className="w-full input-field py-3"
+                    className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
                     value={formData.comments}
                     onChange={handleInputChange}
                   />
@@ -6534,31 +6853,31 @@ export default function FleetApp() {
             )}
 
             {formData.purpose === 'Hire' && stage === 'update' && currentRef && (
-              <div className="glass-card p-6 border-rose-500/30 bg-rose-500/5">
-                <div className="flex items-center gap-3 text-white font-bold text-lg mb-4">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 border-rose-500/30 bg-rose-500/5">
+                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-4">
                   <AlertCircle className="w-5 h-5 text-rose-500" />
                   Mileage Loss Summary
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-[10px] text-slate-400 uppercase">Start Loss</p>
-                    <p className="font-bold text-white">
+                    <p className="text-[10px] text-slate-500 uppercase">Start Loss</p>
+                    <p className="font-bold text-slate-900">
                       {(Number(formData.tripStartMeter) - Number(formData.garageStartMeter))} KM
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] text-slate-400 uppercase">End Loss</p>
-                    <p className="font-bold text-white">
+                    <p className="text-[10px] text-slate-500 uppercase">End Loss</p>
+                    <p className="font-bold text-slate-900">
                       {formData.garageEndMeter ? (Number(formData.garageEndMeter) - Number(formData.tripEndMeter)) : 0} KM
                     </p>
                   </div>
-                  <div className="space-y-1 border-l border-white/10 pl-4">
+                  <div className="space-y-1 border-l border-slate-200 pl-4">
                     <p className="text-[10px] text-emerald-400 font-bold uppercase">SC Due Amount</p>
                     <p className="text-2xl font-black text-emerald-500">
                       Rs. {formData.scDueAmount}
                     </p>
                   </div>
-                  <div className="space-y-1 border-l border-white/10 pl-4">
+                  <div className="space-y-1 border-l border-slate-200 pl-4">
                     <p className="text-[10px] text-rose-400 font-bold uppercase">Total Loss</p>
                     <p className="text-2xl font-black text-rose-500">
                       {formData.garageEndMeter ? ((Number(formData.tripStartMeter) - Number(formData.garageStartMeter)) + (Number(formData.garageEndMeter) - Number(formData.tripEndMeter))) : 0} KM
@@ -6592,14 +6911,14 @@ export default function FleetApp() {
                 <div className="flex gap-4">
                   <button
                     onClick={() => window.history.back()}
-                    className="flex-1 py-4 glass-card font-bold hover:bg-white/5 transition-colors"
+                    className="flex-1 py-4 bg-white rounded-3xl shadow-sm border border-slate-200/80 font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold shadow-sm rounded-3xl cursor-pointer"
                   >
                     CANCEL
                   </button>
                   <button
                     onClick={handleSubmit}
                     disabled={loading || isSubmittingRef.current || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef) || (formData.purpose === 'Fuel' && stage === 'update' && !isFuelSubmitted)}
-                    className="flex-[2] py-4 btn-gradient text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-[2] py-4 bg-[#18859c] hover:bg-[#157489] text-slate-900 font-extrabold rounded-3xl shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
                     SUBMIT RECORD
@@ -6607,7 +6926,9 @@ export default function FleetApp() {
                 </div>
               </div>
             )}
-          </motion.div>
+              </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
       {/* PWA Install Popup */}
@@ -7033,6 +7354,19 @@ export default function FleetApp() {
                               }
                             }
                             return '-';
+                          })()
+                        ) : field.idx === 32 ? (
+                          (() => {
+                            const hasFuel = Boolean(
+                              (viewingTrip.values[9] !== undefined && viewingTrip.values[9] !== null && String(viewingTrip.values[9]).trim() !== '' && viewingTrip.values[9] !== '0' && viewingTrip.values[9] !== 0) ||
+                              (viewingTrip.values[24] !== undefined && viewingTrip.values[24] !== null && String(viewingTrip.values[24]).trim() !== '' && viewingTrip.values[24] !== '0' && viewingTrip.values[24] !== 0) ||
+                              (viewingTrip.values[25] !== undefined && viewingTrip.values[25] !== null && String(viewingTrip.values[25]).trim() !== '') ||
+                              (viewingTrip.values[26] !== undefined && viewingTrip.values[26] !== null && String(viewingTrip.values[26]).trim() !== '') ||
+                              (viewingTrip.values[28] !== undefined && viewingTrip.values[28] !== null && String(viewingTrip.values[28]).trim() !== '') ||
+                              (viewingTrip.values[10] && String(viewingTrip.values[10]).includes('(Fuel'))
+                            );
+                            if (!hasFuel) return '-';
+                            return viewingTrip.values[32] || 'Office card';
                           })()
                         ) : (
                           viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''

@@ -52,15 +52,17 @@ export async function POST(request: Request) {
     if (array.length < 30) {
       array.length = 30;
     }
-    if (!array[29]) {
+    const fuel = parseNum(array[6]) + (array.length > 21 ? parseNum(array[21]) : 0);
+    if (!array[29] && fuel > 0) {
       array[29] = 'Office card';
+    } else if (!fuel && !array[29]) {
+      array[29] = '';
     }
 
     // Map array values to fields
     const driverId = array[0] || drvId;
     const vehicle = array[1] || "";
     const purpose = array[2] || "";
-    const fuel = parseNum(array[6]) + (array.length > 21 ? parseNum(array[21]) : 0);
     const repair = parseNum(array[8]);
     const commission = parseNum(array[11]);
     const mileage = parseNum(array[19]);
