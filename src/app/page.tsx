@@ -215,11 +215,123 @@ export default function FleetApp() {
   const [editingTrip, setEditingTrip] = useState<any>(null);
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
   const [viewingImages, setViewingImages] = useState<any>(null);
+  const [addingImage, setAddingImage] = useState(false);
+  const [deletingImageIdx, setDeletingImageIdx] = useState<number | null>(null);
+  const [imageLabelPrompt, setImageLabelPrompt] = useState<{
+    file: File;
+    dataUrl: string;
+    defaultName: string;
+    nameInput: string;
+  } | null>(null);
+  const [deleteImageConfirm, setDeleteImageConfirm] = useState<{
+    index: number;
+    name: string;
+  } | null>(null);
   const [viewingTrip, setViewingTrip] = useState<any>(null);
   const [viewingDriver, setViewingDriver] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [addingDriver, setAddingDriver] = useState<any>(null);
   const [savingDriver, setSavingDriver] = useState(false);
+
+  const handleAddImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !viewingImages || !viewingImages.rf) return;
+
+    const defaultName = file.name.split('.')[0].toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setImageLabelPrompt({
+          file,
+          dataUrl,
+          defaultName,
+          nameInput: defaultName
+        });
+      } else {
+        setAlert({ type: 'error', message: 'Failed to process image file' });
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleConfirmAddImage = async () => {
+    if (!imageLabelPrompt || !viewingImages || !viewingImages.rf) return;
+
+    const imageName = imageLabelPrompt.nameInput.trim() || imageLabelPrompt.defaultName;
+    setAddingImage(true);
+
+    try {
+      const res = await fetch('/api/admin/trip-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ref: viewingImages.rf,
+          name: imageName,
+          dataUrl: imageLabelPrompt.dataUrl
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setViewingImages((prev: any) => ({
+          ...prev,
+          images: data.images || []
+        }));
+        setAlert({ type: 'success', message: 'Image added successfully!' });
+        setImageLabelPrompt(null);
+      } else {
+        setAlert({ type: 'error', message: data.error || 'Failed to add image' });
+      }
+    } catch (err: any) {
+      console.error("Error uploading image:", err);
+      setAlert({ type: 'error', message: 'Failed to upload image' });
+    } finally {
+      setAddingImage(false);
+    }
+  };
+
+  const handlePromptDeleteImage = (index: number, imgName: string) => {
+    setDeleteImageConfirm({ index, name: imgName });
+  };
+
+  const handleConfirmDeleteImage = async () => {
+    if (!deleteImageConfirm || !viewingImages || !viewingImages.rf) return;
+
+    const { index, name } = deleteImageConfirm;
+    setDeletingImageIdx(index);
+
+    try {
+      const res = await fetch('/api/admin/trip-images', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ref: viewingImages.rf,
+          index,
+          name
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setViewingImages((prev: any) => ({
+          ...prev,
+          images: data.images || []
+        }));
+        setAlert({ type: 'success', message: 'Image deleted successfully!' });
+        setDeleteImageConfirm(null);
+      } else {
+        setAlert({ type: 'error', message: data.error || 'Failed to delete image' });
+      }
+    } catch (err: any) {
+      console.error("Error deleting image:", err);
+      setAlert({ type: 'error', message: 'Failed to delete image' });
+    } finally {
+      setDeletingImageIdx(null);
+    }
+  };
   const [vehicleDrivers, setVehicleDrivers] = useState<Record<string, string>>({});
   const [driverManageFilters, setDriverManageFilters] = useState({
     search: '',
@@ -7455,12 +7567,27 @@ export default function FleetApp() {
                   <Camera className="w-5 h-5 text-emerald-500" />
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Uploaded Images ({viewingImages.rf})</h3>
                 </div>
-                <button
-                  onClick={() => setViewingImages(null)}
-                  className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-3">
+                  {user && user[2]?.toLowerCase() === 'admin' && (
+                    <label className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[10px] uppercase tracking-wider cursor-pointer transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50">
+                      {addingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      <span>Add Image</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={addingImage}
+                        onChange={handleAddImageFileSelect}
+                      />
+                    </label>
+                  )}
+                  <button
+                    onClick={() => setViewingImages(null)}
+                    className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-950/40">
@@ -7475,7 +7602,19 @@ export default function FleetApp() {
                       <div key={idx} className="glass-card overflow-hidden border border-white/5 flex flex-col">
                         <div className="p-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
                           <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{img.name}</span>
-                          <span className="text-[9px] text-slate-500 font-bold">{idx + 1} of {viewingImages.images.length}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[9px] text-slate-500 font-bold">{idx + 1} of {viewingImages.images.length}</span>
+                            {user && user[2]?.toLowerCase() === 'admin' && (
+                              <button
+                                onClick={() => handlePromptDeleteImage(idx, img.name)}
+                                disabled={deletingImageIdx === idx}
+                                className="p-1 rounded-md text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                                title="Delete Image"
+                              >
+                                {deletingImageIdx === idx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="relative flex-1 bg-black flex items-center justify-center min-h-[300px] p-2">
                           <img
@@ -7491,7 +7630,21 @@ export default function FleetApp() {
                   <div className="p-20 flex flex-col items-center justify-center text-center space-y-3">
                     <Camera className="w-12 h-12 text-slate-600 animate-pulse" />
                     <p className="text-slate-400 font-black tracking-widest text-xs uppercase">No images found in database</p>
-                    <p className="text-slate-500 text-[10px]">Images are stored in MongoDB when new records are submitted or updated.</p>
+                    {user && user[2]?.toLowerCase() === 'admin' ? (
+                      <label className="mt-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20">
+                        {addingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                        <span>Upload First Image</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={addingImage}
+                          onChange={handleAddImageFileSelect}
+                        />
+                      </label>
+                    ) : (
+                      <p className="text-slate-500 text-[10px]">Images are stored in MongoDB when new records are submitted or updated.</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -7502,6 +7655,133 @@ export default function FleetApp() {
                   className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20"
                 >
                   Close Viewer
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* System Popup: Add Image Label Prompt */}
+      <AnimatePresence>
+        {imageLabelPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 15 }}
+              className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Add Image Proof</h3>
+                </div>
+                <button
+                  onClick={() => setImageLabelPrompt(null)}
+                  className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Image Thumbnail Preview */}
+              <div className="relative rounded-xl overflow-hidden bg-black/60 border border-white/10 h-36 flex items-center justify-center p-2">
+                <img
+                  src={imageLabelPrompt.dataUrl}
+                  alt="Preview"
+                  className="max-h-full max-w-full object-contain rounded-lg shadow-md"
+                />
+              </div>
+
+              {/* Image Name Input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                  Image Label / Category
+                </label>
+                <input
+                  type="text"
+                  value={imageLabelPrompt.nameInput}
+                  onChange={(e) => setImageLabelPrompt({ ...imageLabelPrompt, nameInput: e.target.value })}
+                  placeholder="e.g. GARAGE_START, FUEL_RECEIPT"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-white font-bold text-xs focus:border-emerald-500 focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setImageLabelPrompt(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAddImage}
+                  disabled={addingImage}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+                >
+                  {addingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  <span>Confirm & Upload</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* System Popup: Delete Image Confirmation */}
+      <AnimatePresence>
+        {deleteImageConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 15 }}
+              className="bg-slate-900 border border-rose-500/30 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 space-y-4"
+            >
+              <div className="flex items-center gap-3 border-b border-white/10 pb-3">
+                <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Confirm Delete</h3>
+                  <p className="text-[10px] text-slate-400 font-medium">Remove Image Proof</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                Are you sure you want to delete <span className="font-extrabold text-rose-400">"{deleteImageConfirm.name}"</span>? This action will permanently remove this image from the database.
+              </p>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteImageConfirm(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteImage}
+                  disabled={deletingImageIdx !== null}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-600/20 flex items-center gap-2"
+                >
+                  {deletingImageIdx !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <span>Yes, Delete</span>
                 </button>
               </div>
             </motion.div>
