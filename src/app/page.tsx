@@ -48,7 +48,9 @@ import {
   FileText,
   Copy,
   Wallet,
-  Leaf
+  Leaf,
+  Pause,
+  Play
 } from 'lucide-react';
 
 import LoginModal from '@/components/LoginModal';
@@ -114,6 +116,19 @@ export default function FleetApp() {
   const [showSplash, setShowSplash] = useState(true);
   const [showRefreshPopup, setShowRefreshPopup] = useState(false);
   const [showDevPopup, setShowDevPopup] = useState(false);
+  const [dashMonthStats, setDashMonthStats] = useState<{ 
+    hireCount: number; 
+    totalSalary: number; 
+    totalSalarySinceJuly: number;
+    loading: boolean; 
+  }>({
+    hireCount: 0,
+    totalSalary: 0,
+    totalSalarySinceJuly: 0,
+    loading: false
+  });
+  const [bannerSlide, setBannerSlide] = useState(0);
+  const [isBannerPaused, setIsBannerPaused] = useState(false);
 
   // Admin Dashboard States
   const [adminData, setAdminData] = useState<any>(null);
@@ -742,14 +757,69 @@ export default function FleetApp() {
     }
   };
 
+  const fetchDashMonthStats = async () => {
+    if (!user || !user[0]) return;
+    setDashMonthStats(prev => ({ ...prev, loading: true }));
+    try {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1; // 1-12
+
+      // Fetch current month salary & hires
+      const currRes = await fetch(`/api/fleet/salary?drvId=${user[0]}&year=${currentYear}&month=${currentMonth}`);
+      const currData = await currRes.json();
+      const currentSalary = currData && !currData.error ? (currData.totalSalary || 0) : 0;
+      const hires = currData && !currData.error && currData.salaryDetails ? currData.salaryDetails.length : 0;
+
+      // Fetch prior months starting from July (month 7) up to currentMonth - 1
+      let sumSinceJuly = currentSalary;
+      const monthPromises = [];
+      for (let m = 7; m < currentMonth; m++) {
+        monthPromises.push(
+          fetch(`/api/fleet/salary?drvId=${user[0]}&year=${currentYear}&month=${m}`)
+            .then(res => res.json())
+            .catch(() => null)
+        );
+      }
+
+      if (monthPromises.length > 0) {
+        const results = await Promise.all(monthPromises);
+        results.forEach(res => {
+          if (res && !res.error && typeof res.totalSalary === 'number') {
+            sumSinceJuly += res.totalSalary;
+          }
+        });
+      }
+
+      setDashMonthStats({
+        hireCount: hires,
+        totalSalary: currentSalary,
+        totalSalarySinceJuly: Math.max(sumSinceJuly, currentSalary),
+        loading: false
+      });
+    } catch (err) {
+      console.error("Failed to fetch dashboard month stats:", err);
+      setDashMonthStats(prev => ({ ...prev, loading: false }));
+    }
+  };
+
   useEffect(() => {
     if (user && user[0]) {
       fetchInboxMessages();
+      fetchDashMonthStats();
       if (stage === 'contact-office') {
         fetchSentMessages();
       }
     }
   }, [stage, user]);
+
+  useEffect(() => {
+    if (isBannerPaused) return;
+    const timer = setInterval(() => {
+      setBannerSlide(prev => (prev === 0 ? 1 : 0));
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [isBannerPaused]);
 
   const handleSendMessage = async () => {
     if (!officeMessage.trim()) return;
@@ -2662,22 +2732,244 @@ export default function FleetApp() {
               )}
             </div>
 
-            {/* Mobile Driver Dashboard View (Yellow Outer Corners like YSM Logo) */}
-            <div className="md:hidden bg-[#f59e0b] p-1 sm:p-1.5 rounded-3xl max-w-md mx-auto">
+            {/* Mobile Driver Dashboard View */}
+            <div className="md:hidden max-w-md mx-auto">
               <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-24 min-h-[calc(100vh-1rem)] flex flex-col justify-between">
                 {/* Mobile Brand Logo Header (At Top) */}
-                <div className="flex items-center gap-3 py-1 px-1 mb-6">
+                <div className="flex items-center gap-3 py-1 px-1 mb-4">
                   <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain rounded-md shadow-sm" />
                   <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
                     YSM FLEET MANAGEMENT
                   </h1>
                 </div>
 
-                {/* Dashboard Content Cards Container (Pushed Down) */}
-                <div className="space-y-4 mt-auto">
+                {/* Top Sliding Banner Section */}
+                <div className="relative overflow-hidden bg-white rounded-3xl p-4 border border-slate-200/80 shadow-sm mb-4">
+                  <div className="relative min-h-[185px]">
+                    <AnimatePresence mode="wait">
+                      {bannerSlide === 0 ? (
+                        /* Slide 1: Notice Board with Image Banner */
+                        <motion.div
+                          key="notice-slide"
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          transition={{ duration: 0.3 }}
+                          className="flex flex-col justify-between h-full space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs uppercase tracking-wider">
+                              <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </span>
+                              <span>Notice Board</span>
+                            </div>
+                            {inboxMessages.some((m: any) => !m.isRead) ? (
+                              <span className="px-2 py-0.5 text-[9px] font-black bg-rose-500 text-white rounded-full uppercase tracking-wider animate-pulse">
+                                New Notice
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
+                          </div>
 
+                          {/* Image Banner Only (Height expanded to fill space) */}
+                          <div 
+                            onClick={() => {
+                              window.history.pushState({ stage: 'contact-office' }, '');
+                              setStage('contact-office');
+                            }}
+                            className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-100 group cursor-pointer"
+                          >
+                            <img
+                              src={inboxMessages[0]?.image || "/notice_banner.png"}
+                              alt="Notice Banner"
+                              className="w-full h-36 sm:h-38 object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/20 to-transparent flex items-end p-2.5">
+                              <span className="text-[9px] font-extrabold text-amber-300 uppercase tracking-wider bg-slate-900/60 backdrop-blur-sm px-2.5 py-1 rounded-md border border-amber-400/30">
+                                {inboxMessages.length > 0 ? "Management Notice" : "Official Announcements"}
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        /* Slide 2: Monthly Summary */
+                        <motion.div
+                          key="stats-slide"
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          transition={{ duration: 0.3 }}
+                          className="flex flex-col justify-between h-full space-y-3 py-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs uppercase tracking-wider">
+                              <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
+                                <TrendingUp className="w-3.5 h-3.5" />
+                              </span>
+                              <span>Current Month Overview</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                            </span>
+                          </div>
 
+                          <div className="grid grid-cols-2 gap-3 py-1">
+                            {/* Combined Salary Sum & Monthly Hires Card */}
+                            <div className="bg-emerald-50/70 border border-emerald-200/80 p-3 sm:p-3.5 rounded-2xl flex flex-col justify-between h-34 shadow-xs space-y-2">
+                              {/* Salary Sum Section (Top) */}
+                              <div>
+                                <div className="text-[10px] font-extrabold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
+                                  <Wallet className="w-3.5 h-3.5 text-teal-600" />
+                                  Salary Sum
+                                </div>
+                                <div className="text-sm font-black text-teal-900 mt-0.5 truncate" title={`Rs. ${dashMonthStats.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}>
+                                  {dashMonthStats.loading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-teal-600 inline" />
+                                  ) : (
+                                    `Rs. ${dashMonthStats.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                                  )}
+                                </div>
+                              </div>
 
+                              {/* Monthly Hires Section (Bottom) */}
+                              <div className="pt-1.5 border-t border-emerald-200/60">
+                                <div className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                                  <Car className="w-3.5 h-3.5 text-emerald-600" />
+                                  Monthly Hires
+                                </div>
+                                <div className="text-base font-black text-emerald-900 mt-0.5">
+                                  {dashMonthStats.loading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600 inline" />
+                                  ) : (
+                                    `${dashMonthStats.hireCount} Hires`
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Pie Chart Card (Right Side Space) */}
+                            <div className="bg-slate-50/90 border border-slate-200/80 p-2.5 rounded-2xl flex flex-col justify-between h-34 shadow-xs relative overflow-hidden">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9px] font-extrabold text-slate-700 uppercase tracking-wider truncate" title="Since July 1st">
+                                  Since July 1st
+                                </span>
+                                <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  {dashMonthStats.totalSalarySinceJuly > 0 
+                                    ? `${Math.round((dashMonthStats.totalSalary / dashMonthStats.totalSalarySinceJuly) * 100)}%` 
+                                    : '100%'}
+                                </span>
+                              </div>
+
+                              {/* Donut Pie Chart Container */}
+                              <div className="relative flex-1 flex items-center justify-center my-0.5">
+                                {dashMonthStats.loading ? (
+                                  <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+                                ) : (
+                                  <div className="w-full h-16 relative flex items-center justify-center">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <PieChart>
+                                        <Pie
+                                          data={[
+                                            { name: 'Current Month', value: Math.max(0, dashMonthStats.totalSalary) },
+                                            { name: 'Prior Months (from July 1)', value: Math.max(0, dashMonthStats.totalSalarySinceJuly - dashMonthStats.totalSalary) }
+                                          ]}
+                                          cx="50%"
+                                          cy="50%"
+                                          innerRadius={18}
+                                          outerRadius={28}
+                                          paddingAngle={3}
+                                          dataKey="value"
+                                          stroke="none"
+                                        >
+                                          <Cell key="cell-curr" fill="#059669" />
+                                          <Cell key="cell-prev" fill="#cbd5e1" />
+                                        </Pie>
+                                        <RechartsTooltip 
+                                          formatter={(val: any) => [`Rs. ${Number(val).toLocaleString()}`, 'Salary']} 
+                                          contentStyle={{ fontSize: '10px', borderRadius: '8px', padding: '4px 8px' }}
+                                        />
+                                      </PieChart>
+                                    </ResponsiveContainer>
+                                    {/* Donut Inner Label */}
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                      <span className="text-[10px] font-black text-slate-900 leading-none">
+                                        {dashMonthStats.totalSalarySinceJuly > 0 
+                                          ? `${Math.round((dashMonthStats.totalSalary / dashMonthStats.totalSalarySinceJuly) * 100)}%` 
+                                          : '100%'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Footer Label with Total Salary Since July 1st */}
+                              <div className="text-center pt-1 border-t border-slate-200/60">
+                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-wider truncate">Total Since July 1</div>
+                                <div className="text-[10px] font-black text-slate-800 truncate" title={`Rs. ${dashMonthStats.totalSalarySinceJuly.toLocaleString()}`}>
+                                  Rs. {dashMonthStats.totalSalarySinceJuly.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Pagination Indicator Dots & Arrow Controls */}
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setBannerSlide(0)}
+                        className={cn(
+                          "h-2 rounded-full transition-all duration-300 cursor-pointer",
+                          bannerSlide === 0 ? "w-6 bg-[#18859c]" : "w-2 bg-slate-200 hover:bg-slate-300"
+                        )}
+                        aria-label="Notice Board Slide"
+                      />
+                      <button
+                        onClick={() => setBannerSlide(1)}
+                        className={cn(
+                          "h-2 rounded-full transition-all duration-300 cursor-pointer",
+                          bannerSlide === 1 ? "w-6 bg-[#18859c]" : "w-2 bg-slate-200 hover:bg-slate-300"
+                        )}
+                        aria-label="Monthly Stats Slide"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {/* Small Stop / Play Toggle Button */}
+                      <button
+                        onClick={() => setIsBannerPaused(prev => !prev)}
+                        className={cn(
+                          "p-1 rounded-md transition-colors cursor-pointer mr-0.5",
+                          isBannerPaused 
+                            ? "text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200" 
+                            : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                        )}
+                        title={isBannerPaused ? "Resume Auto-Slide" : "Stop Auto-Slide"}
+                        aria-label={isBannerPaused ? "Resume Auto-Slide" : "Stop Auto-Slide"}
+                      >
+                        {isBannerPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                      </button>
+                      <button
+                        onClick={() => setBannerSlide(prev => (prev === 0 ? 1 : 0))}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setBannerSlide(prev => (prev === 0 ? 1 : 0))}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
 
               {/* Records Section */}
@@ -2854,13 +3146,12 @@ export default function FleetApp() {
                 </button>
               </div>
             </div>
-          </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
 
       {stage === 'contact-office' && (
-        <div className="bg-[#f59e0b] p-1 sm:p-1.5 rounded-3xl max-w-md mx-auto">
+        <div className="max-w-md mx-auto">
           <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
             {/* Header */}
             <div className="flex items-center justify-between py-1 px-1">
@@ -6090,7 +6381,7 @@ export default function FleetApp() {
       {/* Form Content */}
       <AnimatePresence>
         {stage !== 'dashboard' && stage !== 'admin' && (
-          <div className="bg-[#f59e0b] p-1 sm:p-1.5 rounded-3xl max-w-md mx-auto">
+          <div className="max-w-md mx-auto">
             <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
               <motion.div
             initial={{ opacity: 0, y: 20 }}
