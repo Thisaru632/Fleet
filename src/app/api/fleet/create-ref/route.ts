@@ -41,6 +41,11 @@ export async function POST(request: Request) {
         })
       });
       
+      const contentType = proxyRes.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await proxyRes.text();
+        throw new Error(`Apps Script Proxy returned non-JSON response (${proxyRes.status}): ${text.slice(0, 100)}`);
+      }
       const proxyData = await proxyRes.json();
       if (!proxyData.success) {
         throw new Error("Apps Script Proxy Error: " + proxyData.error);

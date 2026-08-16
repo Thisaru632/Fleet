@@ -38,6 +38,10 @@ export default function SheetDemo() {
           values: [["Demo Entry", "demo@test.com", new Date().toLocaleString()]]
         })
       });
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json") || !res.ok) {
+        throw new Error(`Server error (${res.status})`);
+      }
       const result = await res.json();
       alert("Data written successfully to " + sheetName);
       fetchData(); // Refresh data

@@ -26,6 +26,11 @@ export default function LoginModal({ onLogin }: LoginModalProps) {
         body: JSON.stringify({ username, password }),
       });
 
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        setError('Server returned invalid response');
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         localStorage.setItem('fleetUser', JSON.stringify(data.user));

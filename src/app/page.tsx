@@ -27,6 +27,7 @@ import {
   Phone,
   Download,
   X,
+  Menu,
   Lock,
   TrendingUp,
   Users,
@@ -65,6 +66,19 @@ import { twMerge } from 'tailwind-merge';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const safeJson = async (res: Response) => {
+  if (!res) return { error: 'No response' };
+  const contentType = res.headers ? (res.headers.get("content-type") || "") : "";
+  if (!contentType.includes("application/json")) {
+    return { error: `Server returned non-JSON response (${res.status} ${res.statusText || ''})` };
+  }
+  try {
+    return await res.json();
+  } catch (err: any) {
+    return { error: err?.message || 'Invalid JSON' };
+  }
+};
 
 const captureLocation = (): Promise<string> => {
   return new Promise((resolve) => {
@@ -149,6 +163,7 @@ export default function FleetApp() {
   });
   const [recentTripsFilter, setRecentTripsFilter] = useState('All');
   const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report' | 'salary'>('overview');
+  const [showAdminMobileMenu, setShowAdminMobileMenu] = useState(false);
   const [reportCategory, setReportCategory] = useState<'Credit' | 'Invoice' | 'Recent Trips' | 'Tank wise fuel analyzing'>('Credit');
   const [reportStartDate, setReportStartDate] = useState(() => {
     const today = new Date();
@@ -169,6 +184,7 @@ export default function FleetApp() {
   const [fetchingAccountData, setFetchingAccountData] = useState(false);
   const [accountSearch, setAccountSearch] = useState('');
   const [fleetSearch, setFleetSearch] = useState('');
+  const [activeActionRowRef, setActiveActionRowRef] = useState<string | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [messagesData, setMessagesData] = useState<any>(null);
   const [reportAccountData, setReportAccountData] = useState<any>(null);
@@ -216,6 +232,28 @@ export default function FleetApp() {
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
   const [viewingImages, setViewingImages] = useState<any>(null);
   const [addingImage, setAddingImage] = useState(false);
+  const prevTripMap = useMemo(() => {
+    if (!adminData?.tables?.fleetData) return new Map();
+    const list = adminData.tables.fleetData;
+    const map = new Map<any, any>();
+    const vehicleLastTripMap = new Map<string, any>();
+    
+    for (let idx = list.length - 1; idx >= 0; idx--) {
+      const t = list[idx];
+      const vehicleNum = t?.values?.[4];
+      if (vehicleNum) {
+        if (vehicleLastTripMap.has(vehicleNum)) {
+          map.set(t, vehicleLastTripMap.get(vehicleNum));
+        }
+        const statusStr = String(t?.values?.[0] || '').toLowerCase();
+        if (!statusStr.includes('cancel')) {
+          vehicleLastTripMap.set(vehicleNum, t);
+        }
+      }
+    }
+    return map;
+  }, [adminData?.tables?.fleetData]);
+
   const [deletingImageIdx, setDeletingImageIdx] = useState<number | null>(null);
   const [imageLabelPrompt, setImageLabelPrompt] = useState<{
     file: File;
@@ -434,11 +472,11 @@ export default function FleetApp() {
     if (adminTab === 'report' && (reportCategory === 'Credit' || reportCategory === 'Invoice' || reportCategory === 'Recent Trips' || reportCategory === 'Tank wise fuel analyzing') && (!reportAccountData || !reportFleetData) && !fetchingReportData) {
       setFetchingReportData(true);
       Promise.all([
-        fetch('/api/admin/account-data?page=1&limit=5000').then(res => res.json()),
-        fetch('/api/admin/sales?page=1&limit=5000').then(res => res.json())
+        fetch('/api/admin/account-data?page=1&limit=5000').then(safeJson),
+        fetch('/api/admin/sales?page=1&limit=5000').then(safeJson)
       ]).then(([accData, fleetRes]) => {
-        if (!accData.error) setReportAccountData(accData);
-        if (!fleetRes.error) setReportFleetData(fleetRes);
+        if (accData && !accData.error) setReportAccountData(accData);
+        if (fleetRes && !fleetRes.error) setReportFleetData(fleetRes);
         setFetchingReportData(false);
       });
     }
@@ -453,9 +491,9 @@ export default function FleetApp() {
 
     // Fetch commissions from DB
     fetch('/api/admin/commissions')
-      .then(res => res.json())
+      .then(safeJson)
       .then(data => {
-        if (data.commissions) setVehicleCommissions(data.commissions);
+        if (data && data.commissions) setVehicleCommissions(data.commissions);
       })
       .catch(err => console.error("Error fetching commissions:", err));
   }, []);
@@ -795,12 +833,14 @@ export default function FleetApp() {
         fetch('/api/fleet/options'),
         fetch(`/api/fleet/trips?drvId=${drvId}`)
       ]);
-      const optData = await optRes.json();
-      const tripData = await tripRes.json();
-      setOptions(optData);
-      setTripRefs(tripData.tripRefs);
-      setFrRefs(tripData.frRefs);
-      setHistoryFrRefs(tripData.historyFrRefs);
+      const optData = await safeJson(optRes);
+      const tripData = await safeJson(tripRes);
+      if (!optData.error) setOptions(optData);
+      if (!tripData.error) {
+        setTripRefs(tripData.tripRefs || []);
+        setFrRefs(tripData.frRefs || []);
+        setHistoryFrRefs(tripData.historyFrRefs || []);
+      }
     } catch (err) {
       console.error('Error fetching initial data:', err);
     }
@@ -2586,6 +2626,110 @@ export default function FleetApp() {
         )}
       </AnimatePresence>
 
+      {/* Admin Dashboard Burger Menu Modal */}
+      {/* Admin Dashboard Burger Menu Left Drawer */}
+      <AnimatePresence>
+        {showAdminMobileMenu && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAdminMobileMenu(false)}
+              className="fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm cursor-pointer"
+            />
+
+            {/* Left Drawer Panel */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="fixed top-0 left-0 bottom-0 z-[130] w-[85%] max-w-xs bg-slate-900 border-r border-emerald-500/20 p-5 shadow-2xl flex flex-col justify-between overflow-y-auto"
+            >
+              <div className="space-y-5">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                      <Menu className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-white uppercase tracking-wider">ADMIN MENU</h3>
+                      <p className="text-[10px] text-slate-400 font-medium">Select a dashboard module</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminMobileMenu(false)}
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 max-h-[65vh] overflow-y-auto pr-1">
+                  {[
+                    { id: 'overview', label: 'OVERVIEW', icon: Activity },
+                    { id: 'trips', label: 'INCOME SUMMARY', icon: History },
+                    { id: 'rankings', label: 'RANKINGS', icon: Users },
+                    { id: 'fleet', label: 'FLEET DATA', icon: Database },
+                    { id: 'messages', label: 'MESSAGES', icon: MessageSquare, badge: messagesData?.messages?.some((m: any) => !m.isRead && !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))) },
+                    { id: 'accounts', label: 'ACCOUNT SHEET', icon: IdCard },
+                    { id: 'driver-manage', label: 'DRIVER MANAGE', icon: Users },
+                    { id: 'commission', label: 'VEHICLE & COMMISSIONS', icon: Activity },
+                    { id: 'report', label: 'REPORTS', icon: ClipboardCheck },
+                    { id: 'salary', label: 'SALARY', icon: Wallet },
+                  ].map((item) => {
+                    const ItemIcon = item.icon;
+                    const isActive = adminTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          setAdminTab(item.id as any);
+                          setShowAdminMobileMenu(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between p-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all border",
+                          isActive
+                            ? "bg-emerald-500 text-slate-950 border-emerald-400 shadow-lg shadow-emerald-500/20"
+                            : "bg-white/5 text-slate-300 hover:bg-white/10 border-white/5"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <ItemIcon className={cn("w-4 h-4", isActive ? "text-slate-950" : "text-emerald-400")} />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-white/10 flex flex-col gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlert(null);
+                    setStage('dashboard');
+                    setShowAdminMobileMenu(false);
+                  }}
+                  className="w-full py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white flex items-center justify-center gap-2 border border-red-500/20 transition-all"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Exit Admin Control
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Under Development Modal */}
       <AnimatePresence>
         {showDevPopup && (
@@ -3431,131 +3575,21 @@ export default function FleetApp() {
 
       {stage === 'admin' && (
         <div className="space-y-8 pb-20">
-          {/* Header & Back section removed */}
-          {/* Tabs and Filters Container */}
-          <div className="flex flex-col gap-3 w-full">
-            {/* Tabs Navigation */}
-            <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10 w-full overflow-x-auto">
+          {/* Mobile Burger Bar Header */}
+          <div className="flex items-center justify-start gap-2 p-2 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-white/10 w-full mb-1">
             <button
-              onClick={() => setAdminTab('overview')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'overview' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
+              type="button"
+              onClick={() => setShowAdminMobileMenu(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 rounded-xl text-xs font-black tracking-wider uppercase transition-all shadow-lg shadow-emerald-500/20 active:scale-95 shrink-0"
             >
-              <Activity className="w-4 h-4" />
-              OVERVIEW
-            </button>
-            <button
-              onClick={() => setAdminTab('trips')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'trips' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <History className="w-4 h-4" />
-              INCOME SUMMARY
-            </button>
-            <button
-              onClick={() => setAdminTab('rankings')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'rankings' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <Users className="w-4 h-4" />
-              RANKINGS
-            </button>
-            <button
-              onClick={() => setAdminTab('fleet')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'fleet' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <Database className="w-4 h-4" />
-              FLEET DATA
-            </button>
-            <button
-              onClick={() => setAdminTab('messages')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 relative",
-                adminTab === 'messages' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <MessageSquare className="w-4 h-4" />
-              MESSAGES
-              {messagesData?.messages?.some((m: any) => !m.isRead && !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))) && (
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-              )}
-            </button>
-            <button
-              onClick={() => setAdminTab('accounts')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'accounts' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <IdCard className="w-4 h-4" />
-              ACCOUNT SHEET
-            </button>
-
-            <button
-              onClick={() => setAdminTab('driver-manage')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'driver-manage' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <Users className="w-4 h-4" />
-              DRIVER MANAGE
-            </button>
-
-            <button
-              onClick={() => setAdminTab('commission')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'commission' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <Activity className="w-4 h-4" />
-              VEHICLE & COMMISSIONS
-            </button>
-
-            <button
-              onClick={() => setAdminTab('report')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'report' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <ClipboardCheck className="w-4 h-4" />
-              REPORTS
-            </button>
-
-            <button
-              onClick={() => setAdminTab('salary')}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                adminTab === 'salary' ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <Wallet className="w-4 h-4" />
-              SALARY
-            </button>
-
-            <div className="w-px h-8 bg-white/10 mx-2 self-center shrink-0"></div>
-            <button
-              onClick={() => {
-                setAlert(null);
-                setStage('dashboard');
-              }}
-              className="px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white shadow-lg shadow-red-500/10 border border-red-500/20"
-            >
-              <LogOut className="w-4 h-4" />
-              EXIT ADMIN
+              <Menu className="w-4 h-4" />
+              <span>MENU</span>
             </button>
           </div>
+
+          {/* Tabs and Filters Container */}
+          <div className="flex flex-col gap-3 w-full">
+
 
           {/* Filters */}
           {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && adminTab !== 'report' && (
@@ -3672,11 +3706,11 @@ export default function FleetApp() {
                   style={{ minHeight: 'calc(100vh - 12rem)' }}
                 >
                   {/* Header */}
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-700">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-700">
                     <h2 className="text-lg font-bold text-white">Fleet KPI Dashboard</h2>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                       <select
-                        className="bg-slate-800 text-white text-[11px] font-bold px-2 py-1.5 rounded shadow-sm border border-slate-700 outline-none cursor-pointer"
+                        className="bg-slate-800 text-white text-[11px] font-bold px-2 py-1.5 rounded shadow-sm border border-slate-700 outline-none cursor-pointer shrink-0"
                         value={(() => {
                           const today = new Date();
                           const y = today.getFullYear();
@@ -3730,18 +3764,18 @@ export default function FleetApp() {
                         <option value="Custom" hidden>Custom</option>
                       </select>
                       
-                      <div className="flex items-center gap-2 bg-slate-800 px-2.5 py-1 rounded shadow-sm border border-slate-700">
-                        <Calendar className="w-3.5 h-3.5 text-white" />
+                      <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded shadow-sm border border-slate-700 shrink-0 max-w-full overflow-x-auto">
+                        <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
                         <input
                           type="date"
-                          className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[88px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                          className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[84px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
                           value={adminFilters.startDate}
                           onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
                         />
-                        <span className="text-slate-400 text-[10px] font-bold">—</span>
+                        <span className="text-slate-400 text-[10px] font-bold shrink-0">—</span>
                         <input
                           type="date"
-                          className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[88px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                          className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[84px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
                           value={adminFilters.endDate}
                           onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
                         />
@@ -3941,24 +3975,24 @@ export default function FleetApp() {
 
               {adminTab === 'trips' && (
                 <>
-                <div className="flex justify-end mb-4">
-                  <div className="glass-card p-2 px-4 flex items-center gap-3">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Calendar className="w-3 h-3" /> Filter Range</span>
-                    <div className="flex items-center gap-2">
+                <div className="flex justify-end mb-4 w-full">
+                  <div className="glass-card p-2 px-3 flex flex-wrap items-center gap-2 max-w-full overflow-x-auto">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5 shrink-0"><Calendar className="w-3 h-3" /> Filter Range</span>
+                    <div className="flex items-center gap-2 shrink-0">
                       <input
                         type="date"
-                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider"
+                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider cursor-pointer"
                         value={adminFilters.startDate}
                         onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
                       />
                       <span className="text-slate-500 text-[10px]">-</span>
                       <input
                         type="date"
-                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider"
+                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider cursor-pointer"
                         value={adminFilters.endDate}
                         onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
                       />
-                      <History className="w-4 h-4 text-emerald-500 ml-2" />
+                      <History className="w-4 h-4 text-emerald-500 ml-1 shrink-0" />
                     </div>
                   </div>
                 </div>
@@ -4202,14 +4236,13 @@ export default function FleetApp() {
                       </thead>
                       <tbody className="divide-y divide-white/5">
                         {adminData.tables.fleetData.map((t: any, i: number) => {
-                          const originalIndex = adminData.tables.fleetData.indexOf(t);
                           const vehicleNum = t.values[4];
                           const rawGarageStart = t.values[6];
                           
                           const currentStatusStr = String(t.values[0] || '').toLowerCase();
                           const isCurrentIgnoredForAlerts = currentStatusStr.includes('cancel') || currentStatusStr.includes('approved');
                           const isPurposeFiltered = adminFilters.purpose !== 'All';
-                          const prevTrip = vehicleNum ? adminData.tables.fleetData.slice(originalIndex + 1).find((pt: any) => pt.values[4] === vehicleNum && !String(pt.values[0] || '').toLowerCase().includes('cancel')) : null;
+                          const prevTrip = vehicleNum ? prevTripMap.get(t) : null;
                           const rawPrevGarageEnd = prevTrip ? prevTrip.values[8] : null;
 
                           let mismatch = 0;
@@ -4441,20 +4474,53 @@ export default function FleetApp() {
                               </td>
                             );
                             })}
-                            <td className="px-6 py-2 text-xs whitespace-nowrap sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
+                            <td className={cn(
+                              "px-6 py-2 text-xs whitespace-nowrap sticky right-0 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors",
+                              activeActionRowRef === t.rf ? "z-50" : "z-10"
+                            )}>
                               <div className="relative group/action">
-                                <button className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer outline-none">
-                                  <MoreVertical className="w-4 h-4 text-slate-400" />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveActionRowRef(activeActionRowRef === t.rf ? null : t.rf);
+                                  }}
+                                  className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer outline-none active:scale-95"
+                                  title="Actions"
+                                >
+                                  <MoreVertical className="w-4 h-4 text-slate-400 hover:text-white transition-colors" />
                                 </button>
-                                <div className="absolute right-full top-0 mr-2 w-32 bg-slate-800 border border-slate-700/50 rounded-xl shadow-xl opacity-0 invisible group-hover/action:opacity-100 group-hover/action:visible transition-all flex flex-col gap-1 p-1 z-[60]">
+
+                                {activeActionRowRef === t.rf && (
+                                  <div
+                                    className="fixed inset-0 z-[40]"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveActionRowRef(null);
+                                    }}
+                                  />
+                                )}
+
+                                <div
+                                  className={cn(
+                                    "absolute right-full top-0 mr-2 w-36 bg-slate-800 border border-slate-700/80 rounded-xl shadow-2xl transition-all flex flex-col gap-1 p-1.5 z-[60]",
+                                    activeActionRowRef === t.rf ? "opacity-100 visible" : "opacity-0 invisible group-hover/action:opacity-100 group-hover/action:visible"
+                                  )}
+                                >
                                   <button
-                                    onClick={() => setViewingTrip(t)}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sky-400 rounded-lg w-full text-left text-xs font-bold transition-colors"
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionRowRef(null);
+                                      setViewingTrip(t);
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sky-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
                                   >
                                     <Eye className="w-3.5 h-3.5" /> View Trip
                                   </button>
                                   <button
+                                    type="button"
                                     onClick={async () => {
+                                      setActiveActionRowRef(null);
                                       setViewingImages({ rf: t.rf, images: null, loading: true });
                                       try {
                                         const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
@@ -4464,12 +4530,14 @@ export default function FleetApp() {
                                         setViewingImages({ rf: t.rf, images: [], loading: false });
                                       }
                                     }}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors"
+                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
                                   >
                                     <ImageIcon className="w-3.5 h-3.5" /> Proofs
                                   </button>
                                   <button
+                                    type="button"
                                     onClick={() => {
+                                      setActiveActionRowRef(null);
                                       let fMeter = '';
                                       let fLiters = '';
                                       let cleanComments = t.values[10] || '';
@@ -4487,13 +4555,17 @@ export default function FleetApp() {
                                       cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
                                       setEditingTrip({ ...t, fMeter, fLiters, cleanComments: cleanComments || t.values[10] });
                                     }}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors"
+                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
                                   >
                                     <Edit className="w-3.5 h-3.5" /> Edit Trip
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteFleetRow(t.rf)}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-red-400 rounded-lg w-full text-left text-xs font-bold transition-colors"
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionRowRef(null);
+                                      handleDeleteFleetRow(t.rf);
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-red-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" /> Delete Trip
                                   </button>
