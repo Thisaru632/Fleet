@@ -3850,8 +3850,8 @@ export default function FleetApp() {
                         <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar bg-slate-950 text-white p-2">
                           <table className="w-full text-left text-xs font-sans border-collapse">
                             <thead>
-                              <tr className="border-b border-white/10 text-slate-400">
-                                <th className="py-3 px-2 font-bold whitespace-nowrap w-28">Vehicle</th>
+                              <tr className="border-b border-white/10 text-slate-400 bg-slate-950">
+                                <th className="py-3 px-2 font-bold whitespace-nowrap min-w-[100px] sticky left-0 z-10 bg-slate-950 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.5)]">Vehicle</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Hire Income</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM</th>
                                 <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel Cost</th>
@@ -3864,8 +3864,8 @@ export default function FleetApp() {
                               {(adminData.tables.topVehicles || []).map((v: any, i: number) => {
                                 const kmpl = v.fuelLiters ? (v.mileage / v.fuelLiters) : 0;
                                 return (
-                                  <tr key={i} className="hover:bg-white/5 transition-colors">
-                                    <td className="py-3 px-2 font-bold text-slate-300 whitespace-nowrap w-28">{v.vehicle}</td>
+                                  <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                    <td className="py-3 px-2 font-bold text-slate-300 whitespace-nowrap min-w-[100px] sticky left-0 z-10 bg-slate-950 group-hover:bg-[#1a2332] shadow-[4px_0_10px_-2px_rgba(0,0,0,0.5)]">{v.vehicle}</td>
                                     <td className="py-3 px-2 text-right text-white font-mono whitespace-nowrap">{Math.round(v.hireIncome).toLocaleString()}</td>
                                     <td className="py-3 px-2 text-right text-slate-300 font-mono whitespace-nowrap">{Math.round(v.mileage).toLocaleString()}</td>
                                     <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
