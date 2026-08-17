@@ -1803,8 +1803,8 @@ export default function FleetApp() {
             }
           }
 
-          const fuel1 = Number(prev.firstFuelCost) || 0;
-          const fuel2 = Number(prev.fuelCost) || 0;
+          const fuel1 = Number(prev.firstFuelCost) || Number(prev.fuelCost) || 0;
+          const fuel2 = Number(prev.secondFuelCost) || 0;
           const repair = Number(prev.repairCost) || 0;
           const dueAmount = Math.round(finalPriceNum - fuel1 - fuel2 - repair - Number(rawSalary));
 
@@ -1862,11 +1862,11 @@ export default function FleetApp() {
     setFormData((prev: any) => ({ ...prev, [id]: value }));
 
     // Auto-calcs
-    if (['fuelCost', 'firstFuelCost', 'tripPrice', 'drvComms', 'repairCost'].includes(id)) {
+    if (['fuelCost', 'firstFuelCost', 'secondFuelCost', 'tripPrice', 'drvComms', 'repairCost'].includes(id)) {
       // Calc scDueAmount = Final price - fuel cost 1 - fuel cost 2 - repair cost - driver salary
       setFormData((prev: any) => {
-        const fuel1 = Number(prev.firstFuelCost) || 0;
-        const fuel2 = Number(prev.fuelCost) || 0;
+        const fuel1 = Number(prev.firstFuelCost) || Number(prev.fuelCost) || 0;
+        const fuel2 = Number(prev.secondFuelCost) || 0;
         const repair = Number(prev.repairCost) || 0;
         const tripPrice = Number((prev.tripPrice || '').toString().replace(/[^\d.]/g, '')) || 0;
         const salary = Number(prev.drvComms) || 0;
@@ -2562,7 +2562,7 @@ export default function FleetApp() {
         <div className="fixed inset-0 bg-[#f4f7f9] z-[-1] md:hidden" />
       )}
 
-      <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full" : "max-w-xl", stage === 'dashboard' && "max-w-full md:max-w-xl p-0 md:p-4")}>
+      <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full pb-0" : "max-w-xl", stage === 'dashboard' && "max-w-full md:max-w-xl p-0 md:p-4")}>
       {/* Desktop Header */}
       <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-3">
@@ -3574,111 +3574,106 @@ export default function FleetApp() {
       )}
 
       {stage === 'admin' && (
-        <div className="space-y-8 pb-20">
-          {/* Mobile Burger Bar Header */}
-          <div className="flex items-center justify-start gap-2 p-2 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-white/10 w-full mb-1">
+        <div className="space-y-8 pb-0">
+          {/* Mobile Burger Bar Header & Filters */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-2 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-white/10 w-full mb-1">
             <button
               type="button"
               onClick={() => setShowAdminMobileMenu(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 rounded-xl text-xs font-black tracking-wider uppercase transition-all shadow-lg shadow-emerald-500/20 active:scale-95 shrink-0"
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 rounded-xl text-xs font-black tracking-wider uppercase transition-all shadow-lg shadow-emerald-500/20 active:scale-95 shrink-0 self-start lg:self-center"
             >
               <Menu className="w-4 h-4" />
               <span>MENU</span>
             </button>
-          </div>
 
-          {/* Tabs and Filters Container */}
-          <div className="flex flex-col gap-3 w-full">
-
-
-          {/* Filters */}
-          {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && adminTab !== 'report' && (
-            <div className="p-1.5 bg-white/5 rounded-2xl border border-white/10 flex flex-col md:flex-row items-end gap-2 w-full">
-              <div className={cn("grid gap-2 flex-1 w-full px-2 py-0.5", adminTab === 'salary' ? "grid-cols-2 md:grid-cols-3 max-w-2xl" : "grid-cols-2 md:grid-cols-6")}>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Calendar className="w-2.5 h-2.5" /> From
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full input-field py-0 text-[10px] text-white h-7"
-                    value={adminFilters.startDate}
-                    onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
-                  />
+            {/* Filters */}
+            {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && adminTab !== 'report' && (
+              <div className="flex flex-col md:flex-row items-end gap-2 flex-1 w-full">
+                <div className={cn("grid gap-2 flex-1 w-full px-2 py-0.5", adminTab === 'salary' ? "grid-cols-2 md:grid-cols-3 max-w-2xl" : "grid-cols-2 md:grid-cols-6")}>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Calendar className="w-2.5 h-2.5" /> From
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full input-field py-0 text-[10px] text-white h-7"
+                      value={adminFilters.startDate}
+                      onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Calendar className="w-2.5 h-2.5" /> To
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full input-field py-0 text-[10px] text-white h-7"
+                      value={adminFilters.endDate}
+                      onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
+                    />
+                  </div>
+                  {adminTab !== 'salary' && (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
+                        <select
+                          className="w-full input-field py-0 text-[10px] text-white h-7"
+                          value={adminFilters.purpose}
+                          onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
+                        >
+                          {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
+                        <select
+                          className="w-full input-field py-0 text-[10px] text-white h-7"
+                          value={adminFilters.status}
+                          onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
+                        >
+                          {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
+                        <select
+                          className="w-full input-field py-0 text-[10px] text-white h-7"
+                          value={adminFilters.vehicle}
+                          onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
+                        >
+                          <option value="All">All Vehicles</option>
+                          {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
+                    <select
+                      className="w-full input-field py-0 text-[10px] text-white h-7"
+                      value={adminFilters.driver}
+                      onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
+                    >
+                      <option value="All">All Drivers</option>
+                      {(adminData?.tables?.driversList || [])
+                        .filter((driver: any) => driver.status === 'Active' && driver.username)
+                        .map((driver: any) => (
+                          <option key={driver.username} value={driver.username}>
+                            {driver.username}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Calendar className="w-2.5 h-2.5" /> To
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full input-field py-0 text-[10px] text-white h-7"
-                    value={adminFilters.endDate}
-                    onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
-                  />
-                </div>
-                {adminTab !== 'salary' && (
-                  <>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
-                      <select
-                        className="w-full input-field py-0 text-[10px] text-white h-7"
-                        value={adminFilters.purpose}
-                        onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
-                      >
-                        {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
-                      <select
-                        className="w-full input-field py-0 text-[10px] text-white h-7"
-                        value={adminFilters.status}
-                        onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
-                      >
-                        {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
-                      <select
-                        className="w-full input-field py-0 text-[10px] text-white h-7"
-                        value={adminFilters.vehicle}
-                        onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
-                      >
-                        <option value="All">All Vehicles</option>
-                        {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </div>
-                  </>
-                )}
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
-                  <select
-                    className="w-full input-field py-0 text-[10px] text-white h-7"
-                    value={adminFilters.driver}
-                    onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
-                  >
-                    <option value="All">All Drivers</option>
-                    {(adminData?.tables?.driversList || [])
-                      .filter((driver: any) => driver.status === 'Active' && driver.username)
-                      .map((driver: any) => (
-                        <option key={driver.username} value={driver.username}>
-                          {driver.username}
-                        </option>
-                      ))}
-                  </select>
-                </div>
+                <button
+                  onClick={resetAdminFilters}
+                  className="h-7 px-4 mb-0.5 mr-0.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shrink-0 w-full md:w-auto"
+                  title="Clear Filters"
+                >
+                  <X className="w-3 h-3" /> CLEAR
+                </button>
               </div>
-            <button
-              onClick={resetAdminFilters}
-              className="h-7 px-4 mb-0.5 mr-0.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shrink-0 w-full md:w-auto"
-              title="Clear Filters"
-            >
-              <X className="w-3 h-3" /> CLEAR
-            </button>
-          </div>
-          )}
+            )}
           </div>
           {fetchingAdmin && !adminData ? (
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
@@ -4202,14 +4197,6 @@ export default function FleetApp() {
                         <Download className="w-3 h-3" />
                         Export CSV
                       </button>
-                      <button
-                        onClick={handleClearFleetData}
-                        disabled={clearingFleet}
-                        className="ml-4 px-3 py-1 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1"
-                      >
-                        {clearingFleet ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                        Clear Data
-                      </button>
                     </div>
                   </div>
                   <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
@@ -4217,8 +4204,8 @@ export default function FleetApp() {
                       <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                         <tr className="border-b border-white/5 bg-white/[0.02]">
                           {[
-                            'Status', 'STAFF COMMENT', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
-                            'Purpose', 'Garage Start', 'Garage End', 'End TS',
+                            'Status', 'STAFF COMMENT', 'FR Ref', 'Purpose', 'Start TS', 'Driver', 'Vehicle Num',
+                            'Garage Start', 'Garage End', 'End TS',
                             'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
@@ -4226,10 +4213,23 @@ export default function FleetApp() {
                             'Actions'
                           ].map(h => (
                             <th key={h} className={cn(
-                              "px-6 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                              "py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                              (h === 'Status' || h === 'STAFF COMMENT') ? "px-2 sm:px-6" : "px-6",
                               h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5" : ""
                             )}>
-                              {h}
+                              {h === 'STAFF COMMENT' ? (
+                                <>
+                                  <span className="sm:hidden">STF CMM</span>
+                                  <span className="hidden sm:inline">STAFF COMMENT</span>
+                                </>
+                              ) : h === 'FR Ref' ? (
+                                <>
+                                  <span className="sm:hidden">FR REF</span>
+                                  <span className="hidden sm:inline">FR Ref</span>
+                                </>
+                              ) : (
+                                h
+                              )}
                             </th>
                           ))}
                         </tr>
@@ -4295,7 +4295,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 'staff_comment', 1, 2, 3, 4, 5, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
+                            {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
                               const cellTooltip = (hasMismatch && idx === 6)
                                 ? `${mismatch} km mismatch with the last trip for this vehicle`
                                 : getFuelLiterTooltip(idx);
@@ -4304,7 +4304,8 @@ export default function FleetApp() {
                               <td 
                                 key={idx} 
                                 className={cn(
-                                  "px-6 py-2 text-xs whitespace-nowrap",
+                                  "py-2 text-xs whitespace-nowrap",
+                                  (idx === 0 || idx === 'staff_comment') ? "px-2 sm:px-6" : "px-6",
                                   hasMismatch && idx === 6 ? "font-bold" : ""
                                 )}
                                 title={cellTooltip}
@@ -4317,10 +4318,17 @@ export default function FleetApp() {
                                       setCommentText(currentComment);
                                       setShowCommentModal(true);
                                     }}
-                                    className="flex items-center gap-2 cursor-pointer hover:bg-white/10 p-1 rounded transition-colors group min-w-[80px]"
+                                    className="flex items-center gap-1 sm:gap-2 cursor-pointer hover:bg-white/10 p-1 rounded transition-colors group min-w-[40px] sm:min-w-[80px]"
                                   >
                                     {t.values[27] ? (
-                                      <span className="text-white text-xs">{t.values[27]}</span>
+                                      <span className="text-white text-xs" title={String(t.values[27])}>
+                                        <span className="sm:hidden">
+                                          {String(t.values[27]).trim().split(/\s+/)[0]}
+                                        </span>
+                                        <span className="hidden sm:inline">
+                                          {t.values[27]}
+                                        </span>
+                                      </span>
                                     ) : (
                                       <span className="text-slate-500 italic text-[10px] flex items-center gap-1">
                                         <Plus className="w-3 h-3" /> Add
@@ -4355,51 +4363,69 @@ export default function FleetApp() {
                                     })()}
                                   </span>
                                 ) : idx === 0 ? (
-                                  <select
-                                    value={t.values[idx as number] || 'Pending'}
-                                    onChange={async (e) => {
-                                      const newStatus = e.target.value;
-                                      const newValues = [...t.values];
-                                      newValues[0] = newStatus;
-                                      setAlert({ type: 'warning', message: 'Updating status...' });
-                                      try {
-                                        const res = await fetch('/api/admin/edit-trip', {
-                                          method: 'PUT',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ reference: t.rf, rawValues: newValues })
-                                        });
-                                        const data = await res.json();
-                                        if (data.error) throw new Error(data.error);
-                                        setAlert({ type: 'success', message: 'Status updated!' });
-                                        
-                                        // Update local state optimistically
-                                        const newFleetData = [...adminData.tables.fleetData];
-                                        const rowIdx = newFleetData.findIndex((r: any) => r.rf === t.rf);
-                                        if (rowIdx > -1) {
-                                          newFleetData[rowIdx].values[0] = newStatus;
-                                          setAdminData({
-                                            ...adminData,
-                                            tables: {
-                                              ...adminData.tables,
-                                              fleetData: newFleetData
-                                            }
+                                  <div className="relative inline-flex items-center justify-center">
+                                    <select
+                                      value={t.values[idx as number] || 'Pending'}
+                                      onChange={async (e) => {
+                                        const newStatus = e.target.value;
+                                        const newValues = [...t.values];
+                                        newValues[0] = newStatus;
+                                        setAlert({ type: 'warning', message: 'Updating status...' });
+                                        try {
+                                          const res = await fetch('/api/admin/edit-trip', {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ reference: t.rf, rawValues: newValues })
                                           });
+                                          const data = await res.json();
+                                          if (data.error) throw new Error(data.error);
+                                          setAlert({ type: 'success', message: 'Status updated!' });
+                                          
+                                          // Update local state optimistically
+                                          const newFleetData = [...adminData.tables.fleetData];
+                                          const rowIdx = newFleetData.findIndex((r: any) => r.rf === t.rf);
+                                          if (rowIdx > -1) {
+                                            newFleetData[rowIdx].values[0] = newStatus;
+                                            setAdminData({
+                                              ...adminData,
+                                              tables: {
+                                                ...adminData.tables,
+                                                fleetData: newFleetData
+                                              }
+                                            });
+                                          }
+                                        } catch (err: any) {
+                                          setAlert({ type: 'error', message: err.message || 'Failed to update status' });
                                         }
-                                      } catch (err: any) {
-                                        setAlert({ type: 'error', message: err.message || 'Failed to update status' });
-                                      }
-                                    }}
-                                    className={cn(
-                                      "px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-widest cursor-pointer outline-none appearance-none text-center",
-                                      (t.values[idx as number] || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
-                                      (t.values[idx as number] || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
-                                      "bg-yellow-200 text-yellow-900"
-                                    )}
-                                  >
-                                    <option value="Pending" className="bg-slate-800 text-white font-bold">Pending</option>
-                                    <option value="Approved" className="bg-slate-800 text-white font-bold">Approved</option>
-                                    <option value="Cancelled" className="bg-slate-800 text-white font-bold">Cancelled</option>
-                                  </select>
+                                      }}
+                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    >
+                                      <option value="Pending" className="bg-slate-800 text-white font-bold">Pending</option>
+                                      <option value="Approved" className="bg-slate-800 text-white font-bold">Approved</option>
+                                      <option value="Cancelled" className="bg-slate-800 text-white font-bold">Cancelled</option>
+                                    </select>
+                                    <div
+                                      className={cn(
+                                        "pointer-events-none flex items-center justify-center font-black leading-none text-center",
+                                        "w-5 h-5 rounded-full text-[10px] sm:w-auto sm:h-auto sm:px-2 sm:py-1 sm:text-[8px] sm:uppercase sm:tracking-widest",
+                                        (t.values[idx as number] || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
+                                        (t.values[idx as number] || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
+                                        "bg-yellow-200 text-yellow-900"
+                                      )}
+                                    >
+                                      <span className="sm:hidden">
+                                        {(() => {
+                                          const st = String(t.values[idx as number] || 'Pending').toLowerCase();
+                                          if (st.includes('approved')) return 'A';
+                                          if (st.includes('cancel')) return 'C';
+                                          return 'P';
+                                        })()}
+                                      </span>
+                                      <span className="hidden sm:inline">
+                                        {t.values[idx as number] || 'Pending'}
+                                      </span>
+                                    </div>
+                                  </div>
                                 ) : idx === 5 ? (
                                   <span className={cn(
                                     "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
