@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     await dbConnect();
 
     // Find last reference from MongoDB only
-    const lastTrip = await Trip.findOne({ reference: /^FR/ }).sort({ reference: -1 });
+    const lastTrip = await Trip.findOne({ reference: /^FR/ }).sort({ timestamp: -1 });
     let nextNumber = 1;
     
     if (lastTrip && lastTrip.reference) {

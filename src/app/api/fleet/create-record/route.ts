@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     await dbConnect();
 
     // 1. Calculate new Reference
-    const lastTrip = await Trip.findOne({ reference: /^FR/ }).sort({ reference: -1 });
+    const lastTrip = await Trip.findOne({ reference: /^FR/ }).sort({ timestamp: -1 });
     let nextNumber = 1;
     
     if (lastTrip && lastTrip.reference) {
