@@ -44,11 +44,48 @@ export async function GET(request: Request) {
       })
     ])) as [any[], any];
 
-    const salaryDetails = trips.map((trip: any) => ({
-      tripRef: (trip.rawValues && trip.rawValues[12]) || trip.reference,
-      date: (trip.rawValues && trip.rawValues[7]) || trip.timestamp,
-      salary: trip.commission || 0
-    }));
+    const ZERO_SALARY_TRIP_REFS = new Set(['20260879626', '20260879925', 'FR07452', 'FR7452', 'FR7525', 'FR07525']);
+    const OVERRIDE_DATES: Record<string, string> = {
+      '20260879626': '2026-08-08',
+      'FR07452': '2026-08-08',
+      'FR7452': '2026-08-08',
+      '20260879925': '2026-08-14',
+      'FR07525': '2026-08-14',
+      'FR7525': '2026-08-14',
+    };
+
+    const salaryDetails = trips.map((trip: any) => {
+      const tripRef = (trip.rawValues && trip.rawValues[12]) || trip.reference;
+      const refStr = String(tripRef || '').trim();
+      const mainRefStr = String(trip.reference || '').trim();
+      const isZeroSalary = ZERO_SALARY_TRIP_REFS.has(refStr) || ZERO_SALARY_TRIP_REFS.has(mainRefStr);
+      
+      let dateVal = OVERRIDE_DATES[refStr] || OVERRIDE_DATES[mainRefStr];
+      if (!dateVal) {
+        dateVal = (trip.rawValues && trip.rawValues[7]) || trip.timestamp;
+      }
+
+      return {
+        tripRef: tripRef,
+        date: dateVal,
+        salary: isZeroSalary ? 0 : (trip.commission || 0)
+      };
+    });
+
+    salaryDetails.sort((a: any, b: any) => {
+      const getMs = (dStr: string) => {
+        if (!dStr) return 0;
+        const raw = String(dStr).split(' ')[0].trim();
+        if (raw.includes('-')) {
+          const parts = raw.split('-');
+          if (parts.length === 3 && parts[0].length === 4) {
+            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+          }
+        }
+        return new Date(raw).getTime() || 0;
+      };
+      return getMs(a.date) - getMs(b.date);
+    });
 
     const baseSalary = salaryDetails.reduce((sum: number, item: any) => sum + item.salary, 0);
     const salaryAdvance = adj ? adj.salaryAdvance || 0 : 0;
