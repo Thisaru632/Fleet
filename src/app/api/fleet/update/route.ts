@@ -43,16 +43,19 @@ export async function POST(request: Request) {
         existingArray[22] = array[22] || existingArray[22] || '';
         existingArray[23] = array[23] || existingArray[23] || '';
       }
-      if (array.length > 25 && array[25]) {
-        existingArray[25] = array[25];
-      }
       if (array.length > 28 && array[28]) {
         existingArray[28] = array[28];
+      }
+      if (array.length > 31 && array[31]) {
+        existingArray[31] = array[31];
       }
       if (array.length > 29 && array[29]) {
         existingArray[29] = array[29];
       } else if (!existingArray[29]) {
         existingArray[29] = 'Office card';
+      }
+      if (array.length > 30 && array[30]) {
+        existingArray[30] = array[30];
       }
       if (existingArray.length > 10) {
         existingArray[10] = scDue;
@@ -94,13 +97,14 @@ export async function POST(request: Request) {
       // Column A and B and C are already in trip.status, trip.reference, trip.timestamp
       
       const existingArray = trip.rawValues.slice(3);
-      if (array.length < 30) {
-        array.length = 30;
+      if (array.length < 32) {
+        array.length = 32;
       }
       // Preserve specific timestamps and locations if they aren't explicitly provided
       if (existingArray[25] && !array[25]) array[25] = existingArray[25]; // Fuel Update TS
       if (existingArray[26] && !array[26]) array[26] = existingArray[26]; // Start Location
-      if (existingArray[28] && !array[28]) array[28] = existingArray[28]; // Fuel Location
+      if (existingArray[28] && !array[28]) array[28] = existingArray[28]; // Fuel Location (1st)
+      if (existingArray[31] && !array[31]) array[31] = existingArray[31]; // 2nd Fuel Location (2nd)
       const hasFuel = Boolean(trip.fuel > 0 || parseNum(array[6]) > 0 || (array.length > 21 && parseNum(array[21]) > 0));
       if (!array[29] && existingArray[29]) array[29] = existingArray[29]; // Payment Type
       if (!array[29] && hasFuel) array[29] = 'Office card';

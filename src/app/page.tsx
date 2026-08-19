@@ -548,6 +548,10 @@ export default function FleetApp() {
     fuelStationMeter: '',
     fuelLiterCount: '',
     repairStationMeter: '',
+    firstFuelLocation: '',
+    secondFuelLocation: '',
+    firstPaymentType: 'Office card',
+    secondPaymentType: 'Office card',
     paymentType: 'Office card',
   });
 
@@ -575,10 +579,13 @@ export default function FleetApp() {
       ...prev,
       firstFuelCost: prev.firstFuelCost || prev.fuelCost,
       firstFuelComments: prev.firstFuelComments || prev.comments,
+      firstFuelLocation: prev.firstFuelLocation || prev.fuelLocation || '',
+      firstPaymentType: prev.firstPaymentType || prev.paymentType || 'Office card',
       fuelStationMeter: '',
       fuelLiterCount: '',
       fuelCost: '',
       comments: '',
+      paymentType: prev.secondPaymentType || 'Office card',
     }));
     setFiles((prev: any) => ({
       ...prev,
@@ -655,8 +662,10 @@ export default function FleetApp() {
         array[22] = formData.fuelStationMeter;
         array[23] = formData.fuelLiterCount;
         array[25] = new Date().toLocaleString();
-        array[28] = locationUrl;
-        array[29] = formData.paymentType || 'Office card';
+        array[28] = formData.firstFuelLocation || '';
+        array[29] = formData.firstPaymentType || 'Office card';
+        array[30] = formData.secondPaymentType || formData.paymentType || 'Office card';
+        array[31] = locationUrl;
       } else {
         array[6] = formData.fuelCost;
         array[7] = finalComments;
@@ -665,7 +674,9 @@ export default function FleetApp() {
         array[23] = '';
         array[25] = new Date().toLocaleString();
         array[28] = locationUrl;
-        array[29] = formData.paymentType || 'Office card';
+        array[29] = formData.paymentType || formData.firstPaymentType || 'Office card';
+        array[30] = '';
+        array[31] = '';
       }
 
       array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
@@ -1713,9 +1724,12 @@ export default function FleetApp() {
         firstFuelComments: details[10] || '',
         firstFuelMeter: extractedMeter,
         firstFuelLiters: extractedLiters,
+        firstFuelLocation: details[31] || details[28] || '',
         secondFuelCost: secondFuelCost,
         secondFuelMeter: details[25] || '',
         secondFuelLiters: details[26] || '',
+        secondFuelLocation: details[34] || '',
+        firstPaymentType: details[29] || details[32] || 'Office card',
         repairCost: details[11] || '',
         scDueAmount: details[13] || '',
         drvComms: stage === 'last-trip' ? (details[14] || '') : '',
@@ -4206,7 +4220,7 @@ export default function FleetApp() {
                           {[
                             'Status', 'STAFF COMMENT', 'FR Ref', 'Purpose', 'Start TS', 'Driver', 'Vehicle Num',
                             'Garage Start', 'Garage End', 'End TS',
-                            'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
+                            'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', '2nd Fuel Loc', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
                             'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS', 'Payment Type',
@@ -4295,7 +4309,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
+                            {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, '2nd_fuel_loc', 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
                               const cellTooltip = (hasMismatch && idx === 6)
                                 ? `${mismatch} km mismatch with the last trip for this vehicle`
                                 : getFuelLiterTooltip(idx);
@@ -4339,6 +4353,16 @@ export default function FleetApp() {
                                 ) : idx === 'repair_meter' ? (
                                   <span className="text-white">
                                     {t.values[5] === 'Repair' ? (t.values[6] || t.values[8] || '-') : '-'}
+                                  </span>
+                                ) : idx === '2nd_fuel_loc' ? (
+                                  <span className="font-sans font-normal text-white">
+                                    {(() => {
+                                      const locUrl = t.values[34];
+                                      if (locUrl && String(locUrl).startsWith('http')) {
+                                        return <a href={locUrl} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">View Map</a>;
+                                      }
+                                      return '-';
+                                    })()}
                                   </span>
                                 ) : idx === 'fuel_meter' || idx === 'fuel_liters' ? (
                                   <span className="text-white" title={getFuelLiterTooltip(idx)}>
@@ -7942,6 +7966,7 @@ export default function FleetApp() {
                       { label: '2nd Fuel Cost', idx: 24 },
                       { label: '2nd Fuel Meter', idx: 25 },
                       { label: '2nd Fuel Liters', idx: 26 },
+                      { label: '2nd Fuel Loc', idx: 34 },
                       { label: 'Comments', idx: 10 },
                       { label: 'Repair Cost', idx: 11 },
                       { label: 'Folder URL', idx: 20 },
@@ -8040,7 +8065,7 @@ export default function FleetApp() {
                         ) : (
                           viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
                             ? (
-                                (field.idx === 29 || field.idx === 30 || field.idx === 31) && viewingTrip.values[field.idx as number].startsWith('http')
+                                (field.idx === 29 || field.idx === 30 || field.idx === 31 || field.idx === 34) && viewingTrip.values[field.idx as number].startsWith('http')
                                   ? <a href={viewingTrip.values[field.idx as number]} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">View Map</a>
                                   : field.idx === 10 && viewingTrip.values[5] === 'Fuel' ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() || '-' : viewingTrip.values[field.idx as number]
                               )
