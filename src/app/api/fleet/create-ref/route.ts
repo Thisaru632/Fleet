@@ -15,18 +15,19 @@ export async function POST(request: Request) {
 
     await dbConnect();
 
-    // Find last reference from MongoDB only
-    const lastTrip = await Trip.findOne({ reference: /^FR/ }).sort({ reference: -1 });
-    let nextNumber = 1;
-    
-    if (lastTrip && lastTrip.reference) {
-      nextNumber = parseInt(lastTrip.reference.slice(2)) + 1;
-    } else {
-      // If MongoDB is empty, we start at 1
-      nextNumber = 1;
-    }
+    // Find max numeric FR reference from MongoDB
+    const frTrips = await Trip.find({ reference: /^FR/ }, { reference: 1 }).lean();
+    let maxNumber = 0;
+    frTrips.forEach((t: any) => {
+      const match = String(t.reference || '').match(/\d+/);
+      if (match) {
+        const num = parseInt(match[0], 10);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
 
-    const newReference = `FR${String(nextNumber).padStart(5, "0")}`;
+    const nextNumber = maxNumber > 0 ? maxNumber + 1 : 1;
+    const newReference = nextNumber >= 7000 ? `FR${nextNumber}` : `FR${String(nextNumber).padStart(5, "0")}`;
 
     // Create Drive Folder
     let folderId, folderUrl;
