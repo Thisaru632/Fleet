@@ -323,20 +323,8 @@ export async function GET(request: Request) {
     });
     const purposeCount = Object.keys(purposeDataMap).map(purpose => ({ purpose, count: purposeDataMap[purpose] }));
 
-    // Format Fleet Data for the current page and sort numerically by FR reference descending
-    const parseFrNum = (refStr: any) => {
-      if (!refStr) return 0;
-      const match = String(refStr).match(/\d+/);
-      return match ? parseInt(match[0], 10) : 0;
-    };
-
-    const sortedTripsForPage = [...tripsForPage].sort((a: any, b: any) => {
-      const numA = parseFrNum(a.reference || a.rawValues?.[1]);
-      const numB = parseFrNum(b.reference || b.rawValues?.[1]);
-      return numB - numA;
-    });
-
-    const fleetData = sortedTripsForPage.map((trip: any) => ({
+    // Format Fleet Data for the current page
+    const fleetData = tripsForPage.map((trip: any) => ({
       rf: trip.reference,
       date: trip.rawValues?.[7] || trip.timestamp,
       driver: trip.driverId,

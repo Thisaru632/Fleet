@@ -54,9 +54,6 @@ export async function POST(request: Request) {
       } else if (!existingArray[29]) {
         existingArray[29] = 'Office card';
       }
-      if (array.length > 30 && array[30]) {
-        existingArray[30] = array[30];
-      }
       if (existingArray.length > 10) {
         existingArray[10] = scDue;
       }

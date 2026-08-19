@@ -548,8 +548,6 @@ export default function FleetApp() {
     fuelStationMeter: '',
     fuelLiterCount: '',
     repairStationMeter: '',
-    firstPaymentType: 'Office card',
-    secondPaymentType: 'Office card',
     paymentType: 'Office card',
   });
 
@@ -577,12 +575,10 @@ export default function FleetApp() {
       ...prev,
       firstFuelCost: prev.firstFuelCost || prev.fuelCost,
       firstFuelComments: prev.firstFuelComments || prev.comments,
-      firstPaymentType: prev.firstPaymentType || prev.paymentType || 'Office card',
       fuelStationMeter: '',
       fuelLiterCount: '',
       fuelCost: '',
       comments: '',
-      paymentType: prev.secondPaymentType || 'Office card',
     }));
     setFiles((prev: any) => ({
       ...prev,
@@ -660,8 +656,7 @@ export default function FleetApp() {
         array[23] = formData.fuelLiterCount;
         array[25] = new Date().toLocaleString();
         array[28] = locationUrl;
-        array[29] = formData.firstPaymentType || 'Office card';
-        array[30] = formData.secondPaymentType || formData.paymentType || 'Office card';
+        array[29] = formData.paymentType || 'Office card';
       } else {
         array[6] = formData.fuelCost;
         array[7] = finalComments;
@@ -670,8 +665,7 @@ export default function FleetApp() {
         array[23] = '';
         array[25] = new Date().toLocaleString();
         array[28] = locationUrl;
-        array[29] = formData.paymentType || formData.firstPaymentType || 'Office card';
-        array[30] = '';
+        array[29] = formData.paymentType || 'Office card';
       }
 
       array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
@@ -1722,9 +1716,6 @@ export default function FleetApp() {
         secondFuelCost: secondFuelCost,
         secondFuelMeter: details[25] || '',
         secondFuelLiters: details[26] || '',
-        firstPaymentType: details[29] || details[32] || 'Office card',
-        secondPaymentType: details[30] || details[33] || 'Office card',
-        paymentType: count === 2 ? (details[30] || details[33] || 'Office card') : (details[29] || details[32] || 'Office card'),
         repairCost: details[11] || '',
         scDueAmount: details[13] || '',
         drvComms: stage === 'last-trip' ? (details[14] || '') : '',
@@ -2118,15 +2109,9 @@ export default function FleetApp() {
         array[20] = formData.tripPrice || '';
         array[24] = formData.repairStationMeter || '';
         if (isFuelSubmitted || formData.fuelCost || fuelSubmitCount >= 1 || formData.firstFuelCost) {
-          array[29] = formData.firstPaymentType || formData.paymentType || 'Office card';
-          if (fuelSubmitCount >= 2 || formData.secondFuelCost) {
-            array[30] = formData.secondPaymentType || 'Office card';
-          } else {
-            array[30] = '';
-          }
+          array[29] = formData.paymentType || 'Office card';
         } else {
           array[29] = '';
-          array[30] = '';
         }
         
         const endLocationUrl = await captureLocation();
@@ -4224,7 +4209,7 @@ export default function FleetApp() {
                             'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
                             'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
                             'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-                            'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS', 'Payment Type', '2nd Payment Type',
+                            'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS', 'Payment Type',
                             'Actions'
                           ].map(h => (
                             <th key={h} className={cn(
@@ -4310,7 +4295,7 @@ export default function FleetApp() {
                               key={i} 
                               className="transition-colors group hover:bg-white/5"
                             >
-                            {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32, 33].map((idx) => {
+                            {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
                               const cellTooltip = (hasMismatch && idx === 6)
                                 ? `${mismatch} km mismatch with the last trip for this vehicle`
                                 : getFuelLiterTooltip(idx);
@@ -4489,18 +4474,6 @@ export default function FleetApp() {
                                       );
                                       if (!hasFuel) return '-';
                                       return t.values[32] || 'Office card';
-                                    })()}
-                                  </span>
-                                ) : idx === 33 ? (
-                                  <span className="font-sans font-normal text-white">
-                                    {(() => {
-                                      const has2ndFuel = Boolean(
-                                        (t.values[24] !== undefined && t.values[24] !== null && String(t.values[24]).trim() !== '' && t.values[24] !== '0' && t.values[24] !== 0) ||
-                                        (t.values[25] !== undefined && t.values[25] !== null && String(t.values[25]).trim() !== '') ||
-                                        (t.values[26] !== undefined && t.values[26] !== null && String(t.values[26]).trim() !== '')
-                                      );
-                                      if (!has2ndFuel) return '-';
-                                      return t.values[33] || 'Office card';
                                     })()}
                                   </span>
                                 ) : (
@@ -7107,22 +7080,13 @@ export default function FleetApp() {
                     />
                   </div>
                   <div className="space-y-2 col-span-2 md:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">
-                      {fuelSubmitCount >= 1 ? '2nd Payment Type' : 'Payment Type'}
-                    </label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Payment Type</label>
                     <select
                       id="paymentType"
                       disabled={isFuelSubmitted}
                       className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
-                      value={formData.paymentType || (fuelSubmitCount >= 1 ? (formData.secondPaymentType || 'Office card') : (formData.firstPaymentType || 'Office card'))}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData((prev: any) => ({
-                          ...prev,
-                          paymentType: val,
-                          ...(fuelSubmitCount >= 1 ? { secondPaymentType: val } : { firstPaymentType: val })
-                        }));
-                      }}
+                      value={formData.paymentType || 'Office card'}
+                      onChange={handleInputChange}
                     >
                       <option value="Office card">Office card</option>
                       <option value="Bank transfer">Bank transfer</option>
