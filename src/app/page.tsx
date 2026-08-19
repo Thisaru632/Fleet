@@ -1256,9 +1256,9 @@ export default function FleetApp() {
       </style>
       <div class="header">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <img src="${typeof window !== 'undefined' ? window.location.origin : ''}/logo.jpg" style="height: 36px; width: auto; object-fit: contain; border-radius: 4px;" alt="YSM Transport" />
+          <img src="${typeof window !== 'undefined' ? window.location.origin : ''}/logo.jpg" style="height: 36px; width: auto; object-fit: contain; border-radius: 4px;" alt="SSD Transport" />
           <div>
-            <div class="brand">YSM Transport</div>
+            <div class="brand">SSD Transport</div>
           </div>
         </div>
         <div style="text-align: right; font-size: 10px; color: #64748b; font-weight: 600;">
@@ -2568,7 +2568,7 @@ export default function FleetApp() {
         <div className="flex items-center gap-3">
           <img src="/logo.jpg" alt="Logo" className="h-12 w-auto object-contain rounded-md" />
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-white uppercase">
-            YSM FLEET MANAGEMENT
+            SSD FLEET MANAGEMENT
           </h1>
         </div>
         
