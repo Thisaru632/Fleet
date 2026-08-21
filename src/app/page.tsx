@@ -312,7 +312,7 @@ export default function FleetApp() {
         })
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.success) {
         setViewingImages((prev: any) => ({
           ...prev,
@@ -352,7 +352,7 @@ export default function FleetApp() {
         })
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.success) {
         setViewingImages((prev: any) => ({
           ...prev,
@@ -412,7 +412,7 @@ export default function FleetApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reference: commentTarget.rf, rawValues: newValues })
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
 
       setAlert({ type: 'success', message: 'Staff comment updated!' });
@@ -687,7 +687,7 @@ export default function FleetApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage: 'fuel', ref: currentRef, array, files: uploadFiles }),
       });
-      const updateData = await updateRes.json();
+      const updateData = await safeJson(updateRes);
       if (updateData.error) throw new Error(updateData.error);
 
       setIsFuelSubmitted(true);
@@ -756,7 +756,7 @@ export default function FleetApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage: 'repair', ref: currentRef, array, files: uploadFiles }),
       });
-      const updateData = await updateRes.json();
+      const updateData = await safeJson(updateRes);
       if (updateData.error) throw new Error(updateData.error);
 
       setIsRepairSubmitted(true);
@@ -852,7 +852,7 @@ export default function FleetApp() {
     setAlert({ type: 'warning', message: 'Fetching salary details...' });
     try {
       const res = await fetch(`/api/fleet/salary?drvId=${user[0]}&year=${salaryYear}&month=${salaryMonth}`);
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setSalaryData(data.salaryDetails);
       setTotalSalary(data.totalSalary);
@@ -886,7 +886,7 @@ export default function FleetApp() {
     setFetchingSentMessages(true);
     try {
       const res = await fetch(`/api/fleet/message?drvId=${user[0]}&type=sent&_t=${Date.now()}`);
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.messages) setSentMessages(data.messages);
     } catch (e) {
       console.error("Failed to fetch sent messages:", e);
@@ -900,7 +900,7 @@ export default function FleetApp() {
     setFetchingInboxMessages(true);
     try {
       const res = await fetch(`/api/fleet/message?drvId=${user[0]}&type=inbox&_t=${Date.now()}`);
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.messages) setInboxMessages(data.messages);
     } catch (e) {
       console.error("Failed to fetch inbox messages:", e);
@@ -919,7 +919,7 @@ export default function FleetApp() {
 
       // Fetch current month salary & hires
       const currRes = await fetch(`/api/fleet/salary?drvId=${user[0]}&year=${currentYear}&month=${currentMonth}`);
-      const currData = await currRes.json();
+      const currData = await safeJson(currRes);
       const currentSalary = currData && !currData.error ? (currData.totalSalary || 0) : 0;
       const hires = currData && !currData.error && currData.salaryDetails ? currData.salaryDetails.length : 0;
 
@@ -929,7 +929,7 @@ export default function FleetApp() {
       for (let m = 7; m < currentMonth; m++) {
         monthPromises.push(
           fetch(`/api/fleet/salary?drvId=${user[0]}&year=${currentYear}&month=${m}`)
-            .then(res => res.json())
+            .then(safeJson)
             .catch(() => null)
         );
       }
@@ -986,7 +986,7 @@ export default function FleetApp() {
           message: officeMessage
         }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
 
       setAlert({ type: 'success', message: 'Message sent to Senu Cabs Office successfully!' });
@@ -1010,7 +1010,7 @@ export default function FleetApp() {
         ...(appliedFleetSearch ? { search: appliedFleetSearch } : {})
       });
       const res = await fetch(`/api/admin/sales?${params.toString()}`);
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setAdminData(data);
     } catch (err: any) {
@@ -1063,7 +1063,7 @@ export default function FleetApp() {
     if (!quiet) setFetchingAccountData(true);
     try {
       const res = await fetch(`/api/admin/account-data?page=${adminPage}&limit=50&search=${encodeURIComponent(debouncedSearch)}`);
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setAccountSheetData(data);
     } catch (err: any) {
@@ -1099,7 +1099,7 @@ export default function FleetApp() {
 
     try {
       const res = await fetch('/api/admin/sync-accounts');
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       
       setSyncProgress(100);
@@ -1123,7 +1123,7 @@ export default function FleetApp() {
     setAlert({ type: 'warning', message: 'Clearing fleet data...' });
     try {
       const res = await fetch('/api/admin/clear-fleet', { method: 'DELETE' });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setAlert({ type: 'success', message: 'Fleet data cleared successfully!' });
       
@@ -1138,7 +1138,7 @@ export default function FleetApp() {
       if (adminFilters.driver !== 'All') queryParams.append('driver', adminFilters.driver);
       
       const updatedDataRes = await fetch(`/api/admin/sales?${queryParams.toString()}`);
-      const updatedData = await updatedDataRes.json();
+      const updatedData = await safeJson(updatedDataRes);
       setAdminData(updatedData);
     } catch (err: any) {
       console.error(err);
@@ -1180,7 +1180,7 @@ export default function FleetApp() {
           exclusionsComment: adjExclusionsComment
         })
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setAlert({ type: 'success', message: 'Driver salary adjustments updated successfully!' });
       setShowAdjustmentModal(false);
@@ -1416,7 +1416,7 @@ export default function FleetApp() {
     if (!confirm(`Are you sure you want to delete trip ${ref}?`)) return;
     try {
       const res = await fetch(`/api/admin/delete-trip?ref=${ref}`, { method: 'DELETE' });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setAlert({ type: 'success', message: 'Trip deleted successfully!' });
       fetchAdminSales(true);
@@ -1433,7 +1433,7 @@ export default function FleetApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username })
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setAlert({ type: 'success', message: 'Driver deleted successfully!' });
       fetchAdminSales(true);
@@ -1452,7 +1452,7 @@ export default function FleetApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingDriver)
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       
       if (editingDriver.vehicle !== undefined) {
@@ -1485,7 +1485,7 @@ export default function FleetApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(addingDriver)
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
 
       if (addingDriver.vehicle !== undefined) {
@@ -1522,7 +1522,7 @@ export default function FleetApp() {
           rawValues: finalValues
         })
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setAlert({ type: 'success', message: 'Trip updated successfully!' });
       setEditingTrip(null);
@@ -1538,7 +1538,7 @@ export default function FleetApp() {
     if (!quiet) setFetchingMessages(true);
     try {
       const res = await fetch(`/api/admin/messages?page=${adminPage}&limit=50&_t=${Date.now()}`);
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setMessagesData(data);
     } catch (err: any) {
@@ -1564,7 +1564,7 @@ export default function FleetApp() {
         body: formData,
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
 
       setAlert({ type: 'success', message: data.message });
@@ -1649,7 +1649,7 @@ export default function FleetApp() {
     setAlert({ type: 'warning', message: 'Retrieving reference details...' });
     try {
       const res = await fetch(`/api/fleet/details?type=fr&ref=${ref}`);
-      const data = await res.json();
+      const data = await safeJson(res);
       const details = data.details;
 
       if (!details) {
@@ -1765,7 +1765,7 @@ export default function FleetApp() {
     setFetchingDetails(true);
     try {
       const res = await fetch(`/api/fleet/details?type=trip&ref=${ref}`);
-      const data = await res.json();
+      const data = await safeJson(res);
       const details = data.details;
       if (details) {
         const cleanNum = (val: any) => val ? val.toString().replace(/[^\d.]/g, '') : '';
@@ -2042,7 +2042,7 @@ export default function FleetApp() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ timestamp: endTs, drvId: user[0], array, files: uploadFiles }),
         });
-        const createData = await createRes.json();
+        const createData = await safeJson(createRes);
         if (createData.error) throw new Error(createData.error);
 
         actualRef = createData.reference;
@@ -3000,8 +3000,8 @@ export default function FleetApp() {
                 </div>
 
                 {/* Top Sliding Banner Section */}
-                <div className="relative overflow-hidden bg-white rounded-3xl p-4 border border-slate-200/80 shadow-sm mb-4">
-                  <div className="relative min-h-[185px]">
+                <div className="relative overflow-hidden bg-white rounded-3xl p-3 border border-slate-200/80 shadow-sm mb-4">
+                  <div className="relative min-h-[210px]">
                     <AnimatePresence mode="wait">
                       {bannerSlide === 0 ? (
                         /* Slide 1: Notice Board with Image Banner */
@@ -3013,7 +3013,7 @@ export default function FleetApp() {
                           transition={{ duration: 0.3 }}
                           className="flex flex-col justify-between h-full space-y-2.5"
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between px-1">
                             <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs uppercase tracking-wider">
                               <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
                                 <MessageSquare className="w-3.5 h-3.5" />
@@ -3031,24 +3031,20 @@ export default function FleetApp() {
                             )}
                           </div>
 
-                          {/* Image Banner Only (Height expanded to fill space) */}
+                          {/* Image Banner Only (Expanded flush to card border line, no white frame) */}
                           <div 
                             onClick={() => {
                               window.history.pushState({ stage: 'contact-office' }, '');
                               setStage('contact-office');
                             }}
-                            className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-100 group cursor-pointer"
+                            className="-mx-3 -mb-3 rounded-b-[22px] overflow-hidden group cursor-pointer"
                           >
                             <img
-                              src={inboxMessages[0]?.image || "/notice_banner.png"}
+                              src={inboxMessages[0]?.image || "/notice/notice 1.jpg"}
                               alt="Notice Banner"
-                              className="w-full h-36 sm:h-38 object-cover transition-transform duration-300 group-hover:scale-105"
+                              className="w-full h-auto aspect-[2752/1536] object-fill transition-transform duration-300 group-hover:scale-105"
+                              style={{ imageRendering: '-webkit-optimize-contrast' }}
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/20 to-transparent flex items-end p-2.5">
-                              <span className="text-[9px] font-extrabold text-amber-300 uppercase tracking-wider bg-slate-900/60 backdrop-blur-sm px-2.5 py-1 rounded-md border border-amber-400/30">
-                                {inboxMessages.length > 0 ? "Management Notice" : "Official Announcements"}
-                              </span>
-                            </div>
                           </div>
                         </motion.div>
                       ) : (
@@ -4377,7 +4373,7 @@ export default function FleetApp() {
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ reference: t.rf, rawValues: newValues })
                                           });
-                                          const data = await res.json();
+                                          const data = await safeJson(res);
                                           if (data.error) throw new Error(data.error);
                                           setAlert({ type: 'success', message: 'Status updated!' });
                                           
@@ -4550,7 +4546,7 @@ export default function FleetApp() {
                                       setViewingImages({ rf: t.rf, images: null, loading: true });
                                       try {
                                         const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
-                                        const data = await res.json();
+                                        const data = await safeJson(res);
                                         setViewingImages({ rf: t.rf, images: data.images || [], loading: false });
                                       } catch (err) {
                                         setViewingImages({ rf: t.rf, images: [], loading: false });
@@ -5324,7 +5320,7 @@ export default function FleetApp() {
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ vehicleNumber: newVehicleNumber.trim() })
                         });
-                        const data = await res.json();
+                        const data = await safeJson(res);
                         if (!res.ok) throw new Error(data.error || 'Failed to add vehicle');
                         setAlert({ type: 'success', message: `${newVehicleNumber} added successfully!` });
                         setNewVehicleNumber('');
