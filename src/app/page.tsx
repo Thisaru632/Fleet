@@ -575,6 +575,8 @@ export default function FleetApp() {
       ...prev,
       firstFuelCost: prev.firstFuelCost || prev.fuelCost,
       firstFuelComments: prev.firstFuelComments || prev.comments,
+      firstFuelLocation: prev.firstFuelLocation || prev.fuelLocation || '',
+      firstPaymentType: prev.firstPaymentType || prev.paymentType || 'Office card',
       fuelStationMeter: '',
       fuelLiterCount: '',
       fuelCost: '',
@@ -655,8 +657,10 @@ export default function FleetApp() {
         array[22] = formData.fuelStationMeter;
         array[23] = formData.fuelLiterCount;
         array[25] = new Date().toLocaleString();
-        array[28] = locationUrl;
-        array[29] = formData.paymentType || 'Office card';
+        array[28] = formData.firstFuelLocation || '';
+        array[29] = formData.firstPaymentType || formData.paymentType || 'Office card';
+        array[30] = locationUrl;
+        array[31] = formData.paymentType || 'Office card';
       } else {
         array[6] = formData.fuelCost;
         array[7] = finalComments;
@@ -666,6 +670,13 @@ export default function FleetApp() {
         array[25] = new Date().toLocaleString();
         array[28] = locationUrl;
         array[29] = formData.paymentType || 'Office card';
+        array[30] = '';
+        array[31] = '';
+        setFormData((prev: any) => ({
+          ...prev,
+          firstFuelLocation: locationUrl,
+          firstPaymentType: formData.paymentType || 'Office card'
+        }));
       }
 
       array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
@@ -1713,9 +1724,13 @@ export default function FleetApp() {
         firstFuelComments: details[10] || '',
         firstFuelMeter: extractedMeter,
         firstFuelLiters: extractedLiters,
+        firstFuelLocation: details[31] || '',
+        firstPaymentType: details[32] || '',
         secondFuelCost: secondFuelCost,
         secondFuelMeter: details[25] || '',
         secondFuelLiters: details[26] || '',
+        secondFuelLocation: details[33] || '',
+        secondPaymentType: details[34] || '',
         repairCost: details[11] || '',
         scDueAmount: details[13] || '',
         drvComms: stage === 'last-trip' ? (details[14] || '') : '',
@@ -7515,7 +7530,7 @@ export default function FleetApp() {
                       { label: 'Start Loc', idx: 29, type: 'text', readOnly: true },
                       { label: 'Driver', idx: 3, type: 'text' },
                       { label: 'Vehicle Num', idx: 4, type: 'select', options: adminData?.filterOptions?.vehicles || [] },
-                      { label: 'Purpose', idx: 5, type: 'select', options: ['Hire', 'Repair', 'Personal', 'Fuel'] },
+                      { label: 'Purpose', idx: 5, type: 'select', options: ['Hire', 'Repair', 'Personal', 'Fuel', 'Office Use'] },
                       { label: 'Garage Start', idx: 6, type: 'number' },
                     ]
                   },
@@ -7930,7 +7945,7 @@ export default function FleetApp() {
                     title: 'Fuel / Repair Details',
                     fields: [
                       { label: 'Fuel Update TS', idx: 28 },
-                      { label: 'Fuel Loc', idx: 31 },
+                      { label: '1st Fuel Loc', idx: 31 },
                       { label: 'Fuel Cost', idx: 9 },
                       { label: 'Fuel Meter', idx: 'fuel_meter' },
                       { label: 'Fuel Liters', idx: 'fuel_liters' },
@@ -7938,6 +7953,8 @@ export default function FleetApp() {
                       { label: '2nd Fuel Cost', idx: 24 },
                       { label: '2nd Fuel Meter', idx: 25 },
                       { label: '2nd Fuel Liters', idx: 26 },
+                      { label: '2nd Fuel Loc', idx: 33 },
+                      { label: '2nd Payment Type', idx: 34 },
                       { label: 'Comments', idx: 10 },
                       { label: 'Repair Cost', idx: 11 },
                       { label: 'Folder URL', idx: 20 },
@@ -8033,10 +8050,20 @@ export default function FleetApp() {
                             if (!hasFuel) return '-';
                             return viewingTrip.values[32] || 'Office card';
                           })()
+                        ) : field.idx === 34 ? (
+                          (() => {
+                            const hasSecondFuel = Boolean(
+                              (viewingTrip.values[24] !== undefined && viewingTrip.values[24] !== null && String(viewingTrip.values[24]).trim() !== '' && viewingTrip.values[24] !== '0' && viewingTrip.values[24] !== 0) ||
+                              (viewingTrip.values[25] !== undefined && viewingTrip.values[25] !== null && String(viewingTrip.values[25]).trim() !== '') ||
+                              (viewingTrip.values[26] !== undefined && viewingTrip.values[26] !== null && String(viewingTrip.values[26]).trim() !== '')
+                            );
+                            if (!hasSecondFuel) return '-';
+                            return viewingTrip.values[34] || 'Office card';
+                          })()
                         ) : (
                           viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
                             ? (
-                                (field.idx === 29 || field.idx === 30 || field.idx === 31) && viewingTrip.values[field.idx as number].startsWith('http')
+                                (field.idx === 29 || field.idx === 30 || field.idx === 31 || field.idx === 33) && viewingTrip.values[field.idx as number].startsWith('http')
                                   ? <a href={viewingTrip.values[field.idx as number]} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">View Map</a>
                                   : field.idx === 10 && viewingTrip.values[5] === 'Fuel' ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() || '-' : viewingTrip.values[field.idx as number]
                               )
