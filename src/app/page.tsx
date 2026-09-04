@@ -7100,6 +7100,7 @@ export default function FleetApp() {
                       onChange={handleInputChange}
                     >
                       <option value="Office card">Office card</option>
+                      <option value="Dialog card">Dialog card</option>
                       <option value="Bank transfer">Bank transfer</option>
                       <option value="Hire cash">Hire cash</option>
                       <option value="Driver cash">Driver cash</option>
@@ -7542,7 +7543,7 @@ export default function FleetApp() {
                       { label: 'Fuel Cost', idx: 9, type: 'number' },
                       { label: 'Fuel Meter', idx: 'fuel_meter', type: 'number' },
                       { label: 'Fuel Liters', idx: 'fuel_liters', type: 'number' },
-                      { label: 'Payment Type', idx: 32, type: 'select', options: ['Office card', 'Bank transfer', 'Hire cash', 'Driver cash'] },
+                      { label: 'Payment Type', idx: 32, type: 'select', options: ['Office card', 'Dialog card', 'Bank transfer', 'Hire cash', 'Driver cash'] },
                       { label: '2nd Fuel Cost', idx: 24, type: 'number' },
                       { label: '2nd Fuel Meter', idx: 25, type: 'number' },
                       { label: '2nd Fuel Liters', idx: 26, type: 'number' },
