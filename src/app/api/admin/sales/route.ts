@@ -287,33 +287,65 @@ export async function GET(request: Request) {
     // Charts mapping
     const chartsData = chartsAggregation[0];
     const dailySales = chartsData.byDate.map((d: any) => ({ date: d._id, sales: d.sales }));
-    const vehicleSales = chartsData.byVehicle.map((d: any) => {
+    const allSystemVehicles = Array.from(new Set(["PK-3991", ...uniqueVehicles.filter(Boolean), ...(addedVehiclesMeta?.value || [])])).filter(Boolean);
+    const vehicleSalesMap = new Map<string, any>();
+
+    chartsData.byVehicle.forEach((d: any) => {
+      if (!d._id) return;
       const incomeData = incomeByVehicle[d._id] || { cash: 0, credit: 0, cashCount: 0, creditCount: 0 };
-      return {
-      vehicle: d._id,
-      sales: d.sales,
-      hireIncome: d.hireIncome || 0,
-      hireCount: d.hireCount || 0,
-      cashIncome: incomeData.cash,
-      creditIncome: incomeData.credit,
-      cashHireCount: incomeData.cashCount,
-      creditHireCount: incomeData.creditCount,
-      cashScDue: incomeData.cashScDue,
-      creditScDue: incomeData.creditScDue,
-      mileage: d.totalMileage || 0,
-      personalMileage: d.personalMileage || 0,
-      fuelCost: d.fuelCost || 0,
-      fuelLiters: fuelLitersByVehicle[d._id] || 0,
-      incomePerKm: d.totalMileage > 0 ? (d.hireIncome / d.totalMileage) : 0,
-      fuelPercentage: (() => {
-        if (!d.hireIncome) return 0;
-        const costPerKm = (d.totalMileage || 0) > 0 ? (d.fuelCost || 0) / d.totalMileage : 0;
-        const personalFuelCost = (d.personalMileage || 0) * costPerKm;
-        const adjustedFuelCost = (d.fuelCost || 0) - personalFuelCost;
-        return (adjustedFuelCost / d.hireIncome) * 100;
-      })(),
-      scDue: d.scDue || 0
-    }});
+      vehicleSalesMap.set(d._id, {
+        vehicle: d._id,
+        sales: d.sales || 0,
+        hireIncome: d.hireIncome || 0,
+        hireCount: d.hireCount || 0,
+        cashIncome: incomeData.cash || 0,
+        creditIncome: incomeData.credit || 0,
+        cashHireCount: incomeData.cashCount || 0,
+        creditHireCount: incomeData.creditCount || 0,
+        cashScDue: incomeData.cashScDue || 0,
+        creditScDue: incomeData.creditScDue || 0,
+        mileage: d.totalMileage || 0,
+        personalMileage: d.personalMileage || 0,
+        fuelCost: d.fuelCost || 0,
+        fuelLiters: fuelLitersByVehicle[d._id] || 0,
+        incomePerKm: d.totalMileage > 0 ? (d.hireIncome / d.totalMileage) : 0,
+        fuelPercentage: (() => {
+          if (!d.hireIncome) return 0;
+          const costPerKm = (d.totalMileage || 0) > 0 ? (d.fuelCost || 0) / d.totalMileage : 0;
+          const personalFuelCost = (d.personalMileage || 0) * costPerKm;
+          const adjustedFuelCost = (d.fuelCost || 0) - personalFuelCost;
+          return (adjustedFuelCost / d.hireIncome) * 100;
+        })(),
+        scDue: d.scDue || 0
+      });
+    });
+
+    allSystemVehicles.forEach((v: string) => {
+      if (!vehicleSalesMap.has(v)) {
+        vehicleSalesMap.set(v, {
+          vehicle: v,
+          sales: 0,
+          hireIncome: 0,
+          hireCount: 0,
+          cashIncome: 0,
+          creditIncome: 0,
+          cashHireCount: 0,
+          creditHireCount: 0,
+          cashScDue: 0,
+          creditScDue: 0,
+          mileage: 0,
+          personalMileage: 0,
+          fuelCost: 0,
+          fuelLiters: 0,
+          incomePerKm: 0,
+          fuelPercentage: 0,
+          scDue: 0
+        });
+      }
+    });
+
+    const vehicleSales = Array.from(vehicleSalesMap.values());
+    vehicleSales.sort((a: any, b: any) => a.vehicle.localeCompare(b.vehicle));
     const driverSales = chartsData.byDriver.map((d: any) => ({ driver: d._id, sales: d.sales }));
     const monthlySales = chartsData.byMonth.map((d: any) => ({ month: d._id, sales: d.sales }));
     
@@ -481,7 +513,7 @@ export async function GET(request: Request) {
         monthlySales
       },
       tables: {
-        topVehicles: vehicleSales.slice(0, 10),
+        topVehicles: vehicleSales,
         topDrivers: driverSales.slice(0, 10),
         recentTrips,
         fleetData,
@@ -496,7 +528,7 @@ export async function GET(request: Request) {
       },
       driverNames,
       filterOptions: {
-        vehicles: Array.from(new Set(["PK-3991", ...uniqueVehicles.filter(Boolean), ...(addedVehiclesMeta?.value || [])])),
+        vehicles: allSystemVehicles,
         drivers: uniqueDrivers.filter(Boolean),
         purposes: ["All", "Hire", "Repair", "Personal", "Fuel", "Office Use"],
         statuses: ["All", "Approved", "Pending"]

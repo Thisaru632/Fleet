@@ -3947,7 +3947,7 @@ export default function FleetApp() {
                       <Car className="w-4 h-4 text-emerald-500" />
                     </div>
                     <div className="divide-y divide-white/5">
-                      {adminData.tables.topVehicles.map((v: any, i: number) => (
+                      {[...(adminData.tables.topVehicles || [])].sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0)).slice(0, 10).map((v: any, i: number) => (
                         <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
                           <div className="flex items-center gap-3">
                             <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
