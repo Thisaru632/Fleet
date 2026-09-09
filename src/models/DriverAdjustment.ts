@@ -14,8 +14,4 @@ const DriverAdjustmentSchema: Schema = new Schema({
 
 DriverAdjustmentSchema.index({ driverCode: 1, month: 1 }, { unique: true });
 
-if (mongoose.models && mongoose.models.DriverAdjustment) {
-  delete (mongoose.models as any).DriverAdjustment;
-}
-
-export default mongoose.model("DriverAdjustment", DriverAdjustmentSchema);
+export default mongoose.models.DriverAdjustment || mongoose.model("DriverAdjustment", DriverAdjustmentSchema);

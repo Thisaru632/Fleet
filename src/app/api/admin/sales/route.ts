@@ -129,7 +129,7 @@ export async function GET(request: Request) {
             byDate: [
               {
                 $group: {
-                  _id: { $substrBytes: [{ $ifNull: [{ $arrayElemAt: ["$rawValues", 7] }, "Unknown   "] }, 0, 10] },
+                  _id: { $substrBytes: [{ $toString: { $ifNull: [{ $arrayElemAt: ["$rawValues", 7] }, "Unknown   "] } }, 0, 10] },
                   sales: { $sum: "$finalPrice" }
                 }
               },
@@ -164,7 +164,7 @@ export async function GET(request: Request) {
             byMonth: [
               {
                 $group: {
-                  _id: { $substrBytes: [{ $ifNull: [{ $arrayElemAt: ["$rawValues", 7] }, "Unknown   "] }, 0, 7] },
+                  _id: { $substrBytes: [{ $toString: { $ifNull: [{ $arrayElemAt: ["$rawValues", 7] }, "Unknown   "] } }, 0, 7] },
                   sales: { $sum: "$finalPrice" }
                 }
               },
