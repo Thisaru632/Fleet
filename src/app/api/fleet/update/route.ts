@@ -108,9 +108,17 @@ export async function POST(request: Request) {
       if (existingArray[26] && !array[26]) array[26] = existingArray[26]; // Start Location
       if (existingArray[28] && !array[28]) array[28] = existingArray[28]; // 1st Fuel Location
       if (existingArray[30] && !array[30]) array[30] = existingArray[30]; // 2nd Fuel Location
-      if (existingArray[31] && !array[31]) array[31] = existingArray[31]; // 2nd Payment Type
+      if (existingArray[31] && (!array[31] || (array[31] === 'Office card' && existingArray[31] !== 'Office card'))) {
+        array[31] = existingArray[31]; // 2nd Payment Type
+      } else if (existingArray[31] && !array[31]) {
+        array[31] = existingArray[31];
+      }
       const hasFuel = Boolean(trip.fuel > 0 || parseNum(array[6]) > 0 || (array.length > 21 && parseNum(array[21]) > 0));
-      if (!array[29] && existingArray[29]) array[29] = existingArray[29]; // Payment Type
+      if (existingArray[29] && (!array[29] || (array[29] === 'Office card' && existingArray[29] !== 'Office card'))) {
+        array[29] = existingArray[29]; // Preserve saved payment type
+      } else if (!array[29] && existingArray[29]) {
+        array[29] = existingArray[29]; // Payment Type
+      }
       if (!array[29] && hasFuel) array[29] = 'Office card';
       if (!hasFuel && !existingArray[29]) array[29] = '';
 

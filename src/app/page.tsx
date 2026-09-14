@@ -27,6 +27,7 @@ import {
   Phone,
   Download,
   X,
+  Maximize2,
   Menu,
   Lock,
   TrendingUp,
@@ -231,6 +232,18 @@ export default function FleetApp() {
   const [editingTrip, setEditingTrip] = useState<any>(null);
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
   const [viewingImages, setViewingImages] = useState<any>(null);
+  const [fullscreenImage, setFullscreenImage] = useState<{ url: string; name?: string } | null>(null);
+
+  useEffect(() => {
+    if (!fullscreenImage) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setFullscreenImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fullscreenImage]);
   const [addingImage, setAddingImage] = useState(false);
   const prevTripMap = useMemo(() => {
     if (!adminData?.tables?.fleetData) return new Map();
@@ -661,6 +674,11 @@ export default function FleetApp() {
         array[29] = formData.firstPaymentType || formData.paymentType || 'Office card';
         array[30] = locationUrl;
         array[31] = formData.paymentType || 'Office card';
+        setFormData((prev: any) => ({
+          ...prev,
+          secondFuelLocation: locationUrl,
+          secondPaymentType: formData.paymentType || 'Office card'
+        }));
       } else {
         array[6] = formData.fuelCost;
         array[7] = finalComments;
@@ -1731,6 +1749,7 @@ export default function FleetApp() {
         secondFuelLiters: details[26] || '',
         secondFuelLocation: details[33] || '',
         secondPaymentType: details[34] || '',
+        paymentType: (count === 2 ? details[34] : details[32]) || details[32] || 'Office card',
         repairCost: details[11] || '',
         scDueAmount: details[13] || '',
         drvComms: stage === 'last-trip' ? (details[14] || '') : '',
@@ -2080,7 +2099,7 @@ export default function FleetApp() {
         // Calculate Total Mileage
         const totalMileage = Number(formData.garageEndMeter) - Number(formData.garageStartMeter);
 
-        let array: any[] = new Array(30).fill('');
+        let array: any[] = new Array(32).fill('');
         array[0] = user[0];
         array[1] = formData.vehicle;
         array[2] = formData.purpose;
@@ -2123,8 +2142,12 @@ export default function FleetApp() {
         array[19] = totalMileage || '';
         array[20] = formData.tripPrice || '';
         array[24] = formData.repairStationMeter || '';
+        if (formData.firstFuelLocation) array[28] = formData.firstFuelLocation;
+        if (formData.secondFuelLocation) array[30] = formData.secondFuelLocation;
+        if (formData.secondPaymentType) array[31] = formData.secondPaymentType;
+
         if (isFuelSubmitted || formData.fuelCost || fuelSubmitCount >= 1 || formData.firstFuelCost) {
-          array[29] = formData.paymentType || 'Office card';
+          array[29] = formData.firstPaymentType || formData.paymentType || 'Office card';
         } else {
           array[29] = '';
         }
@@ -7547,6 +7570,8 @@ export default function FleetApp() {
                       { label: '2nd Fuel Cost', idx: 24, type: 'number' },
                       { label: '2nd Fuel Meter', idx: 25, type: 'number' },
                       { label: '2nd Fuel Liters', idx: 26, type: 'number' },
+                      { label: '2nd Fuel Loc', idx: 33, type: 'text', readOnly: true },
+                      { label: '2nd Payment Type', idx: 34, type: 'select', options: ['Office card', 'Dialog card', 'Bank transfer', 'Hire cash', 'Driver cash'] },
                       { label: 'Comments', idx: 10, type: 'text' },
                       { label: 'Repair Cost', idx: 11, type: 'number' },
                       { label: 'Folder URL', idx: 20, type: 'text' },
@@ -7726,12 +7751,22 @@ export default function FleetApp() {
                             )}
                           </div>
                         </div>
-                        <div className="relative flex-1 bg-black flex items-center justify-center min-h-[300px] p-2">
+                        <div 
+                          className="relative flex-1 bg-black flex items-center justify-center min-h-[300px] p-2 cursor-pointer group select-none overflow-hidden rounded-b-xl"
+                          onClick={() => setFullscreenImage({ url: img.dataUrl, name: img.name })}
+                          title="Click to view full screen"
+                        >
                           <img
                             src={img.dataUrl}
                             alt={img.name}
-                            className="max-h-[400px] w-auto object-contain rounded-lg shadow-lg hover:scale-105 transition-transform duration-300"
+                            className="max-h-[400px] w-auto object-contain rounded-lg shadow-lg group-hover:scale-105 transition-transform duration-300"
                           />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                            <span className="bg-slate-900/90 text-white border border-white/20 text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 backdrop-blur-sm">
+                              <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>View Full Screen</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -7768,6 +7803,56 @@ export default function FleetApp() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Fullscreen Image Modal */}
+      <AnimatePresence>
+        {fullscreenImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 select-none"
+            onClick={() => setFullscreenImage(null)}
+          >
+            {/* Top Bar with Title and Close Button */}
+            <div
+              className="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-auto max-w-7xl mx-auto w-[calc(100%-2rem)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-slate-900/90 border border-white/10 px-4 py-2 rounded-xl backdrop-blur-sm shadow-xl flex items-center gap-2">
+                <Camera className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-black uppercase text-slate-200 tracking-wider">
+                  {fullscreenImage.name || 'Full Screen View'}
+                </span>
+              </div>
+              <button
+                onClick={() => setFullscreenImage(null)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 hover:text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
+                title="Close Full Screen"
+              >
+                <X className="w-4 h-4" />
+                <span>Close</span>
+              </button>
+            </div>
+
+            {/* Fullscreen Image Display */}
+            <div
+              className="relative max-w-[95vw] max-h-[85vh] flex items-center justify-center p-2 mt-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <motion.img
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                src={fullscreenImage.url}
+                alt={fullscreenImage.name || 'Full Screen Image'}
+                className="max-h-[85vh] max-w-[95vw] w-auto h-auto object-contain rounded-xl shadow-2xl border border-white/10"
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
