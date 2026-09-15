@@ -27,9 +27,15 @@ export async function PUT(request: Request) {
     trip.mileage = endMeter > 0 ? (endMeter - startMeter) : 0;
     rawValues[22] = trip.mileage;
 
-    // Recalculate scDueAmount
-    const isHire = trip.purpose === "Hire";
-    const scDue = isHire ? Math.round(parseNum(rawValues[23]) - parseNum(rawValues[9]) - (rawValues.length > 24 ? parseNum(rawValues[24]) : 0) - parseNum(rawValues[11]) - parseNum(rawValues[14])) : 0;
+    // Recalculate scDueAmount: only deduct fuel if payment type is Hire cash
+    const isHire = (rawValues[5] || trip.purpose) === "Hire";
+    const fuel1Cost = parseNum(rawValues[9]);
+    const fuel2Cost = rawValues.length > 24 ? parseNum(rawValues[24]) : 0;
+    const pType1 = String((rawValues.length > 32 && rawValues[32]) || '').trim().toLowerCase();
+    const pType2 = String((rawValues.length > 34 && rawValues[34]) || '').trim().toLowerCase();
+    const deductibleFuel = (pType1 === 'hire cash' ? fuel1Cost : 0) + (pType2 === 'hire cash' ? fuel2Cost : 0);
+
+    const scDue = isHire ? Math.round(parseNum(rawValues[23]) - deductibleFuel - parseNum(rawValues[11]) - parseNum(rawValues[14])) : 0;
     trip.scDue = scDue;
     rawValues[13] = scDue;
 

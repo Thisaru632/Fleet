@@ -663,6 +663,16 @@ export default function FleetApp() {
           finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')}${paymentInfo})`;
       }
 
+      const pType1 = String((isSecondTime ? (formData.firstPaymentType || formData.paymentType) : formData.paymentType) || 'Office card').trim().toLowerCase();
+      const pType2 = String(isSecondTime ? formData.paymentType : (formData.secondPaymentType || '')).trim().toLowerCase();
+      const fuel1Val = (pType1 === 'hire cash') ? (Number(isSecondTime ? formData.firstFuelCost : formData.fuelCost) || 0) : 0;
+      const fuel2Val = (pType2 === 'hire cash') ? (Number(isSecondTime ? formData.fuelCost : formData.secondFuelCost) || 0) : 0;
+      const repairVal = Number(formData.repairCost) || 0;
+      const tripPriceVal = Number((formData.tripPrice || '').toString().replace(/[^\d.]/g, '')) || 0;
+      const salaryVal = Number(formData.drvComms) || 0;
+      const isHireTrip = formData.purpose === 'Hire';
+      const calculatedScDue = isHireTrip ? Math.round(tripPriceVal - fuel1Val - fuel2Val - repairVal - salaryVal) : 0;
+
       if (isSecondTime) {
         array[6] = formData.firstFuelCost || '';
         array[7] = finalComments;
@@ -677,7 +687,9 @@ export default function FleetApp() {
         setFormData((prev: any) => ({
           ...prev,
           secondFuelLocation: locationUrl,
-          secondPaymentType: formData.paymentType || 'Office card'
+          secondPaymentType: formData.paymentType || 'Office card',
+          secondFuelCost: formData.fuelCost,
+          scDueAmount: calculatedScDue
         }));
       } else {
         array[6] = formData.fuelCost;
@@ -693,13 +705,15 @@ export default function FleetApp() {
         setFormData((prev: any) => ({
           ...prev,
           firstFuelLocation: locationUrl,
-          firstPaymentType: formData.paymentType || 'Office card'
+          firstPaymentType: formData.paymentType || 'Office card',
+          firstFuelCost: formData.fuelCost,
+          scDueAmount: calculatedScDue
         }));
       }
 
       array[8] = formData.purpose === 'Repair' ? formData.repairCost : 0;
       array[9] = formData.tripRef || '';
-      array[10] = formData.scDueAmount || '';
+      array[10] = calculatedScDue;
       array[11] = formData.drvComms || '';
       array[12] = formData.tripStartMeter || '';
       array[13] = formData.tripEndMeter || '';
@@ -1872,10 +1886,13 @@ export default function FleetApp() {
             }
           }
 
-          const fuel1 = Number(prev.firstFuelCost) || Number(prev.fuelCost) || 0;
-          const fuel2 = Number(prev.secondFuelCost) || 0;
+          const pType1 = String(prev.firstPaymentType || prev.paymentType || details[32] || '').trim().toLowerCase();
+          const pType2 = String(prev.secondPaymentType || details[34] || '').trim().toLowerCase();
+          const fuel1 = (pType1 === 'hire cash') ? (Number(prev.firstFuelCost) || Number(prev.fuelCost) || 0) : 0;
+          const fuel2 = (pType2 === 'hire cash') ? (Number(prev.secondFuelCost) || 0) : 0;
           const repair = Number(prev.repairCost) || 0;
-          const dueAmount = Math.round(finalPriceNum - fuel1 - fuel2 - repair - Number(rawSalary));
+          const isHire = (prev.purpose || details[5]) === 'Hire';
+          const dueAmount = isHire ? Math.round(finalPriceNum - fuel1 - fuel2 - repair - Number(rawSalary)) : 0;
 
           const startDate = details[13] || '';
           const startTime = details[14] || '';
@@ -1931,15 +1948,23 @@ export default function FleetApp() {
     setFormData((prev: any) => ({ ...prev, [id]: value }));
 
     // Auto-calcs
-    if (['fuelCost', 'firstFuelCost', 'secondFuelCost', 'tripPrice', 'drvComms', 'repairCost'].includes(id)) {
-      // Calc scDueAmount = Final price - fuel cost 1 - fuel cost 2 - repair cost - driver salary
+    if (['fuelCost', 'firstFuelCost', 'secondFuelCost', 'tripPrice', 'drvComms', 'repairCost', 'paymentType', 'firstPaymentType', 'secondPaymentType', 'purpose'].includes(id)) {
+      // Calc scDueAmount = Final price - deductible fuel (Hire cash only) - repair cost - driver salary (for Hire purpose only)
       setFormData((prev: any) => {
-        const fuel1 = Number(prev.firstFuelCost) || Number(prev.fuelCost) || 0;
-        const fuel2 = Number(prev.secondFuelCost) || 0;
+        const isSecond = fuelSubmitCount === 1;
+        const pType1 = String(prev.firstPaymentType || (!isSecond ? prev.paymentType : '') || '').trim().toLowerCase();
+        const cost1 = Number(prev.firstFuelCost || (!isSecond ? prev.fuelCost : 0)) || 0;
+        const fuel1 = (pType1 === 'hire cash') ? cost1 : 0;
+
+        const pType2 = String(prev.secondPaymentType || (isSecond ? prev.paymentType : '') || '').trim().toLowerCase();
+        const cost2 = Number(prev.secondFuelCost || (isSecond ? prev.fuelCost : 0)) || 0;
+        const fuel2 = (pType2 === 'hire cash') ? cost2 : 0;
+
         const repair = Number(prev.repairCost) || 0;
         const tripPrice = Number((prev.tripPrice || '').toString().replace(/[^\d.]/g, '')) || 0;
         const salary = Number(prev.drvComms) || 0;
-        const due = Math.round(tripPrice - fuel1 - fuel2 - repair - salary);
+        const isHire = prev.purpose === 'Hire';
+        const due = isHire ? Math.round(tripPrice - fuel1 - fuel2 - repair - salary) : 0;
         return { ...prev, scDueAmount: due };
       });
     }

@@ -52,7 +52,9 @@ export async function POST(request: Request) {
     if (array.length < 30) {
       array.length = 30;
     }
-    const fuel = parseNum(array[6]) + (array.length > 21 ? parseNum(array[21]) : 0);
+    const fuel1Cost = parseNum(array[6]);
+    const fuel2Cost = array.length > 21 ? parseNum(array[21]) : 0;
+    const fuel = fuel1Cost + fuel2Cost;
     if (!array[29] && fuel > 0) {
       array[29] = 'Office card';
     } else if (!fuel && !array[29]) {
@@ -68,9 +70,13 @@ export async function POST(request: Request) {
     const mileage = parseNum(array[19]);
     const finalPrice = parseNum(array[20]);
     
-    // Recalculate scDue: only for Hire trips, else 0
+    // Recalculate scDue: only for Hire trips, else 0. Only deduct fuel if paid via Hire cash
+    const pType1 = String(array[29] || '').trim().toLowerCase();
+    const pType2 = String((array.length > 31 && array[31]) || '').trim().toLowerCase();
+    const deductibleFuel = (pType1 === 'hire cash' ? fuel1Cost : 0) + (pType2 === 'hire cash' ? fuel2Cost : 0);
+
     const isHire = purpose === "Hire";
-    const scDue = isHire ? Math.round(finalPrice - fuel - commission) : 0;
+    const scDue = isHire ? Math.round(finalPrice - deductibleFuel - commission - repair) : 0;
     if (array.length > 10) {
       array[10] = scDue;
     }

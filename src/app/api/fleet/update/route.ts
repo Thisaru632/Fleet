@@ -29,11 +29,9 @@ export async function POST(request: Request) {
     const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, "")) || 0;
 
     if (stage === 'fuel') {
-      trip.fuel = parseNum(array[6]) + (array.length > 21 ? parseNum(array[21]) : 0);
-      
-      const isHire = trip.purpose === "Hire";
-      const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission) : 0;
-      trip.scDue = scDue;
+      const fuel1Cost = parseNum(array[6]);
+      const fuel2Cost = array.length > 21 ? parseNum(array[21]) : 0;
+      trip.fuel = fuel1Cost + fuel2Cost;
 
       const existingArray = trip.rawValues.slice(3);
       existingArray[6] = array[6];
@@ -60,6 +58,15 @@ export async function POST(request: Request) {
       if (array.length > 31 && array[31]) {
         existingArray[31] = array[31];
       }
+
+      const pType1 = String(existingArray[29] || '').trim().toLowerCase();
+      const pType2 = String(existingArray[31] || '').trim().toLowerCase();
+      const deductibleFuel = (pType1 === 'hire cash' ? fuel1Cost : 0) + (pType2 === 'hire cash' ? fuel2Cost : 0);
+      
+      const isHire = trip.purpose === "Hire";
+      const scDue = isHire ? Math.round(trip.finalPrice - deductibleFuel - trip.commission - (trip.repair || 0)) : 0;
+      trip.scDue = scDue;
+
       if (existingArray.length > 10) {
         existingArray[10] = scDue;
       }
@@ -67,30 +74,43 @@ export async function POST(request: Request) {
       trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...existingArray];
     } else if (stage === 'repair') {
       trip.repair = parseNum(array[8]);
-      
-      const isHire = trip.purpose === "Hire";
-      const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission - trip.repair) : 0;
-      trip.scDue = scDue;
 
       const existingArray = trip.rawValues.slice(3);
       existingArray[8] = array[8];
-      existingArray[10] = scDue;
       existingArray[24] = array[24];
+
+      const fuel1Cost = parseNum(existingArray[6]);
+      const fuel2Cost = existingArray.length > 21 ? parseNum(existingArray[21]) : 0;
+      const pType1 = String(existingArray[29] || '').trim().toLowerCase();
+      const pType2 = String(existingArray[31] || '').trim().toLowerCase();
+      const deductibleFuel = (pType1 === 'hire cash' ? fuel1Cost : 0) + (pType2 === 'hire cash' ? fuel2Cost : 0);
+      
+      const isHire = trip.purpose === "Hire";
+      const scDue = isHire ? Math.round(trip.finalPrice - deductibleFuel - trip.commission - trip.repair) : 0;
+      trip.scDue = scDue;
+      existingArray[10] = scDue;
       
       trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...existingArray];
     } else {
       trip.driverId = array[0] || trip.driverId;
       trip.vehicle = array[1] || trip.vehicle;
       trip.purpose = array[2] || trip.purpose;
-      trip.fuel = parseNum(array[6]) + (array.length > 21 ? parseNum(array[21]) : 0);
+      const fuel1Cost = parseNum(array[6]);
+      const fuel2Cost = array.length > 21 ? parseNum(array[21]) : 0;
+      trip.fuel = fuel1Cost + fuel2Cost;
       trip.repair = parseNum(array[8]);
       trip.commission = parseNum(array[11]);
       trip.mileage = parseNum(array[19]);
       trip.finalPrice = parseNum(array[20]);
       
-      // Recalculate scDue: only for Hire trips, else 0
+      const existingArray = trip.rawValues.slice(3);
+      const pType1 = String((array.length > 29 && array[29]) || existingArray[29] || '').trim().toLowerCase();
+      const pType2 = String((array.length > 31 && array[31]) || existingArray[31] || '').trim().toLowerCase();
+      const deductibleFuel = (pType1 === 'hire cash' ? fuel1Cost : 0) + (pType2 === 'hire cash' ? fuel2Cost : 0);
+
+      // Recalculate scDue: only for Hire trips, else 0. Deduct fuel only if paid via Hire cash
       const isHire = trip.purpose === "Hire";
-      const scDue = isHire ? Math.round(trip.finalPrice - trip.fuel - trip.commission - trip.repair) : 0;
+      const scDue = isHire ? Math.round(trip.finalPrice - deductibleFuel - trip.commission - trip.repair) : 0;
       trip.scDue = scDue;
       if (array.length > 10) {
         array[10] = scDue;
@@ -99,7 +119,6 @@ export async function POST(request: Request) {
       // Update rawValues to match the sheet structure
       // Column A and B and C are already in trip.status, trip.reference, trip.timestamp
       
-      const existingArray = trip.rawValues.slice(3);
       if (array.length < 32) {
         array.length = 32;
       }
