@@ -216,9 +216,9 @@ export async function GET(request: Request) {
       let tripLiters = 0;
 
       const rawComments = String(values[10] || '');
-      const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
-      if (fuelMatch) {
-        const fuelStr = fuelMatch[1];
+      const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+      if (fuelMatches.length > 0) {
+        const fuelStr = fuelMatches[fuelMatches.length - 1][1];
         const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
         if (m) {
           tripLiters += parseFloat(m[1]) || 0;

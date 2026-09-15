@@ -1393,9 +1393,9 @@ export default function FleetApp() {
         let val = '';
         if (idx === 'fuel_meter' || idx === 'fuel_liters') {
             const rawComments = t.values[10] || '';
-            const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
-            if (fuelMatch) {
-                const fuelStr = fuelMatch[1];
+            const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+            if (fuelMatches.length > 0) {
+                const fuelStr = fuelMatches[fuelMatches.length - 1][1];
                 if (idx === 'fuel_meter') {
                     const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
                     val = m ? m[1] : '-';
@@ -1537,10 +1537,24 @@ export default function FleetApp() {
     try {
       let finalValues = [...editingTrip.values];
       let fuelDetails = [];
-      if (editingTrip.fMeter) fuelDetails.push(`Meter: ${editingTrip.fMeter} KM`);
-      if (editingTrip.fLiters) fuelDetails.push(`Liters: ${editingTrip.fLiters}`);
-      let finalComments = editingTrip.cleanComments || '';
-      if (fuelDetails.length > 0) finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')})`;
+      if (editingTrip.fMeter !== undefined && editingTrip.fMeter !== null && String(editingTrip.fMeter).trim() !== '') {
+        fuelDetails.push(`Meter: ${String(editingTrip.fMeter).trim()} KM`);
+      }
+      if (editingTrip.fLiters !== undefined && editingTrip.fLiters !== null && String(editingTrip.fLiters).trim() !== '') {
+        fuelDetails.push(`Liters: ${String(editingTrip.fLiters).trim()}`);
+      }
+      let finalComments = (editingTrip.cleanComments || '')
+        .toString()
+        .replace(/\(Fuel - (.*?)\)/g, '')
+        .replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '')
+        .trim();
+      
+      const paymentType = editingTrip.values[32];
+      const paymentInfo = paymentType ? ` - Paid via: ${paymentType}` : '';
+
+      if (fuelDetails.length > 0) {
+        finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')}${paymentInfo})`;
+      }
       finalValues[10] = finalComments;
 
       const res = await fetch('/api/admin/edit-trip', {
@@ -1553,9 +1567,30 @@ export default function FleetApp() {
       });
       const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
+
+      // Optimistically update the fleet table in local state
+      setAdminData((prev: any) => {
+        if (!prev?.tables?.fleetData) return prev;
+        const newFleetData = [...prev.tables.fleetData];
+        const rowIdx = newFleetData.findIndex((r: any) => r.rf === editingTrip.rf);
+        if (rowIdx > -1) {
+          newFleetData[rowIdx] = {
+            ...newFleetData[rowIdx],
+            values: finalValues
+          };
+        }
+        return {
+          ...prev,
+          tables: {
+            ...prev.tables,
+            fleetData: newFleetData
+          }
+        };
+      });
+
       setAlert({ type: 'success', message: 'Trip updated successfully!' });
       setEditingTrip(null);
-      fetchAdminSales();
+      fetchAdminSales(true);
     } catch (err: any) {
       setAlert({ type: 'error', message: err.message || 'Failed to update trip' });
     } finally {
@@ -3069,7 +3104,7 @@ export default function FleetApp() {
                             )}
                           </div>
 
-                          {/* Image Banner Only (Expanded flush to card border line, no white frame) */}
+                          {/* Notice Banner */}
                           <div 
                             onClick={() => {
                               window.history.pushState({ stage: 'contact-office' }, '');
@@ -3078,7 +3113,7 @@ export default function FleetApp() {
                             className="-mx-3 -mb-3 rounded-b-[22px] overflow-hidden group cursor-pointer"
                           >
                             <img
-                              src={inboxMessages[0]?.image || "/notice/notice 1.jpg"}
+                              src="/notice/notice_banner.jpg"
                               alt="Notice Banner"
                               className="w-full h-auto aspect-[2752/1536] object-fill transition-transform duration-300 group-hover:scale-105"
                               style={{ imageRendering: '-webkit-optimize-contrast' }}
@@ -4301,10 +4336,10 @@ export default function FleetApp() {
                               const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
                               
                               const rawComments = t.values[10] || '';
-                              const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
+                              const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
                               let litersStr = '';
-                              if (fuelMatch) {
-                                const fuelStr = fuelMatch[1];
+                              if (fuelMatches.length > 0) {
+                                const fuelStr = fuelMatches[fuelMatches.length - 1][1];
                                 const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
                                 if (m) litersStr = m[1];
                               }
@@ -4378,9 +4413,9 @@ export default function FleetApp() {
                                   <span className="text-white" title={getFuelLiterTooltip(idx)}>
                                     {(() => {
                                       const rawComments = t.values[10] || '';
-                                      const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
-                                      if (fuelMatch) {
-                                        const fuelStr = fuelMatch[1];
+                                      const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                      if (fuelMatches.length > 0) {
+                                        const fuelStr = fuelMatches[fuelMatches.length - 1][1];
                                         if (idx === 'fuel_meter') {
                                           const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
                                           return m ? m[1] : '-';
@@ -4601,9 +4636,9 @@ export default function FleetApp() {
                                       let fMeter = '';
                                       let fLiters = '';
                                       let cleanComments = t.values[10] || '';
-                                      const fuelMatch = cleanComments.toString().match(/\(Fuel - (.*?)\)/);
-                                      if (fuelMatch) {
-                                        const fuelStr = fuelMatch[1];
+                                      const fuelMatches: any[] = Array.from(cleanComments.toString().matchAll(/\(Fuel - (.*?)\)/g));
+                                      if (fuelMatches.length > 0) {
+                                        const fuelStr = fuelMatches[fuelMatches.length - 1][1];
                                         const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
                                         if (m1) fMeter = m1[1];
                                         const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
@@ -4613,7 +4648,7 @@ export default function FleetApp() {
                                         if (oldMatch) fMeter = oldMatch[1];
                                       }
                                       cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
-                                      setEditingTrip({ ...t, fMeter, fLiters, cleanComments: cleanComments || t.values[10] });
+                                      setEditingTrip({ ...t, fMeter, fLiters, cleanComments });
                                     }}
                                     className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
                                   >
@@ -6076,10 +6111,9 @@ export default function FleetApp() {
                               
                               const rawComments = String(t.values[10] || '');
                               let tempMeter = 0;
-                              const fuelRegex = /\(Fuel - (.*?)\)/;
-                              const fuelMatch = rawComments.match(fuelRegex);
-                              if (fuelMatch) {
-                                const meterMatch = fuelMatch[1].match(/Meter:\s*([\d.]+)\s*KM/i);
+                              const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                              if (fuelMatches.length > 0) {
+                                const meterMatch = fuelMatches[fuelMatches.length - 1][1].match(/Meter:\s*([\d.]+)\s*KM/i);
                                 if (meterMatch) tempMeter = Number(meterMatch[1]);
                               } else {
                                 const oldFuelMatch = rawComments.match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
@@ -6100,10 +6134,9 @@ export default function FleetApp() {
                               let firstFuelMeter = '';
                               let firstFuelLiters = 0;
 
-                              const fuelRegex = /\(Fuel - (.*?)\)/;
-                              const fuelMatch = rawComments.match(fuelRegex);
-                              if (fuelMatch) {
-                                const fuelStr = fuelMatch[1];
+                              const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                              if (fuelMatches.length > 0) {
+                                const fuelStr = fuelMatches[fuelMatches.length - 1][1];
                                 const meterMatch = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
                                 if (meterMatch) firstFuelMeter = meterMatch[1];
                                 const literMatch = fuelStr.match(/Liters:\s*([\d.]+)/i);
@@ -6137,10 +6170,9 @@ export default function FleetApp() {
                                     let pRawComments = String(prevRecord.values[10] || '');
                                     let pMeter = 0;
                                     
-                                    const pFuelRegex = /\(Fuel - (.*?)\)/;
-                                    const pFuelMatch = pRawComments.match(pFuelRegex);
-                                    if (pFuelMatch) {
-                                      const pMeterMatch = pFuelMatch[1].match(/Meter:\s*([\d.]+)\s*KM/i);
+                                    const pFuelMatches: any[] = Array.from(pRawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                    if (pFuelMatches.length > 0) {
+                                      const pMeterMatch = pFuelMatches[pFuelMatches.length - 1][1].match(/Meter:\s*([\d.]+)\s*KM/i);
                                       if (pMeterMatch) pMeter = Number(pMeterMatch[1]);
                                     } else {
                                       const pOldFuelMatch = pRawComments.match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
@@ -8074,11 +8106,35 @@ export default function FleetApp() {
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{field.label}</p>
                       <p className="text-xs font-medium text-white truncate" title={String(field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
                         (() => {
-                          if (viewingTrip.values[5] === 'Fuel') {
+                          const rawComments = viewingTrip.values[10] || '';
+                          const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                          if (fuelMatches.length > 0) {
+                            const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+                            if (field.idx === 'fuel_meter') {
+                              const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                              return m ? m[1] : '-';
+                            } else {
+                              const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                              return m ? m[1] : '-';
+                            }
+                          } else {
+                            const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                            const oldFuelMatch = rawComments.match(oldFuelRegex);
+                            if (oldFuelMatch && field.idx === 'fuel_meter') return oldFuelMatch[1];
+                            return '-';
+                          }
+                        })()
+                      ) : (
+                        viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
+                          ? (field.idx === 10 ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() : viewingTrip.values[field.idx as number])
+                          : (field.idx === 18 ? '0' : '-')
+                      ))}>
+                        {field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
+                          (() => {
                             const rawComments = viewingTrip.values[10] || '';
-                            const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
-                            if (fuelMatch) {
-                              const fuelStr = fuelMatch[1];
+                            const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                            if (fuelMatches.length > 0) {
+                              const fuelStr = fuelMatches[fuelMatches.length - 1][1];
                               if (field.idx === 'fuel_meter') {
                                 const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
                                 return m ? m[1] : '-';
@@ -8092,36 +8148,6 @@ export default function FleetApp() {
                               if (oldFuelMatch && field.idx === 'fuel_meter') return oldFuelMatch[1];
                               return '-';
                             }
-                          }
-                          return '-';
-                        })()
-                      ) : (
-                        viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
-                          ? (field.idx === 10 && viewingTrip.values[5] === 'Fuel' ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() : viewingTrip.values[field.idx as number])
-                          : (field.idx === 18 ? '0' : '-')
-                      ))}>
-                        {field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
-                          (() => {
-                            if (viewingTrip.values[5] === 'Fuel') {
-                              const rawComments = viewingTrip.values[10] || '';
-                              const fuelMatch = rawComments.match(/\(Fuel - (.*?)\)/);
-                              if (fuelMatch) {
-                                const fuelStr = fuelMatch[1];
-                                if (field.idx === 'fuel_meter') {
-                                  const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                  return m ? m[1] : '-';
-                                } else {
-                                  const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                  return m ? m[1] : '-';
-                                }
-                              } else {
-                                const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-                                const oldFuelMatch = rawComments.match(oldFuelRegex);
-                                if (oldFuelMatch && field.idx === 'fuel_meter') return oldFuelMatch[1];
-                                return '-';
-                              }
-                            }
-                            return '-';
                           })()
                         ) : field.idx === 32 ? (
                           (() => {
@@ -8151,7 +8177,7 @@ export default function FleetApp() {
                             ? (
                                 (field.idx === 29 || field.idx === 30 || field.idx === 31 || field.idx === 33) && viewingTrip.values[field.idx as number].startsWith('http')
                                   ? <a href={viewingTrip.values[field.idx as number]} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">View Map</a>
-                                  : field.idx === 10 && viewingTrip.values[5] === 'Fuel' ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() || '-' : viewingTrip.values[field.idx as number]
+                                  : field.idx === 10 ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() || '-' : viewingTrip.values[field.idx as number]
                               )
                             : (field.idx === 18 ? '0' : '-')
                         )}
