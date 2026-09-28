@@ -4392,6 +4392,8 @@ export default function FleetApp() {
                             {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
                               const cellTooltip = (hasMismatch && idx === 6)
                                 ? `${mismatch} km mismatch with the last trip for this vehicle`
+                                : idx === 'staff_comment'
+                                ? (t.values[27] ? String(t.values[27]) : undefined)
                                 : getFuelLiterTooltip(idx);
 
                               return (
@@ -4412,16 +4414,16 @@ export default function FleetApp() {
                                       setCommentText(currentComment);
                                       setShowCommentModal(true);
                                     }}
+                                    title={t.values[27] ? String(t.values[27]) : undefined}
                                     className="flex items-center gap-1 sm:gap-2 cursor-pointer hover:bg-white/10 p-1 rounded transition-colors group min-w-[40px] sm:min-w-[80px]"
                                   >
                                     {t.values[27] ? (
                                       <span className="text-white text-xs" title={String(t.values[27])}>
-                                        <span className="sm:hidden">
-                                          {String(t.values[27]).trim().split(/\s+/)[0]}
-                                        </span>
-                                        <span className="hidden sm:inline">
-                                          {t.values[27]}
-                                        </span>
+                                        {(() => {
+                                          const commentStr = String(t.values[27]).trim();
+                                          const words = commentStr ? commentStr.split(/\s+/) : [];
+                                          return words.length > 4 ? words.slice(0, 4).join(' ') + '...' : commentStr;
+                                        })()}
                                       </span>
                                     ) : (
                                       <span className="text-slate-500 italic text-[10px] flex items-center gap-1">
