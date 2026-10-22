@@ -22,16 +22,16 @@ export async function GET(request: Request) {
   try {
     await dbConnect();
 
-    // Build query
-    const query: any = {};
-    const andConditions: any[] = [];
+    // Base query conditions (dates, purpose, vehicle, driver)
+    const baseQuery: any = {};
+    const baseConditions: any[] = [];
 
     if (startDate || endDate) {
       const dateCond: any = {};
       if (startDate) dateCond.$gte = startDate;
       if (endDate) dateCond.$lte = endDate + " 23:59:59";
       
-      andConditions.push({
+      baseConditions.push({
         $or: [
           { "rawValues.7": dateCond },
           { 
@@ -43,29 +43,46 @@ export async function GET(request: Request) {
         ]
       });
     }
-    if (purposeFilter && purposeFilter !== "All") query.purpose = purposeFilter;
+    if (purposeFilter && purposeFilter !== "All") baseQuery.purpose = purposeFilter;
+    if (vehicleFilter && vehicleFilter !== "All") baseQuery.vehicle = vehicleFilter;
+    if (driverFilter && driverFilter !== "All") baseQuery.driverId = driverFilter;
+
+    // Build query (used for KPIs, charts, revenue/sales analytics)
+    const query: any = { ...baseQuery };
+    const queryAnd: any[] = [...baseConditions];
+
+    // Build fleetQuery (used for the Complete Fleet Data table and its pagination)
+    const fleetQuery: any = { ...baseQuery };
+    const fleetAnd: any[] = [...baseConditions];
+
     if (statusFilter && statusFilter !== "All") {
+      let statusCond: any[];
       if (statusFilter.toLowerCase().includes("cancel")) {
-        query.$or = [
+        statusCond = [
           { status: { $regex: /cancel/i } },
           { "rawValues.0": { $regex: /cancel/i } }
         ];
       } else {
-        query.status = statusFilter;
+        const regex = new RegExp(`^${statusFilter}$`, "i");
+        statusCond = [
+          { status: regex },
+          { "rawValues.0": regex }
+        ];
       }
+      queryAnd.push({ $or: statusCond });
+      fleetAnd.push({ $or: statusCond });
     } else {
+      // By default in KPIs / analytics, exclude cancelled trips so metrics reflect active/completed trips
       query.status = { $not: /cancel/i };
       query["rawValues.0"] = { $not: /cancel/i };
+      // fleetQuery has NO status filter when status is "All", so ALL trips (including Cancelled) appear in Fleet Data table
     }
-    if (vehicleFilter && vehicleFilter !== "All") query.vehicle = vehicleFilter;
-    if (driverFilter && driverFilter !== "All") query.driverId = driverFilter;
 
-    if (andConditions.length > 0) {
-      query.$and = andConditions;
+    if (queryAnd.length > 0) {
+      query.$and = queryAnd;
     }
 
     // Build fleetQuery specifically for Fleet Data table searching
-    const fleetQuery: any = { ...query };
     if (search) {
       const searchRegex = new RegExp(search, "i");
       const searchConditions: any[] = [
@@ -82,8 +99,10 @@ export async function GET(request: Request) {
         searchConditions.push({ rawValues: searchNum });
       }
 
-      const fleetAnd = fleetQuery.$and ? [...fleetQuery.$and] : [];
       fleetAnd.push({ $or: searchConditions });
+    }
+
+    if (fleetAnd.length > 0) {
       fleetQuery.$and = fleetAnd;
     }
 
@@ -531,7 +550,7 @@ export async function GET(request: Request) {
         vehicles: allSystemVehicles,
         drivers: uniqueDrivers.filter(Boolean),
         purposes: ["All", "Hire", "Repair", "Personal", "Fuel", "Office Use"],
-        statuses: ["All", "Approved", "Pending"]
+        statuses: ["All", "Approved", "Pending", "Cancelled"]
       }
     });
   } catch (error: any) {

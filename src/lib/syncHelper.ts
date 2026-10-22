@@ -3,7 +3,13 @@ import AccountSheet from "@/models/AccountSheet";
 import SheetMetadata from "@/models/SheetMetadata";
 import dbConnect from "./mongodb";
 
+// Set to true to re-enable populating the AccountSheet collection from Google Sheets.
+export const ACCOUNT_SHEET_SYNC_ENABLED = false;
+
 export async function runAccountSync() {
+  if (!ACCOUNT_SHEET_SYNC_ENABLED) {
+    return { success: true, message: "Account sheet sync is disabled." } as any;
+  }
   await dbConnect();
   const sheets = await getSheets();
   const spreadsheetId = "1lf0H2P34w03bapp31h2iOC4ypucKpS94qzlwqVtAkCs";

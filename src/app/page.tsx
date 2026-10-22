@@ -3725,7 +3725,7 @@ export default function FleetApp() {
                           value={adminFilters.status}
                           onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
                         >
-                          {adminData?.filterOptions.statuses.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                          {(adminData?.filterOptions?.statuses || ["All", "Approved", "Pending", "Cancelled"]).map((s: string) => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
                       <div className="space-y-1">
@@ -4482,6 +4482,7 @@ export default function FleetApp() {
                                           const rowIdx = newFleetData.findIndex((r: any) => r.rf === t.rf);
                                           if (rowIdx > -1) {
                                             newFleetData[rowIdx].values[0] = newStatus;
+                                            newFleetData[rowIdx].status = newStatus;
                                             setAdminData({
                                               ...adminData,
                                               tables: {
