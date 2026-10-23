@@ -4,7 +4,7 @@ import SheetMetadata from "@/models/SheetMetadata";
 import dbConnect from "./mongodb";
 
 // Set to true to re-enable populating the AccountSheet collection from Google Sheets.
-export const ACCOUNT_SHEET_SYNC_ENABLED = false;
+export const ACCOUNT_SHEET_SYNC_ENABLED = true;
 
 export async function runAccountSync() {
   if (!ACCOUNT_SHEET_SYNC_ENABLED) {

@@ -18,8 +18,6 @@ if (!cached) {
 }
 
 async function startBackgroundSync() {
-  // Account sheet auto-sync from Google Sheets is disabled.
-  return;
   if ((global as any).autoSyncStarted) return;
   (global as any).autoSyncStarted = true;
   
