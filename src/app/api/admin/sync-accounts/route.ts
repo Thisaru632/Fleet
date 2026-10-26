@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const result = await runAccountSync();
     if (!result.success) {
-      return NextResponse.json({ error: result.message, details: result.details }, { status: 400 });
+      return NextResponse.json({ error: result.message, details: (result as any).details || null }, { status: 400 });
     }
     return NextResponse.json(result);
   } catch (error: any) {
