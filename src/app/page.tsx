@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 
 import LoginModal from '@/components/LoginModal';
+import LakMobileTable from '@/components/LakMobileTable';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -163,7 +164,7 @@ export default function FleetApp() {
     };
   });
   const [recentTripsFilter, setRecentTripsFilter] = useState('All');
-  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report' | 'salary'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report' | 'salary' | 'lak-mobile'>('overview');
   const [showAdminMobileMenu, setShowAdminMobileMenu] = useState(false);
   const [reportCategory, setReportCategory] = useState<'Credit' | 'Invoice' | 'Recent Trips' | 'Tank wise fuel analyzing'>('Credit');
   const [reportStartDate, setReportStartDate] = useState(() => {
@@ -1074,6 +1075,8 @@ export default function FleetApp() {
         fetchAdminMessages();
       } else if (adminTab === 'accounts') {
         fetchAccountSheetData();
+      } else if (adminTab === 'lak-mobile') {
+        // Handled internally in LakMobileTable
       } else {
         fetchAdminSales();
       }
@@ -1119,7 +1122,7 @@ export default function FleetApp() {
   const handleSyncAccountSheet = async () => {
     setIsSyncingAccounts(true);
     setSyncProgress(0);
-    setAlert({ type: 'warning', message: 'Syncing with Google Sheets... This may take a moment.' });
+    setAlert({ type: 'warning', message: 'Syncing Account Sheet data from Lak Mobile... This may take a moment.' });
     
     const progressInterval = setInterval(() => {
       setSyncProgress(prev => {
@@ -1945,6 +1948,30 @@ export default function FleetApp() {
       }
     }
 
+    if (id === 'purpose' && value !== 'Hire') {
+      setFormData((prev: any) => ({
+        ...prev,
+        purpose: value,
+        tripRef: '',
+        tripStartMeter: '',
+        tripEndMeter: '',
+        accStartDate: '',
+        accStartTime: '',
+        accEndDate: '',
+        accEndTime: '',
+        accVehicleType: '',
+        accNoOfPax: '',
+        accPickupStreet: '',
+        accDropoffStreet: '',
+        accJourneyType: '',
+        tripPrice: '',
+        pkgBalanceMileage: '',
+        drvComms: '',
+        scDueAmount: 0
+      }));
+      return;
+    }
+
     setFormData((prev: any) => ({ ...prev, [id]: value }));
 
     // Auto-calcs
@@ -2686,7 +2713,7 @@ export default function FleetApp() {
                  adminTab === 'vehicles' ? 'Vehicles' : 
                  adminTab === 'driver-manage' ? 'Driver Manage' : 
                  adminTab === 'report' ? 'Reports Dashboard' : 
-                 adminTab === 'salary' ? 'Driver Salary' : 'Admin Control Panel'}
+                 adminTab === 'salary' ? 'Driver Salary' : adminTab === 'lak-mobile' ? 'Lak Mobile' : 'Admin Control Panel'}
               </h2>
               <p className="text-[8px] text-emerald-500/60 font-black tracking-widest uppercase mt-0.5">Admin Control Panel</p>
             </div>
@@ -2774,6 +2801,8 @@ export default function FleetApp() {
                     { id: 'fleet', label: 'FLEET DATA', icon: Database },
                     { id: 'messages', label: 'MESSAGES', icon: MessageSquare, badge: messagesData?.messages?.some((m: any) => !m.isRead && !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))) },
                     { id: 'accounts', label: 'ACCOUNT SHEET', icon: IdCard },
+
+                    { id: 'lak-mobile', label: 'LAK MOBILE', icon: Car },
                     { id: 'driver-manage', label: 'DRIVER MANAGE', icon: Users },
                     { id: 'commission', label: 'VEHICLE & COMMISSIONS', icon: Activity },
                     { id: 'report', label: 'REPORTS', icon: ClipboardCheck },
@@ -3681,7 +3710,7 @@ export default function FleetApp() {
             </button>
 
             {/* Filters */}
-            {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && adminTab !== 'report' && (
+            {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && adminTab !== 'report' && adminTab !== 'lak-mobile' && (
               <div className="flex flex-col md:flex-row items-end gap-2 flex-1 w-full">
                 <div className={cn("grid gap-2 flex-1 w-full px-2 py-0.5", adminTab === 'salary' ? "grid-cols-2 md:grid-cols-3 max-w-2xl" : "grid-cols-2 md:grid-cols-6")}>
                   <div className="space-y-1">
@@ -4933,14 +4962,12 @@ export default function FleetApp() {
                       <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                         <tr className="border-b border-white/5 bg-white/[0.02]">
                           {(accountSheetData?.headers || [
-                            'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
-                            'Purpose', 'Garage Start', 'End TS', 'Garage End',
-                            'Fuel Cost', 'Comments', 'Repair Cost', 'Trip Ref',
-                            'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
-                            'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-                            'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price'
-                          ]).map((h: string) => (
-                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                            'Booking Ref', 'Start Date', 'end date', 'end date', 'End Time',
+                            'Vehicle Type', 'No of pax', 'Pick up Street', 'Drop off Str / Pick up City',
+                            'Journey Type', 'Start Meter', 'End Meter', 'No. of KMs', 'Distance', 'Final Price',
+                            'Trip Status', 'Driver Code'
+                          ]).map((h: string, idx: number) => (
+                            <th key={`${h}-${idx}`} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -4948,24 +4975,31 @@ export default function FleetApp() {
                         {accountSheetData.data
                           .map((row: any, i: number) => (
                           <tr key={i} className="hover:bg-white/5 transition-colors group">
-                            {(row.rawValues || []).map((val: any, idx: number) => (
-                              <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
-                                {idx === 0 ? (
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    (val || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
-                                    (val || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
-                                    "bg-yellow-200 text-yellow-900"
-                                  )}>
-                                    {val || 'Pending'}
-                                  </span>
-                                ) : (
-                                  <span className="font-sans font-normal text-white">
-                                    {val !== undefined && val !== null ? val.toString() : '-'}
-                                  </span>
-                                )}
-                              </td>
-                            ))}
+                            {(row.rawValues || []).map((val: any, idx: number) => {
+                              const headerName = accountSheetData?.headers?.[idx];
+                              const isStatus = headerName === 'Status' || headerName === 'Trip Status';
+                              return (
+                                <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
+                                  {isStatus ? (
+                                    <span className={cn(
+                                      "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                      (val || 'Pending') === 'Approved' || (val || '').toLowerCase().includes('complete') ? "bg-green-300 text-green-900" :
+                                      (val || 'Pending') === 'Cancelled' || (val || '').toLowerCase().includes('cancel') ? "bg-red-500 text-white" :
+                                      "bg-yellow-200 text-yellow-900"
+                                    )}>
+                                      {val || 'Pending'}
+                                    </span>
+                                  ) : (
+                                    <span className={cn(
+                                      "font-sans font-normal",
+                                      idx === 0 ? "text-emerald-400 font-mono font-bold" : "text-white"
+                                    )}>
+                                      {val !== undefined && val !== null && val !== '' ? val.toString() : '-'}
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
                           </tr>
                         ))}
                       </tbody>
@@ -5003,6 +5037,10 @@ export default function FleetApp() {
                 )}
               </div>
             </motion.div>
+          )}
+
+          {adminTab === 'lak-mobile' && (
+            <LakMobileTable />
           )}
 
           {adminTab === 'messages' && (
@@ -7864,8 +7902,10 @@ export default function FleetApp() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
-
+      </AnimatePresence>
+
+
+
       {/* Fullscreen Image Modal */}
       <AnimatePresence>
         {fullscreenImage && (

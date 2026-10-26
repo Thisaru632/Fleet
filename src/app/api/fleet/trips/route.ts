@@ -42,27 +42,51 @@ export async function GET(request: Request) {
       const queryStart = new Date(Math.min(startOfLocalDay.getTime(), startOfUtcDay.getTime()));
       const queryEnd = new Date(Math.max(endOfLocalDay.getTime(), endOfUtcDay.getTime()));
 
+      const cleanDrvId = (drvId || "").trim();
+      const drvRegex = new RegExp(`^\\s*${cleanDrvId}\\s*$`, "i");
+
       accountDocs = await AccountSheet.find({ 
-        status: { $regex: /^Assigned$/i },
-        date: { $gte: queryStart, $lte: queryEnd }
+        $and: [
+          {
+            $or: [
+              { driverId: drvRegex },
+              { "rawValues.16": drvRegex },
+              { "rawValues.9": drvRegex }
+            ]
+          },
+          {
+            $or: [
+              { status: { $regex: /^(Accepted|Scheduled)$/i } },
+              { "rawValues.15": { $regex: /^(Accepted|Scheduled)$/i } }
+            ]
+          }
+        ]
       });
       const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, '')) || '';
       const tripRefs = accountDocs
         .filter(doc => {
-          const status = (doc.status || '').toLowerCase();
-          if (status.includes('cnx') || status.includes('complete')) return false;
-          const startMeterRaw = doc.rawValues?.[54];
-          if (startMeterRaw !== undefined && startMeterRaw !== null && String(startMeterRaw).trim() !== '') return false;
+          const is17 = Array.isArray(doc.rawValues) && doc.rawValues.length === 17;
+          const status = ((is17 ? doc.rawValues[15] : '') || doc.status || '').toString().trim().toLowerCase();
+          if (status !== 'accepted' && status !== 'scheduled') return false;
+
+          // Strictly verify driver code belongs to the logged-in driver
+          const is15or17 = Array.isArray(doc.rawValues) && (doc.rawValues.length === 15 || doc.rawValues.length === 17);
+          const docDriver = (doc.driverId || (is17 ? doc.rawValues[16] : '') || '').toString().trim().toUpperCase();
+          if (docDriver && docDriver !== cleanDrvId.toUpperCase()) return false;
+
+          const startMeterRaw = is15or17 ? doc.rawValues?.[10] : doc.rawValues?.[54];
+          if (startMeterRaw !== undefined && startMeterRaw !== null && String(startMeterRaw).trim() !== '' && Number(startMeterRaw) > 0) return false;
           return true;
         })
         .map(doc => {
-          const ref = doc.bookingRef || doc.rawValues?.[11];
-          const vehicle = doc.vehicle || doc.rawValues?.[7];
+          const is15or17 = Array.isArray(doc.rawValues) && (doc.rawValues.length === 15 || doc.rawValues.length === 17);
+          const ref = doc.bookingRef || (is15or17 ? doc.rawValues?.[0] : doc.rawValues?.[11]);
+          const vehicle = doc.vehicle || (is15or17 ? doc.rawValues?.[5] : doc.rawValues?.[7]);
           return {
             ref: ref ? ref.toString().trim() : "",
             vehicle: vehicle ? vehicle.toString().trim() : "",
-            startMeter: parseNum(doc.rawValues?.[54]),
-            endMeter: parseNum(doc.rawValues?.[57])
+            startMeter: parseNum(is15or17 ? doc.rawValues?.[10] : doc.rawValues?.[54]),
+            endMeter: parseNum(is15or17 ? doc.rawValues?.[11] : doc.rawValues?.[57])
           };
         })
         .filter(item => item.ref && item.ref !== "N/A" && item.ref !== "");
