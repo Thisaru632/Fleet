@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getSheets } from "@/lib/google";
 import dbConnect from "@/lib/mongodb";
 import Trip from "@/models/Trip";
 import AccountSheet from "@/models/AccountSheet";
