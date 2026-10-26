@@ -170,6 +170,10 @@ export async function runAccountSync() {
     const tripStatus = b.status || detail?.status || "Assigned";
     const driverCode = b.driverId || detail?.driver?.driverId || "";
 
+    if (driverCode && driverCode.trim().toUpperCase() === "DV1811") {
+      continue;
+    }
+
     const rawValues = [
       bookingRef,
       "",

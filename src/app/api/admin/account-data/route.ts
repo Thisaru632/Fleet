@@ -15,10 +15,20 @@ export async function GET(request: Request) {
   try {
     await dbConnect();
     
-    let query: any = {};
+    const excludeFilter = {
+      $nor: [
+        { driverId: /^DV1811$/i },
+        { rawValues: /^DV1811$/i }
+      ]
+    };
+
+    let query: any = excludeFilter;
     if (search) {
       query = {
-        rawValues: { $regex: new RegExp(search, "i") }
+        $and: [
+          excludeFilter,
+          { rawValues: { $regex: new RegExp(search, "i") } }
+        ]
       };
     }
 
