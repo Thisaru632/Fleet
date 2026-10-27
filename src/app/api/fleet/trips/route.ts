@@ -6,6 +6,64 @@ import AccountSheet from "@/models/AccountSheet";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const BASE_URL = process.env.LAKMOBILE_API_BASE_URL || process.env.BOOKING_API_BASE_URL || 'https://senuportal.lakmobile.com';
+const USERNAME = process.env.LAKMOBILE_API_USER || process.env.BOOKING_API_USER || 'vconnect-senu-ext-prod';
+const PASSWORD = process.env.LAKMOBILE_API_PASS || process.env.BOOKING_API_PASS || 'YKExtprodKH8988!202897SAM';
+const TENANT = process.env.LAKMOBILE_API_TENANT || process.env.BOOKING_API_TENANT || 'vconnect';
+
+function getAuthHeader(): string {
+  const credentials = `${USERNAME}:${PASSWORD}`;
+  return `Basic ${Buffer.from(credentials).toString('base64')}`;
+}
+
+async function fetchDriverTripsFromLakMobile(cleanDrvId: string): Promise<any[]> {
+  try {
+    const now = new Date();
+    // Query window: past 14 days to 1 day ahead for active/scheduled/accepted bookings
+    const toDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const toStr = toDate.toISOString().split('T')[0];
+    const fromDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const fromStr = fromDate.toISOString().split('T')[0];
+
+    const url = `${BASE_URL.replace(/\/+$/, '')}/api/ext/bookings?from=${fromStr}&to=${toStr}`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': getAuthHeader(),
+        'customer-reference': TENANT,
+        'Accept': 'application/json'
+      },
+      cache: 'no-store'
+    });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const bookings = Array.isArray(data?.dataBundle) ? data.dataBundle : [];
+
+    const upperDrvId = cleanDrvId.toUpperCase();
+    return bookings
+      .filter((b: any) => {
+        const bDriver = String(b.driverId || '').trim().toUpperCase();
+        if (bDriver !== upperDrvId) return false;
+        if (bDriver === 'DV1811') return false;
+
+        const status = String(b.status || '').trim().toLowerCase();
+        return status === 'accepted' || status === 'scheduled' || status === 'assigned';
+      })
+      .map((b: any) => ({
+        ref: String(b.id).trim(),
+        vehicle: String(b.vehiclePlate || b.cabType || '').trim(),
+        startMeter: 0,
+        endMeter: 0
+      }))
+      .filter((item: any) => item.ref && item.ref !== 'N/A');
+  } catch (err) {
+    console.error("Error fetching trips directly from Lak Mobile:", err);
+    return [];
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const drvId = searchParams.get("drvId");
@@ -16,35 +74,15 @@ export async function GET(request: Request) {
 
   try {
     await dbConnect();
-    let filteredTripRefs: any[] = [];
-    let accountDocs: any[] = [];
+    const cleanDrvId = (drvId || "").trim();
+
+    // 1. Fetch assigned trips directly from Lak Mobile in real-time
+    let tripRefs: any[] = await fetchDriverTripsFromLakMobile(cleanDrvId);
+
+    // 2. Fallback / Merge with AccountSheet in MongoDB
     try {
-      // Calculate current date in Asia/Colombo timezone (UTC+5:30)
-      const now = new Date();
-      const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone: "Asia/Colombo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).formatToParts(now);
-
-      const year = Number(parts.find(p => p.type === "year")?.value);
-      const month = Number(parts.find(p => p.type === "month")?.value) - 1;
-      const day = Number(parts.find(p => p.type === "day")?.value);
-
-      // Bounds in local timezone (UTC+5:30) and UTC midnight to ensure dates match regardless of server time
-      const startOfLocalDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0) - (5.5 * 60 * 60 * 1000));
-      const endOfLocalDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999) - (5.5 * 60 * 60 * 1000));
-      const startOfUtcDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-      const endOfUtcDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
-
-      const queryStart = new Date(Math.min(startOfLocalDay.getTime(), startOfUtcDay.getTime()));
-      const queryEnd = new Date(Math.max(endOfLocalDay.getTime(), endOfUtcDay.getTime()));
-
-      const cleanDrvId = (drvId || "").trim();
       const drvRegex = new RegExp(`^\\s*${cleanDrvId}\\s*$`, "i");
-
-      accountDocs = await AccountSheet.find({ 
+      const accountDocs = await AccountSheet.find({ 
         $and: [
           {
             $or: [
@@ -55,20 +93,20 @@ export async function GET(request: Request) {
           },
           {
             $or: [
-              { status: { $regex: /^(Accepted|Scheduled)$/i } },
-              { "rawValues.15": { $regex: /^(Accepted|Scheduled)$/i } }
+              { status: { $regex: /^(Accepted|Scheduled|Assigned)$/i } },
+              { "rawValues.15": { $regex: /^(Accepted|Scheduled|Assigned)$/i } }
             ]
           }
         ]
       });
+
       const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, '')) || '';
-      const tripRefs = accountDocs
+      const fallbackRefs = accountDocs
         .filter(doc => {
           const is17 = Array.isArray(doc.rawValues) && doc.rawValues.length === 17;
           const status = ((is17 ? doc.rawValues[15] : '') || doc.status || '').toString().trim().toLowerCase();
-          if (status !== 'accepted' && status !== 'scheduled') return false;
+          if (status !== 'accepted' && status !== 'scheduled' && status !== 'assigned') return false;
 
-          // Strictly verify driver code belongs to the logged-in driver
           const is15or17 = Array.isArray(doc.rawValues) && (doc.rawValues.length === 15 || doc.rawValues.length === 17);
           const docDriver = (doc.driverId || (is17 ? doc.rawValues[16] : '') || '').toString().trim().toUpperCase();
           if (docDriver && docDriver !== cleanDrvId.toUpperCase()) return false;
@@ -90,21 +128,29 @@ export async function GET(request: Request) {
         })
         .filter(item => item.ref && item.ref !== "N/A" && item.ref !== "");
 
-      const allTripsInDb = await Trip.find({}, { reference: 1 });
-      const usedTripRefs = new Set(allTripsInDb.map((t: any) => t.reference.trim()));
-      filteredTripRefs = tripRefs.filter((item: any) => !usedTripRefs.has(item.ref.toString().trim()));
+      const seen = new Set(tripRefs.map(t => t.ref));
+      for (const f of fallbackRefs) {
+        if (!seen.has(f.ref)) {
+          tripRefs.push(f);
+          seen.add(f.ref);
+        }
+      }
     } catch (accountError) {
-      console.error("AccountSheet fetch failed, skipping tripRefs:", accountError);
-      // Continue without tripRefs if fetch fails
+      console.error("AccountSheet fallback skipped:", accountError);
     }
 
+    // 3. Exclude any trip refs already submitted as an FR trip in MongoDB
+    const allTripsInDb = await Trip.find({}, { reference: 1 });
+    const usedTripRefs = new Set(allTripsInDb.map((t: any) => t.reference.trim()));
+    const filteredTripRefs = tripRefs.filter((item: any) => !usedTripRefs.has(item.ref.toString().trim()));
+
+    // 4. Pending trips (FR refs) for this driver from MongoDB
     const tripsInDb = await Trip.find(
       { driverId: { $regex: new RegExp(`^${drvId}$`, "i") } },
       { images: 0 },
       { sort: { updatedAt: -1 }, allowDiskUse: true }
     ).lean() as any[];
 
-    // Pending trips (FR refs) for this driver from MongoDB
     const frRefs = tripsInDb
       .filter((t: any) => {
         const status = (t.status || '').toLowerCase();
