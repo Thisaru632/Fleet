@@ -66,8 +66,17 @@ export async function GET(request: Request) {
           ? detail.meterReading.endKm
           : 0;
 
-        const pkgAllowance = detail?.payment?.fareBreakdown?.packageKm ?? detail?.initialKm ?? 0;
-        const runDistance = detail?.payment?.fareBreakdown?.actualKm ?? detail?.payment?.distanceKm ?? 0;
+        const fb = detail?.payment?.fareBreakdown || detail?.fareBreakdown;
+
+        const pkgAllowance = (fb?.packageKm !== null && fb?.packageKm !== undefined)
+          ? Number(fb.packageKm)
+          : ((Number(detail?.initialKm) || 0) + (Number(detail?.addKm) || 0));
+
+        const runDistance = (fb?.actualKm !== null && fb?.actualKm !== undefined)
+          ? Number(fb.actualKm)
+          : (detail?.meterReading?.endKm !== null && detail?.meterReading?.endKm !== undefined && detail?.meterReading?.startKm !== null && detail?.meterReading?.startKm !== undefined && Number(detail.meterReading.endKm) >= Number(detail.meterReading.startKm))
+          ? (Number(detail.meterReading.endKm) - Number(detail.meterReading.startKm))
+          : (detail?.payment?.distanceKm !== null && detail?.payment?.distanceKm !== undefined ? Number(detail.payment.distanceKm) : 0);
 
         const finalTotal = detail?.payment?.totalAmount ?? detail?.finalTotal ?? detail?.amount ?? 0;
         const driverMisc = detail?.payment?.driverMiscTotal || 0;
@@ -172,7 +181,13 @@ export async function GET(request: Request) {
         row[14] = trip.commission;
         row[21] = trip.mileage;
         row[23] = trip.finalPrice;
+        if (trip.repairMeter) row[35] = trip.repairMeter;
         return NextResponse.json({ details: row });
+      }
+
+      if (trip.repairMeter && !details[35]) {
+        while (details.length <= 35) details.push('');
+        details[35] = trip.repairMeter;
       }
 
       return NextResponse.json({ details });

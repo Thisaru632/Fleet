@@ -782,7 +782,7 @@ export default function FleetApp() {
         uploadFiles.push({ name: `${currentRef}_RepairStationMeter`, dataUrl: await fileToBase64(files.repairStationMeterImage as File) });
       }
 
-      let array: any[] = new Array(24).fill('');
+      let array: any[] = new Array(33).fill('');
       array[0] = user[0];
       array[1] = formData.vehicle;
       array[2] = formData.purpose;
@@ -793,7 +793,7 @@ export default function FleetApp() {
       array[6] = formData.fuelCost || '';
       array[7] = formData.comments || '';
       array[8] = formData.repairCost || '';
-      array[24] = formData.repairStationMeter || '';
+      array[32] = formData.repairStationMeter || '';
 
       const updateRes = await fetch('/api/fleet/update', {
         method: 'POST',
@@ -1807,13 +1807,13 @@ export default function FleetApp() {
         drvComms: stage === 'last-trip' ? (details[14] || '') : '',
         tripStartMeter: details[15] || '',
         tripEndMeter: details[16] || '',
-        pkgBalanceMileage: stage === 'last-trip' ? (details[17] || '') : '',
+        pkgBalanceMileage: details[17] || '',
         startLossMileage: details[18] || '',
         endLossMileage: details[19] || '',
         totalMileage: details[22] || '',
         finalPrice: details[23] || '',
         tripPrice: details[23] || '',
-        repairStationMeter: details[27] || '',
+        repairStationMeter: details[35] || details[27] || '',
       }));
       setCurrentRef(ref);
       
@@ -1827,7 +1827,7 @@ export default function FleetApp() {
 
       setAlert(null);
 
-      if (stage !== 'last-trip' && fetchedTripRef && details[5] === 'Hire') {
+      if (stage !== 'last-trip' && fetchedTripRef && String(details[5] || '').trim().toLowerCase() === 'hire') {
         await handleTripRefChange(fetchedTripRef);
       }
     } catch (err) {
@@ -1855,14 +1855,20 @@ export default function FleetApp() {
       const details = data.details;
       if (details) {
         const cleanNum = (val: any) => val ? val.toString().replace(/[^\d.]/g, '') : '';
+        const parseNumVal = (val: any) => {
+          if (val === null || val === undefined || val === '') return 0;
+          const cleaned = val.toString().replace(/[^\d.-]/g, '');
+          const n = parseFloat(cleaned);
+          return isNaN(n) ? 0 : n;
+        };
         const accStartMeter = cleanNum(details[54]);
         const accEndMeter = cleanNum(details[57]);
         const rawFinalPrice = cleanNum(details[4]);
         const finalPriceNum = Number(rawFinalPrice) || 0;
 
-        const pkgKms = Number(cleanNum(details[33])) || 0;
-        const distance = Number(cleanNum(details[58])) || 0;
-        const rawPkgBalance = (pkgKms - distance).toString();
+        const pkgKms = parseNumVal(details[33]);
+        const distance = parseNumVal(details[58]);
+        const rawPkgBalance = (Math.round((pkgKms - distance) * 100) / 100).toString();
 
         setFormData((prev: any) => {
           // Calculate Driver Salary based on Form Vehicle Number (Fleet Data) & Dynamic Commission Rate
@@ -2228,7 +2234,7 @@ export default function FleetApp() {
         array[18] = formData.folderId || '';
         array[19] = totalMileage || '';
         array[20] = formData.tripPrice || '';
-        array[24] = formData.repairStationMeter || '';
+        array[32] = formData.repairStationMeter || '';
         if (formData.firstFuelLocation) array[28] = formData.firstFuelLocation;
         if (formData.secondFuelLocation) array[30] = formData.secondFuelLocation;
         if (formData.secondPaymentType) array[31] = formData.secondPaymentType;
@@ -4463,7 +4469,7 @@ export default function FleetApp() {
                                   </div>
                                 ) : idx === 'repair_meter' ? (
                                   <span className="text-white">
-                                    {t.values[5] === 'Repair' ? (t.values[6] || t.values[8] || '-') : '-'}
+                                    {t.repairMeter || t.values[35] || (t.values[5] === 'Repair' ? (t.values[6] || t.values[8] || '-') : '-')}
                                   </span>
                                 ) : idx === 'fuel_meter' || idx === 'fuel_liters' ? (
                                   <span className="text-white" title={getFuelLiterTooltip(idx)}>
@@ -7137,7 +7143,7 @@ export default function FleetApp() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] text-slate-500 uppercase">Pkg Balance</p>
-                      <p className="font-bold text-amber-400">{formData.pkgBalanceMileage ? `${Number(formData.pkgBalanceMileage).toLocaleString()} KM` : ''}</p>
+                      <p className="font-bold text-amber-400">{formData.pkgBalanceMileage !== undefined && formData.pkgBalanceMileage !== '' && formData.pkgBalanceMileage !== null ? `${Number(formData.pkgBalanceMileage).toLocaleString(undefined, { maximumFractionDigits: 2 })} KM` : '0 KM'}</p>
                     </div>
                     <div className="space-y-1 col-span-2 border-t border-slate-100 pt-3 mt-1">
                       <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Final Price</p>

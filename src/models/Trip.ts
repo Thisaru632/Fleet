@@ -9,6 +9,7 @@ const TripSchema: Schema = new Schema({
   purpose: { type: String },
   fuel: { type: Number, default: 0 },
   repair: { type: Number, default: 0 },
+  repairMeter: { type: String, default: "" },
   scDue: { type: Number, default: 0 },
   commission: { type: Number, default: 0 },
   mileage: { type: Number, default: 0 },
