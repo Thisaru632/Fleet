@@ -140,9 +140,22 @@ export async function GET(request: Request) {
     }
 
     // 3. Exclude any trip refs already submitted as an FR trip in MongoDB
-    const allTripsInDb = await Trip.find({}, { reference: 1 });
-    const usedTripRefs = new Set(allTripsInDb.map((t: any) => t.reference.trim()));
-    const filteredTripRefs = tripRefs.filter((item: any) => !usedTripRefs.has(item.ref.toString().trim()));
+    const allTripsInDb = await Trip.find(
+      { status: { $not: { $regex: /^cancelled$/i } } },
+      { reference: 1, rawValues: 1, tripRef: 1, bookingRef: 1 }
+    ).lean();
+    const usedTripRefs = new Set<string>();
+    for (const t of allTripsInDb as any[]) {
+      if (t.reference) usedTripRefs.add(String(t.reference).trim());
+      const r12 = t.rawValues && t.rawValues[12] ? String(t.rawValues[12]).trim() : '';
+      if (r12) usedTripRefs.add(r12);
+      if (t.tripRef) usedTripRefs.add(String(t.tripRef).trim());
+      if (t.bookingRef) usedTripRefs.add(String(t.bookingRef).trim());
+    }
+    const filteredTripRefs = tripRefs.filter((item: any) => {
+      const refStr = item?.ref ? item.ref.toString().trim() : '';
+      return refStr && !usedTripRefs.has(refStr);
+    });
 
     // 4. Pending trips (FR refs) for this driver from MongoDB
     const tripsInDb = await Trip.find(

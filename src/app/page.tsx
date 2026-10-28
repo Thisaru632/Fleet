@@ -1684,6 +1684,9 @@ export default function FleetApp() {
       fuelReceipt: null, repairReceipt: null, fuelStationMeterImage: null,
     });
     setIsFuelSubmitted(false);
+    if (user && user[0]) {
+      fetchInitialData(user[0]);
+    }
     window.history.pushState({ stage: 'new' }, '');
     setStage('new');
     setAlert({ type: 'success', message: 'Please fill details. The record will be created when you submit.' });
@@ -2174,6 +2177,10 @@ export default function FleetApp() {
 
         actualRef = createData.reference;
         setCurrentRef(actualRef);
+        if (formData.purpose === 'Hire' && formData.tripRef) {
+          const usedRef = formData.tripRef;
+          setTripRefs(prev => (prev || []).filter((t: any) => (t.ref || t) !== usedRef));
+        }
       } else {
         // Stage update
         if (files.fuelReceipt && !isFuelSubmitted) uploadFiles.push({ name: `${currentRef}_FuelReceipt`, dataUrl: await fileToBase64(files.fuelReceipt) });
