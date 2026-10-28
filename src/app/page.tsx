@@ -1383,76 +1383,192 @@ export default function FleetApp() {
     }
   };
 
-  const handleExportCSV = () => {
-    if (!adminData || !adminData.tables || !adminData.tables.fleetData || adminData.tables.fleetData.length === 0) {
-      setAlert({ type: 'warning', message: 'No fleet data available to export.' });
-      setTimeout(() => setAlert(null), 3000);
-      return;
-    }
+  const handleExportCSV = async () => {
+    try {
+      setAlert({ type: 'warning', message: 'Preparing CSV export for fleet data...' });
 
-    const headers = [
-      'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
-      'Purpose', 'Garage Start', 'End TS', 'Garage End',
-      'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Trip Ref',
-      'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
-      'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-      'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS'
-    ];
+      // Ensure past two months are covered by default if startDate is unset or more recent than two months ago
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      const twoMonthsAgoStr = twoMonthsAgo.toISOString().split('T')[0];
 
-    const csvRows = [];
-    csvRows.push(headers.join(','));
-
-    adminData.tables.fleetData.forEach((t: any) => {
-      const rowValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28].map((idx) => {
-        let val = '';
-        if (idx === 'fuel_meter' || idx === 'fuel_liters') {
-            const rawComments = t.values[10] || '';
-            const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
-            if (fuelMatches.length > 0) {
-                const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                if (idx === 'fuel_meter') {
-                    const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                    val = m ? m[1] : '-';
-                } else {
-                    const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                    val = m ? m[1] : '-';
-                }
-            } else {
-                const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-                const oldFuelMatch = rawComments.match(oldFuelRegex);
-                if (oldFuelMatch && idx === 'fuel_meter') val = oldFuelMatch[1];
-                else val = '-';
-            }
-        } else if (idx === 10) {
-          val = (t.values[10] || '').toString();
-          val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
-          if (!val) val = '-';
-        } else if (idx === 0) {
-          val = t.values[idx as number] || 'Pending';
-        } else if (idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || t.values[idx as number].toString().trim() === '')) {
-          val = '0';
-        } else if (t.values[idx as number] !== undefined && t.values[idx as number] !== null) {
-          val = t.values[idx as number].toString();
-        } else {
-          val = '-';
-        }
-        
-        // Escape for CSV
-        const escaped = val.replace(/"/g, '""');
-        return `"${escaped}"`;
+      const exportParams = new URLSearchParams({
+        ...adminFilters,
+        page: '1',
+        limit: '10000',
+        ...(appliedFleetSearch ? { search: appliedFleetSearch } : {})
       });
-      csvRows.push(rowValues.join(','));
-    });
 
-    const csvString = csvRows.join("\n");
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `fleet_data_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      if (!adminFilters.startDate || adminFilters.startDate > twoMonthsAgoStr) {
+        exportParams.set('startDate', twoMonthsAgoStr);
+      }
+
+      let exportFleetData = adminData?.tables?.fleetData || [];
+
+      try {
+        const res = await fetch(`/api/admin/sales?${exportParams.toString()}`);
+        const data = await safeJson(res);
+        if (data && data.tables && Array.isArray(data.tables.fleetData) && data.tables.fleetData.length > 0) {
+          exportFleetData = data.tables.fleetData;
+        }
+      } catch (fetchErr) {
+        console.error('Failed to fetch full dataset for export, using current page:', fetchErr);
+      }
+
+      if (!exportFleetData || exportFleetData.length === 0) {
+        setAlert({ type: 'warning', message: 'No fleet data available to export.' });
+        setTimeout(() => setAlert(null), 3000);
+        return;
+      }
+
+      const headers = [
+        'Status',
+        'STAFF COMMENT',
+        'FR Ref',
+        'Purpose',
+        'Start TS',
+        'Start Loc',
+        'Driver',
+        'Vehicle Num',
+        'Garage Start',
+        'Garage End',
+        'End TS',
+        'End Loc',
+        'Fuel Update TS',
+        '1st Fuel Loc',
+        'Fuel Cost',
+        'Fuel Meter',
+        'Fuel Liters',
+        'Payment Type',
+        '2nd Fuel Cost',
+        '2nd Fuel Meter',
+        '2nd Fuel Liters',
+        '2nd Fuel Loc',
+        '2nd Payment Type',
+        'Comments',
+        'Repair Cost',
+        'Repair Meter',
+        'Folder URL',
+        'Folder ID',
+        'Trip Ref',
+        'SC Due Amount',
+        'Drv Comms',
+        'Trip Start Meter',
+        'Trip End Meter',
+        'Pkg Balance Mileage',
+        'Loss (Start)',
+        'Loss (End)',
+        'Total Mileage',
+        'Final Price'
+      ];
+
+      const csvRows = [];
+      csvRows.push(headers.map(h => `"${h.replace(/"/g, '""')}"`).join(','));
+
+      exportFleetData.forEach((t: any) => {
+        const rawComments = t.values?.[10] || '';
+        const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+        let fuelMeter = '-';
+        let fuelLiters = '-';
+        if (fuelMatches.length > 0) {
+          const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+          const mM = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+          fuelMeter = mM ? mM[1] : '-';
+          const mL = fuelStr.match(/Liters:\s*([\d.]+)/i);
+          fuelLiters = mL ? mL[1] : '-';
+        } else {
+          const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+          const oldFuelMatch = rawComments.match(oldFuelRegex);
+          if (oldFuelMatch) fuelMeter = oldFuelMatch[1];
+        }
+
+        let cleanComments = (t.values?.[10] || '').toString();
+        cleanComments = cleanComments.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+        if (!cleanComments) cleanComments = '-';
+
+        const hasFuel = Boolean(
+          (t.values?.[9] !== undefined && t.values?.[9] !== null && String(t.values[9]).trim() !== '' && t.values[9] !== '0' && t.values[9] !== 0) ||
+          (t.values?.[28] !== undefined && t.values?.[28] !== null && String(t.values[28]).trim() !== '') ||
+          (t.values?.[10] && String(t.values[10]).includes('(Fuel'))
+        );
+        const paymentType = hasFuel ? (t.values?.[32] || t.paymentType || 'Office card') : (t.values?.[32] || '-');
+
+        const hasSecondFuel = Boolean(
+          (t.values?.[24] !== undefined && t.values?.[24] !== null && String(t.values[24]).trim() !== '' && t.values[24] !== '0' && t.values[24] !== 0) ||
+          (t.values?.[25] !== undefined && t.values?.[25] !== null && String(t.values[25]).trim() !== '') ||
+          (t.values?.[26] !== undefined && t.values?.[26] !== null && String(t.values[26]).trim() !== '')
+        );
+        const secondPaymentType = hasSecondFuel ? (t.values?.[34] || 'Office card') : (t.values?.[34] || '-');
+
+        const repairMeter = t.values?.[5] === 'Repair'
+          ? (t.values?.[6] || t.values?.[8] || t.values?.[35] || '-')
+          : (t.values?.[35] || '-');
+
+        const lossStart = (t.values?.[18] === undefined || t.values?.[18] === null || String(t.values?.[18]).trim() === '') ? '0' : String(t.values[18]);
+
+        const rowValues = [
+          t.values?.[0] || t.status || 'Pending',
+          t.values?.[27] || '',
+          t.values?.[1] || t.rf || '',
+          t.values?.[5] || t.purpose || '',
+          t.values?.[2] || '',
+          t.values?.[29] || '',
+          t.values?.[3] || t.driver || '',
+          t.values?.[4] || t.vehicle || '',
+          t.values?.[6] ?? '-',
+          t.values?.[8] ?? '-',
+          t.values?.[7] || '',
+          t.values?.[30] || '',
+          t.values?.[28] || '',
+          t.values?.[31] || '',
+          t.values?.[9] ?? '-',
+          fuelMeter,
+          fuelLiters,
+          paymentType,
+          t.values?.[24] ?? '-',
+          t.values?.[25] ?? '-',
+          t.values?.[26] ?? '-',
+          t.values?.[33] || '',
+          secondPaymentType,
+          cleanComments,
+          t.values?.[11] ?? '-',
+          repairMeter,
+          t.values?.[20] || '',
+          t.values?.[21] || '',
+          t.values?.[12] || '',
+          t.values?.[13] ?? '-',
+          t.values?.[14] || '',
+          t.values?.[15] ?? '-',
+          t.values?.[16] ?? '-',
+          t.values?.[17] ?? '-',
+          lossStart,
+          t.values?.[19] ?? '-',
+          t.values?.[22] ?? '-',
+          t.values?.[23] ?? '-'
+        ];
+
+        const escapedRow = rowValues.map((v) => {
+          const str = (v === undefined || v === null) ? '-' : String(v);
+          return `"${str.replace(/"/g, '""')}"`;
+        });
+        csvRows.push(escapedRow.join(','));
+      });
+
+      const csvString = csvRows.join("\n");
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `fleet_data_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setAlert({ type: 'success', message: `Exported ${exportFleetData.length} fleet records successfully!` });
+      setTimeout(() => setAlert(null), 3000);
+    } catch (err: any) {
+      console.error('Export CSV error:', err);
+      setAlert({ type: 'error', message: err.message || 'Failed to export CSV.' });
+    }
   };
 
   const handleDeleteFleetRow = async (ref: string) => {
@@ -8103,6 +8219,7 @@ export default function FleetApp() {
                       { label: '2nd Payment Type', idx: 34 },
                       { label: 'Comments', idx: 10 },
                       { label: 'Repair Cost', idx: 11 },
+                      { label: 'Repair Meter', idx: 35 },
                       { label: 'Folder URL', idx: 20 },
                       { label: 'Folder ID', idx: 21 },
                     ]
