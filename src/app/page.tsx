@@ -1466,6 +1466,15 @@ export default function FleetApp() {
       csvRows.push(headers.map(h => `"${h.replace(/"/g, '""')}"`).join(','));
 
       exportFleetData.forEach((t: any) => {
+        let staffComment = t.values?.[27] || '';
+        let fuelUpdateTS = t.values?.[28] || '';
+
+        // Older records had Fuel Update TS stored at index 27 before STAFF COMMENT was added at index 27
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(staffComment).trim()) && (!fuelUpdateTS || fuelUpdateTS.trim() === '')) {
+          fuelUpdateTS = staffComment;
+          staffComment = '';
+        }
+
         const rawComments = t.values?.[10] || '';
         const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
         let fuelMeter = '-';
@@ -1508,7 +1517,7 @@ export default function FleetApp() {
 
         const rowValues = [
           t.values?.[0] || t.status || 'Pending',
-          t.values?.[27] || '',
+          staffComment,
           t.values?.[1] || t.rf || '',
           t.values?.[5] || t.purpose || '',
           t.values?.[2] || '',
@@ -1519,7 +1528,7 @@ export default function FleetApp() {
           t.values?.[8] ?? '-',
           t.values?.[7] || '',
           t.values?.[30] || '',
-          t.values?.[28] || '',
+          fuelUpdateTS,
           t.values?.[31] || '',
           t.values?.[9] ?? '-',
           fuelMeter,
@@ -4525,28 +4534,41 @@ export default function FleetApp() {
                                 {idx === 'staff_comment' ? (
                                   <div 
                                     onClick={() => {
-                                      const currentComment = t.values[27] || '';
+                                      const rawComment = t.values[27] || '';
+                                      const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
+                                      const currentComment = isDate ? '' : rawComment;
                                       setCommentTarget({ rf: t.rf, comment: currentComment });
                                       setCommentText(currentComment);
                                       setShowCommentModal(true);
                                     }}
-                                    title={t.values[27] ? String(t.values[27]) : undefined}
+                                    title={(() => {
+                                      const rawComment = t.values[27] || '';
+                                      const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
+                                      return isDate ? undefined : (rawComment ? String(rawComment) : undefined);
+                                    })()}
                                     className="flex items-center gap-1 sm:gap-2 cursor-pointer hover:bg-white/10 p-1 rounded transition-colors group min-w-[40px] sm:min-w-[80px]"
                                   >
-                                    {t.values[27] ? (
-                                      <span className="text-white text-xs" title={String(t.values[27])}>
-                                        {(() => {
-                                          const commentStr = String(t.values[27]).trim();
-                                          const words = commentStr ? commentStr.split(/\s+/) : [];
-                                          return words.length > 4 ? words.slice(0, 4).join(' ') + '...' : commentStr;
-                                        })()}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-500 italic text-[10px] flex items-center gap-1">
-                                        <Plus className="w-3 h-3" /> Add
-                                      </span>
-                                    )}
-                                    {t.values[27] && <Edit className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                                    {(() => {
+                                      const rawComment = t.values[27] || '';
+                                      const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
+                                      const commentVal = isDate ? '' : rawComment;
+                                      if (commentVal) {
+                                        const commentStr = String(commentVal).trim();
+                                        const words = commentStr ? commentStr.split(/\s+/) : [];
+                                        const preview = words.length > 4 ? words.slice(0, 4).join(' ') + '...' : commentStr;
+                                        return (
+                                          <span className="text-white text-xs" title={String(commentVal)}>
+                                            {preview}
+                                          </span>
+                                        );
+                                      }
+                                      return (
+                                        <span className="text-slate-500 italic text-[10px] flex items-center gap-1">
+                                          <Plus className="w-3 h-3" /> Add
+                                        </span>
+                                      );
+                                    })()}
+                                    {!/^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(t.values[27] || "").trim()) && t.values[27] && <Edit className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />}
                                   </div>
                                 ) : idx === 'repair_meter' ? (
                                   <span className="text-white">
