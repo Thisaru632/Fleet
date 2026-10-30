@@ -74,10 +74,21 @@ export async function POST(request: Request) {
       trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...existingArray];
     } else if (stage === 'repair') {
       trip.repair = parseNum(array[8]);
+      const repairMeterVal = (array.length > 32 && array[32] !== undefined && array[32] !== '')
+        ? array[32]
+        : (array.length > 24 && array[24] !== undefined ? array[24] : '');
+      if (repairMeterVal) {
+        trip.repairMeter = String(repairMeterVal);
+      }
 
       const existingArray = trip.rawValues.slice(3);
       existingArray[8] = array[8];
-      existingArray[24] = array[24];
+      while (existingArray.length <= 32) {
+        existingArray.push('');
+      }
+      if (repairMeterVal) {
+        existingArray[32] = repairMeterVal;
+      }
 
       const fuel1Cost = parseNum(existingArray[6]);
       const fuel2Cost = existingArray.length > 21 ? parseNum(existingArray[21]) : 0;
@@ -119,9 +130,17 @@ export async function POST(request: Request) {
       // Update rawValues to match the sheet structure
       // Column A and B and C are already in trip.status, trip.reference, trip.timestamp
       
-      if (array.length < 32) {
-        array.length = 32;
+      if (array.length < 33) {
+        array.length = 33;
       }
+      const repairMeterVal = (array.length > 32 && array[32] !== undefined && array[32] !== '')
+        ? array[32]
+        : (existingArray[32] || trip.repairMeter || '');
+      if (repairMeterVal) {
+        trip.repairMeter = String(repairMeterVal);
+        array[32] = repairMeterVal;
+      }
+      if (existingArray[24] && !array[24]) array[24] = existingArray[24];
       // Preserve specific timestamps and locations if they aren't explicitly provided
       if (existingArray[25] && !array[25]) array[25] = existingArray[25]; // Fuel Update TS
       if (existingArray[26] && !array[26]) array[26] = existingArray[26]; // Start Location

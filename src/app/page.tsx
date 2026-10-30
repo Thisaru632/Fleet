@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 
 import LoginModal from '@/components/LoginModal';
+import LakMobileTable from '@/components/LakMobileTable';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -131,11 +132,11 @@ export default function FleetApp() {
   const [showSplash, setShowSplash] = useState(true);
   const [showRefreshPopup, setShowRefreshPopup] = useState(false);
   const [showDevPopup, setShowDevPopup] = useState(false);
-  const [dashMonthStats, setDashMonthStats] = useState<{ 
-    hireCount: number; 
-    totalSalary: number; 
+  const [dashMonthStats, setDashMonthStats] = useState<{
+    hireCount: number;
+    totalSalary: number;
     totalSalarySinceJuly: number;
-    loading: boolean; 
+    loading: boolean;
   }>({
     hireCount: 0,
     totalSalary: 0,
@@ -163,7 +164,7 @@ export default function FleetApp() {
     };
   });
   const [recentTripsFilter, setRecentTripsFilter] = useState('All');
-  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report' | 'salary'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'trips' | 'rankings' | 'fleet' | 'messages' | 'accounts' | 'vehicles' | 'driver-manage' | 'commission' | 'report' | 'salary' | 'lak-mobile'>('overview');
   const [showAdminMobileMenu, setShowAdminMobileMenu] = useState(false);
   const [reportCategory, setReportCategory] = useState<'Credit' | 'Invoice' | 'Recent Trips' | 'Tank wise fuel analyzing'>('Credit');
   const [reportStartDate, setReportStartDate] = useState(() => {
@@ -250,7 +251,7 @@ export default function FleetApp() {
     const list = adminData.tables.fleetData;
     const map = new Map<any, any>();
     const vehicleLastTripMap = new Map<string, any>();
-    
+
     for (let idx = list.length - 1; idx >= 0; idx--) {
       const t = list[idx];
       const vehicleNum = t?.values?.[4];
@@ -404,7 +405,7 @@ export default function FleetApp() {
     });
   }, [adminData?.charts?.dailySales]);
   const [showCommentModal, setShowCommentModal] = useState(false);
-  const [commentTarget, setCommentTarget] = useState<{rf: string, comment: string} | null>(null);
+  const [commentTarget, setCommentTarget] = useState<{ rf: string, comment: string } | null>(null);
   const [commentText, setCommentText] = useState('');
   const [savingComment, setSavingComment] = useState(false);
 
@@ -412,7 +413,7 @@ export default function FleetApp() {
     if (!commentTarget) return;
     setSavingComment(true);
     setAlert({ type: 'warning', message: 'Updating staff comment...' });
-    
+
     try {
       const targetTrip = adminData.tables.fleetData.find((r: any) => r.rf === commentTarget.rf);
       if (!targetTrip) throw new Error("Trip not found");
@@ -429,7 +430,7 @@ export default function FleetApp() {
       if (data.error) throw new Error(data.error);
 
       setAlert({ type: 'success', message: 'Staff comment updated!' });
-      
+
       const newFleetData = [...adminData.tables.fleetData];
       const rowIdx = newFleetData.findIndex((r: any) => r.rf === commentTarget.rf);
       if (rowIdx > -1) {
@@ -500,7 +501,7 @@ export default function FleetApp() {
       const saved = localStorage.getItem('fleet_vehicle_drivers');
       if (saved) setVehicleDrivers(JSON.parse(saved));
 
-    } catch (e) {}
+    } catch (e) { }
 
     // Fetch commissions from DB
     fetch('/api/admin/commissions')
@@ -654,13 +655,13 @@ export default function FleetApp() {
       let fuelDetails = [];
       const meterToAppend = formData.firstFuelMeter || formData.fuelStationMeter;
       const litersToAppend = formData.firstFuelLiters || formData.fuelLiterCount;
-      
+
       if (meterToAppend) fuelDetails.push(`Meter: ${meterToAppend} KM`);
       if (litersToAppend) fuelDetails.push(`Liters: ${litersToAppend}`);
-      
+
       if (fuelDetails.length > 0) {
-          const paymentInfo = formData.paymentType ? ` - Paid via: ${formData.paymentType}` : '';
-          finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')}${paymentInfo})`;
+        const paymentInfo = formData.paymentType ? ` - Paid via: ${formData.paymentType}` : '';
+        finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')}${paymentInfo})`;
       }
 
       const pType1 = String((isSecondTime ? (formData.firstPaymentType || formData.paymentType) : formData.paymentType) || 'Office card').trim().toLowerCase();
@@ -781,7 +782,7 @@ export default function FleetApp() {
         uploadFiles.push({ name: `${currentRef}_RepairStationMeter`, dataUrl: await fileToBase64(files.repairStationMeterImage as File) });
       }
 
-      let array: any[] = new Array(24).fill('');
+      let array: any[] = new Array(33).fill('');
       array[0] = user[0];
       array[1] = formData.vehicle;
       array[2] = formData.purpose;
@@ -792,7 +793,7 @@ export default function FleetApp() {
       array[6] = formData.fuelCost || '';
       array[7] = formData.comments || '';
       array[8] = formData.repairCost || '';
-      array[24] = formData.repairStationMeter || '';
+      array[32] = formData.repairStationMeter || '';
 
       const updateRes = await fetch('/api/fleet/update', {
         method: 'POST',
@@ -1069,11 +1070,13 @@ export default function FleetApp() {
       if (adminTab !== 'messages') {
         fetchAdminMessages(true);
       }
-      
+
       if (adminTab === 'messages') {
         fetchAdminMessages();
       } else if (adminTab === 'accounts') {
         fetchAccountSheetData();
+      } else if (adminTab === 'lak-mobile') {
+        // Handled internally in LakMobileTable
       } else {
         fetchAdminSales();
       }
@@ -1119,12 +1122,12 @@ export default function FleetApp() {
   const handleSyncAccountSheet = async () => {
     setIsSyncingAccounts(true);
     setSyncProgress(0);
-    setAlert({ type: 'warning', message: 'Syncing with Google Sheets... This may take a moment.' });
-    
+    setAlert({ type: 'warning', message: 'Syncing Account Sheet data from Lak Mobile... This may take a moment.' });
+
     const progressInterval = setInterval(() => {
       setSyncProgress(prev => {
         if (prev >= 99) return 99;
-        
+
         let increment = 1;
         if (prev < 40) {
           increment = Math.floor(Math.random() * 8) + 4; // 4 to 11
@@ -1135,7 +1138,7 @@ export default function FleetApp() {
         } else {
           increment = Math.random() > 0.6 ? 1 : 0; // Occasionally 1, mostly 0
         }
-        
+
         return Math.min(99, prev + increment);
       });
     }, 600);
@@ -1144,7 +1147,7 @@ export default function FleetApp() {
       const res = await fetch('/api/admin/sync-accounts');
       const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
-      
+
       setSyncProgress(100);
       setAlert({ type: 'success', message: data.message || 'Account sheet synced successfully!' });
       fetchAccountSheetData(); // Refresh table
@@ -1169,7 +1172,7 @@ export default function FleetApp() {
       const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
       setAlert({ type: 'success', message: 'Fleet data cleared successfully!' });
-      
+
       // Refresh admin data
       const queryParams = new URLSearchParams({
         page: adminPage.toString(),
@@ -1179,7 +1182,7 @@ export default function FleetApp() {
       if (adminFilters.status !== 'All') queryParams.append('status', adminFilters.status);
       if (adminFilters.vehicle !== 'All') queryParams.append('vehicle', adminFilters.vehicle);
       if (adminFilters.driver !== 'All') queryParams.append('driver', adminFilters.driver);
-      
+
       const updatedDataRes = await fetch(`/api/admin/sales?${queryParams.toString()}`);
       const updatedData = await safeJson(updatedDataRes);
       setAdminData(updatedData);
@@ -1363,11 +1366,11 @@ export default function FleetApp() {
 
       if (html2pdf) {
         const opt = {
-          margin:       [5, 5, 5, 5],
-          filename:     `Paysheet_${driverCode}_${month}.pdf`,
-          image:        { type: 'jpeg', quality: 0.98 },
-          html2canvas:  { scale: 2, useCORS: true, logging: false },
-          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          margin: [5, 5, 5, 5],
+          filename: `Paysheet_${driverCode}_${month}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
         await html2pdf().set(opt).from(element).save();
       } else {
@@ -1596,7 +1599,7 @@ export default function FleetApp() {
   const handleDeleteDriver = async (username: string) => {
     if (!confirm(`Are you sure you want to delete driver ${username}?`)) return;
     try {
-      const res = await fetch(`/api/admin/delete-driver`, { 
+      const res = await fetch(`/api/admin/delete-driver`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username })
@@ -1622,11 +1625,14 @@ export default function FleetApp() {
       });
       const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
-      
+
+      if (editingDriver.originalUsername && editingDriver.originalUsername !== editingDriver.username) {
+        assignVehicleToDriver(editingDriver.originalUsername, 'Unassigned');
+      }
       if (editingDriver.vehicle !== undefined) {
         assignVehicleToDriver(editingDriver.username, editingDriver.vehicle);
       }
-      
+
       setAlert({ type: 'success', message: 'Driver updated successfully!' });
       setEditingDriver(null);
       fetchAdminSales(true);
@@ -1687,7 +1693,7 @@ export default function FleetApp() {
         .replace(/\(Fuel - (.*?)\)/g, '')
         .replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '')
         .trim();
-      
+
       const paymentType = editingTrip.values[32];
       const paymentInfo = paymentType ? ` - Paid via: ${paymentType}` : '';
 
@@ -1806,6 +1812,9 @@ export default function FleetApp() {
       fuelReceipt: null, repairReceipt: null, fuelStationMeterImage: null,
     });
     setIsFuelSubmitted(false);
+    if (user && user[0]) {
+      fetchInitialData(user[0]);
+    }
     window.history.pushState({ stage: 'new' }, '');
     setStage('new');
     setAlert({ type: 'success', message: 'Please fill details. The record will be created when you submit.' });
@@ -1929,16 +1938,16 @@ export default function FleetApp() {
         drvComms: stage === 'last-trip' ? (details[14] || '') : '',
         tripStartMeter: details[15] || '',
         tripEndMeter: details[16] || '',
-        pkgBalanceMileage: stage === 'last-trip' ? (details[17] || '') : '',
+        pkgBalanceMileage: details[17] || '',
         startLossMileage: details[18] || '',
         endLossMileage: details[19] || '',
         totalMileage: details[22] || '',
         finalPrice: details[23] || '',
         tripPrice: details[23] || '',
-        repairStationMeter: details[27] || '',
+        repairStationMeter: details[35] || details[27] || '',
       }));
       setCurrentRef(ref);
-      
+
       // Auto-disable Fuel section if it was already filled
       setFuelSubmitCount(count);
       if (count > 0) {
@@ -1949,7 +1958,7 @@ export default function FleetApp() {
 
       setAlert(null);
 
-      if (stage !== 'last-trip' && fetchedTripRef && details[5] === 'Hire') {
+      if (stage !== 'last-trip' && fetchedTripRef && String(details[5] || '').trim().toLowerCase() === 'hire') {
         await handleTripRefChange(fetchedTripRef);
       }
     } catch (err) {
@@ -1977,14 +1986,20 @@ export default function FleetApp() {
       const details = data.details;
       if (details) {
         const cleanNum = (val: any) => val ? val.toString().replace(/[^\d.]/g, '') : '';
+        const parseNumVal = (val: any) => {
+          if (val === null || val === undefined || val === '') return 0;
+          const cleaned = val.toString().replace(/[^\d.-]/g, '');
+          const n = parseFloat(cleaned);
+          return isNaN(n) ? 0 : n;
+        };
         const accStartMeter = cleanNum(details[54]);
         const accEndMeter = cleanNum(details[57]);
         const rawFinalPrice = cleanNum(details[4]);
         const finalPriceNum = Number(rawFinalPrice) || 0;
 
-        const pkgKms = Number(cleanNum(details[33])) || 0;
-        const distance = Number(cleanNum(details[58])) || 0;
-        const rawPkgBalance = (pkgKms - distance).toString();
+        const pkgKms = parseNumVal(details[33]);
+        const distance = parseNumVal(details[58]);
+        const rawPkgBalance = (Math.round((pkgKms - distance) * 100) / 100).toString();
 
         setFormData((prev: any) => {
           // Calculate Driver Salary based on Form Vehicle Number (Fleet Data) & Dynamic Commission Rate
@@ -1994,9 +2009,9 @@ export default function FleetApp() {
           for (const key in vehicleCommissions) {
             normalizedComms[key.trim().toUpperCase()] = vehicleCommissions[key];
           }
-          
+
           const commissionRate = normalizedComms[vehicleNumber];
-          
+
           let rawSalary = '';
           if (commissionRate !== undefined && commissionRate > 0) {
             rawSalary = Math.round(finalPriceNum * (commissionRate / 100)).toString();
@@ -2068,6 +2083,30 @@ export default function FleetApp() {
         const currentWords = (formData.comments || "").trim().split(/\s+/).filter(Boolean);
         if (words.length > currentWords.length) return;
       }
+    }
+
+    if (id === 'purpose' && value !== 'Hire') {
+      setFormData((prev: any) => ({
+        ...prev,
+        purpose: value,
+        tripRef: '',
+        tripStartMeter: '',
+        tripEndMeter: '',
+        accStartDate: '',
+        accStartTime: '',
+        accEndDate: '',
+        accEndTime: '',
+        accVehicleType: '',
+        accNoOfPax: '',
+        accPickupStreet: '',
+        accDropoffStreet: '',
+        accJourneyType: '',
+        tripPrice: '',
+        pkgBalanceMileage: '',
+        drvComms: '',
+        scDueAmount: 0
+      }));
+      return;
     }
 
     setFormData((prev: any) => ({ ...prev, [id]: value }));
@@ -2169,7 +2208,7 @@ export default function FleetApp() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          
+
           // Compress with 0.5 quality
           const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
           resolve(dataUrl);
@@ -2266,6 +2305,10 @@ export default function FleetApp() {
 
         actualRef = createData.reference;
         setCurrentRef(actualRef);
+        if (formData.purpose === 'Hire' && formData.tripRef) {
+          const usedRef = formData.tripRef;
+          setTripRefs(prev => (prev || []).filter((t: any) => (t.ref || t) !== usedRef));
+        }
       } else {
         // Stage update
         if (files.fuelReceipt && !isFuelSubmitted) uploadFiles.push({ name: `${currentRef}_FuelReceipt`, dataUrl: await fileToBase64(files.fuelReceipt) });
@@ -2295,12 +2338,12 @@ export default function FleetApp() {
         let fuelDetails = [];
         const meterToAppend = formData.firstFuelMeter || formData.fuelStationMeter;
         const litersToAppend = formData.firstFuelLiters || formData.fuelLiterCount;
-        
+
         if (meterToAppend) fuelDetails.push(`Meter: ${meterToAppend} KM`);
         if (litersToAppend) fuelDetails.push(`Liters: ${litersToAppend}`);
-        
+
         if (fuelDetails.length > 0) {
-            finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')})`;
+          finalComments += (finalComments ? ' ' : '') + `(Fuel - ${fuelDetails.join(', ')})`;
         }
 
         if (fuelSubmitCount >= 1) {
@@ -2326,7 +2369,7 @@ export default function FleetApp() {
         array[18] = formData.folderId || '';
         array[19] = totalMileage || '';
         array[20] = formData.tripPrice || '';
-        array[24] = formData.repairStationMeter || '';
+        array[32] = formData.repairStationMeter || '';
         if (formData.firstFuelLocation) array[28] = formData.firstFuelLocation;
         if (formData.secondFuelLocation) array[30] = formData.secondFuelLocation;
         if (formData.secondPaymentType) array[31] = formData.secondPaymentType;
@@ -2336,7 +2379,7 @@ export default function FleetApp() {
         } else {
           array[29] = '';
         }
-        
+
         const endLocationUrl = await captureLocation();
         // Capture End Location at index 27
         array[27] = endLocationUrl;
@@ -2375,20 +2418,20 @@ export default function FleetApp() {
   if (showSplash) {
     return (
       <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#f4f7fb]">
-        <motion.div 
+        <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="relative w-64 h-64 sm:w-80 sm:h-80 mb-12"
         >
-          <img 
-            src="/logo.jpg" 
-            alt="Fleet App Splash" 
+          <img
+            src="/logo.jpg"
+            alt="Fleet App Splash"
             className="w-full h-full object-contain drop-shadow-2xl rounded-[2.5rem]"
           />
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
@@ -2407,21 +2450,21 @@ export default function FleetApp() {
       setTimeout(() => setAlert(null), 3000);
       return;
     }
-    
+
     // Headers
     const headers = [
-      "", "*CreditMemoNo", "*Customer", "*CreditMemoDate", "Location", 
-      "Memo", "Item(Product/Service)", "ItemDescription", "ItemQuantity", 
+      "", "*CreditMemoNo", "*Customer", "*CreditMemoDate", "Location",
+      "Memo", "Item(Product/Service)", "ItemDescription", "ItemQuantity",
       "ItemRate", "*ItemAmount", "Service Date"
     ];
-    
+
     let csvContent = headers.join(",") + "\n";
-    
+
     const parseDateToLocalMs = (dateStr: string | undefined): number => {
       if (!dateStr) return 0;
       const raw = String(dateStr).split(' ')[0].trim();
       if (!raw) return 0;
-      
+
       if (raw.includes('-')) {
         const parts = raw.split('-');
         if (parts.length === 3) {
@@ -2429,7 +2472,7 @@ export default function FleetApp() {
           if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
         }
       }
-      
+
       if (raw.includes('/')) {
         const parts = raw.split('/');
         if (parts.length === 3) {
@@ -2437,10 +2480,10 @@ export default function FleetApp() {
           if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
         }
       }
-      
+
       const d = new Date(raw);
       if (!isNaN(d.getTime())) {
-         return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
       }
       return 0;
     };
@@ -2464,7 +2507,7 @@ export default function FleetApp() {
         if (!recordMs) return false;
         return recordMs >= startMs && recordMs <= endMs;
       });
-      
+
     records.forEach((t: any) => {
       const tripRef = t.values[12] || '';
       let formattedDate = '';
@@ -2490,26 +2533,26 @@ export default function FleetApp() {
           scComm = String(accMatch.rawValues[3] || '').replace(/Rs\.?\s*/gi, '');
         }
       }
-      
+
       const description = pickUp && dropOff ? `${pickUp} to ${dropOff}` : pickUp || dropOff || '';
-      
+
       const row = [
-        tripRef, 
-        tripRef ? `C${tripRef}` : "", 
-        "Senu Cabs and Tours", 
-        formattedDate, 
-        "", 
-        "", 
-        "CAB COMMISSION", 
-        description, 
-        "", 
-        "", 
-        scComm, 
+        tripRef,
+        tripRef ? `C${tripRef}` : "",
+        "Senu Cabs and Tours",
+        formattedDate,
+        "",
+        "",
+        "CAB COMMISSION",
+        description,
+        "",
+        "",
+        scComm,
         ""
       ];
       csvContent += row.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(",") + "\n";
     });
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -2518,7 +2561,7 @@ export default function FleetApp() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     setAlert({ type: 'success', message: 'Report generated and downloaded successfully!' });
     setTimeout(() => setAlert(null), 3000);
   };
@@ -2529,21 +2572,21 @@ export default function FleetApp() {
       setTimeout(() => setAlert(null), 3000);
       return;
     }
-    
+
     // Headers
     const headers = [
-      "*InvoiceNo", "*Customer", "*InvoiceDate", "*DueDate", "Terms", 
-      "Location", "Memo", "Item(Product/Service)", "ItemDescription", 
+      "*InvoiceNo", "*Customer", "*InvoiceDate", "*DueDate", "Terms",
+      "Location", "Memo", "Item(Product/Service)", "ItemDescription",
       "ItemQuantity", "ItemRate", "*ItemAmount", "DRIVER COMM"
     ];
-    
+
     let csvContent = headers.join(",") + "\n";
-    
+
     const parseDateToLocalMs = (dateStr: string | undefined): number => {
       if (!dateStr) return 0;
       const raw = String(dateStr).split(' ')[0].trim();
       if (!raw) return 0;
-      
+
       if (raw.includes('-')) {
         const parts = raw.split('-');
         if (parts.length === 3) {
@@ -2551,7 +2594,7 @@ export default function FleetApp() {
           if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
         }
       }
-      
+
       if (raw.includes('/')) {
         const parts = raw.split('/');
         if (parts.length === 3) {
@@ -2559,10 +2602,10 @@ export default function FleetApp() {
           if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
         }
       }
-      
+
       const d = new Date(raw);
       if (!isNaN(d.getTime())) {
-         return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
       }
       return 0;
     };
@@ -2586,13 +2629,13 @@ export default function FleetApp() {
         if (!recordMs) return false;
         return recordMs >= startMs && recordMs <= endMs;
       });
-      
+
     records.forEach((t: any) => {
       const tripRef = t.values[12] || '';
       const vehicleNum = t.values[4] || '';
       let formattedDate = '';
       let hireAmount = '';
-      
+
       const driverCode = t.values[3] || '';
       const driverName = adminData.driverNames?.[driverCode] || driverCode;
       let customerName = driverName ? `${driverName} - Cash` : '- Cash';
@@ -2612,7 +2655,7 @@ export default function FleetApp() {
             }
           }
           hireAmount = String(accMatch.rawValues[4] || '').replace(/Rs\.?\s*/gi, '');
-          
+
           const hireType = String(accMatch.rawValues[31] || '').trim().toLowerCase();
           if (hireType === 'credit') {
             customerName = 'Senu Cabs and Tours';
@@ -2621,25 +2664,25 @@ export default function FleetApp() {
           }
         }
       }
-      
+
       const row = [
-        tripRef, 
-        customerName, 
-        formattedDate, 
-        "", 
-        "", 
-        "", 
-        "", 
-        vehicleNum, 
-        "", 
-        "", 
-        "", 
+        tripRef,
+        customerName,
+        formattedDate,
+        "",
+        "",
+        "",
+        "",
+        vehicleNum,
+        "",
+        "",
+        "",
         hireAmount,
         driverComm
       ];
       csvContent += row.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(",") + "\n";
     });
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -2648,7 +2691,7 @@ export default function FleetApp() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     setAlert({ type: 'success', message: 'Invoice Report generated successfully!' });
     setTimeout(() => setAlert(null), 3000);
   };
@@ -2659,12 +2702,12 @@ export default function FleetApp() {
       setTimeout(() => setAlert(null), 3000);
       return;
     }
-    
+
     const headers = [
       "FR", "Date", "Vehicle", "Driver Code", "Trip Ref", "Payment Type", "SC Due Amount", "Hire Income"
     ];
     let csvContent = headers.join(",") + "\n";
-    
+
     const parseDateToLocalMs = (dateStr: string | undefined): number => {
       if (!dateStr) return 0;
       const raw = String(dateStr).split(' ')[0].trim();
@@ -2687,7 +2730,7 @@ export default function FleetApp() {
       if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
       return 0;
     };
-    
+
     const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
     const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
 
@@ -2696,19 +2739,19 @@ export default function FleetApp() {
       if (statusStr.includes('cancel')) return false;
       const purposeStr = String(t.purpose || t.values[5] || '');
       if (purposeStr !== 'Hire') return false;
-      
+
       const paymentTypeStr = String(t.paymentType || 'cash').toLowerCase();
       if (recentTripsFilter !== 'All' && paymentTypeStr !== recentTripsFilter.toLowerCase()) return false;
-      
+
       if (startMs || endMs !== Infinity) {
         const endDateVal = t.values?.[7] || t.tripEndDate || t.date;
         const recordMs = endDateVal ? parseDateToLocalMs(endDateVal) : 0;
         if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
       }
-      
+
       return true;
     });
-      
+
     records.forEach((t: any) => {
       const fr = t.values[1] || '';
       const date = t.date ? String(t.date).split(',')[0] : 'N/A';
@@ -2717,17 +2760,17 @@ export default function FleetApp() {
       const ref = t.values[12] || '';
       const pType = String(t.paymentType || 'cash');
       const pTypeCap = pType.charAt(0).toUpperCase() + pType.slice(1);
-      
+
       const scDueStr = String(t.values[13] || '0').replace(/[^\d.-]/g, '');
       const scDue = Number(scDueStr) || 0;
-      
+
       const hireIncomeStr = String(t.values[23] || t.finalPrice || '0').replace(/[^\d.-]/g, '');
       const hireIncome = Number(hireIncomeStr) || 0;
-      
+
       const row = [fr, date, vehicle, driver, ref, pTypeCap, scDue, hireIncome];
       csvContent += row.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(",") + "\n";
     });
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -2736,7 +2779,7 @@ export default function FleetApp() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     setAlert({ type: 'success', message: 'Recent Trips Report generated successfully!' });
     setTimeout(() => setAlert(null), 3000);
   };
@@ -2786,2945 +2829,1165 @@ export default function FleetApp() {
       )}
 
       <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full pb-0" : "max-w-xl", stage === 'dashboard' && "max-w-full md:max-w-xl p-0 md:p-4")}>
-      {/* Desktop Header */}
-      <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
-        <div className="flex items-center gap-3">
-          <img src="/logo.jpg" alt="Logo" className="h-12 w-auto object-contain rounded-md" />
-          <h1 className="text-xl md:text-2xl font-black tracking-tight text-white uppercase">
-            YSM FLEET MANAGEMENT
-          </h1>
+        {/* Desktop Header */}
+        <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+          <div className="flex items-center gap-3">
+            <img src="/logo.jpg" alt="Logo" className="h-12 w-auto object-contain rounded-md" />
+            <h1 className="text-xl md:text-2xl font-black tracking-tight text-white uppercase">
+              YSM FLEET MANAGEMENT
+            </h1>
+          </div>
+
+          {stage === 'admin' && (
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <TrendingUp className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div>
+                <h2 className="text-base font-black text-white uppercase tracking-tight">
+                  {adminTab === 'overview' ? 'Sales Dashboard' :
+                    adminTab === 'trips' ? 'Income Summary' :
+                      adminTab === 'rankings' ? 'Rankings' :
+                        adminTab === 'fleet' ? 'Fleet Data' :
+                          adminTab === 'messages' ? 'Messages' :
+                            adminTab === 'accounts' ? 'Account Sheet' :
+                              adminTab === 'vehicles' ? 'Vehicles' :
+                                adminTab === 'driver-manage' ? 'Driver Manage' :
+                                  adminTab === 'report' ? 'Reports Dashboard' :
+                                    adminTab === 'salary' ? 'Driver Salary' : adminTab === 'lak-mobile' ? 'Lak Mobile' : 'Admin Control Panel'}
+                </h2>
+                <p className="text-[8px] text-emerald-500/60 font-black tracking-widest uppercase mt-0.5">Admin Control Panel</p>
+              </div>
+            </div>
+          )}
         </div>
-        
-        {stage === 'admin' && (
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-              <TrendingUp className="w-4 h-4 text-emerald-500" />
-            </div>
-            <div>
-              <h2 className="text-base font-black text-white uppercase tracking-tight">
-                {adminTab === 'overview' ? 'Sales Dashboard' : 
-                 adminTab === 'trips' ? 'Income Summary' : 
-                 adminTab === 'rankings' ? 'Rankings' : 
-                 adminTab === 'fleet' ? 'Fleet Data' : 
-                 adminTab === 'messages' ? 'Messages' : 
-                 adminTab === 'accounts' ? 'Account Sheet' : 
-                 adminTab === 'vehicles' ? 'Vehicles' : 
-                 adminTab === 'driver-manage' ? 'Driver Manage' : 
-                 adminTab === 'report' ? 'Reports Dashboard' : 
-                 adminTab === 'salary' ? 'Driver Salary' : 'Admin Control Panel'}
-              </h2>
-              <p className="text-[8px] text-emerald-500/60 font-black tracking-widest uppercase mt-0.5">Admin Control Panel</p>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* Refresh Popup Modal */}
-      <AnimatePresence>
-        {showRefreshPopup && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="glass-card p-8 w-full max-w-sm text-center space-y-6 border-rose-500/20"
-            >
-              <div className="w-20 h-20 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto">
-                <AlertCircle className="w-10 h-10 text-rose-500" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-black text-white">à¶¯à¶­à·Šà¶­ à¶ºà· à·€à¶­à·Š à¶šà· à¶½à·“à¶± à·€à·“à¶¸à·š à¶¯à·œà· à¶ºà¶šà·’</h3>
-                <p className="text-slate-400 text-sm">à·€à¶»à¶šà·Š App à¶‘à¶š Refresh à¶šà¶» à¶±à· à·€à¶­ à¶‹à¶­à·Šà·ƒà·„ à¶šà¶»à¶±à·Šà¶±</p>
-              </div>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => window.location.reload()}
-                  className="flex-1 py-3 rounded-xl border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-all font-bold text-sm"
-                >
-                  REFRESH
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Admin Dashboard Burger Menu Modal */}
-      {/* Admin Dashboard Burger Menu Left Drawer */}
-      <AnimatePresence>
-        {showAdminMobileMenu && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowAdminMobileMenu(false)}
-              className="fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm cursor-pointer"
-            />
-
-            {/* Left Drawer Panel */}
-            <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="fixed top-0 left-0 bottom-0 z-[130] w-[85%] max-w-xs bg-slate-900 border-r border-emerald-500/20 p-5 shadow-2xl flex flex-col justify-between overflow-y-auto"
-            >
-              <div className="space-y-5">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                      <Menu className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-white uppercase tracking-wider">ADMIN MENU</h3>
-                      <p className="text-[10px] text-slate-400 font-medium">Select a dashboard module</p>
-                    </div>
-                  </div>
+        {/* Refresh Popup Modal */}
+        <AnimatePresence>
+          {showRefreshPopup && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="glass-card p-8 w-full max-w-sm text-center space-y-6 border-rose-500/20"
+              >
+                <div className="w-20 h-20 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-10 h-10 text-rose-500" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-black text-white">à¶¯à¶­à·Šà¶­ à¶ºà· à·€à¶­à·Š à¶šà· à¶½à·“à¶± à·€à·“à¶¸à·š à¶¯à·œà· à¶ºà¶šà·’</h3>
+                  <p className="text-slate-400 text-sm">à·€à¶»à¶šà·Š App à¶‘à¶š Refresh à¶šà¶» à¶±à· à·€à¶­ à¶‹à¶­à·Šà·ƒà·„ à¶šà¶»à¶±à·Šà¶±</p>
+                </div>
+                <div className="flex gap-4">
                   <button
-                    type="button"
-                    onClick={() => setShowAdminMobileMenu(false)}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+                    onClick={() => window.location.reload()}
+                    className="flex-1 py-3 rounded-xl border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-all font-bold text-sm"
                   >
-                    <X className="w-5 h-5" />
+                    REFRESH
                   </button>
                 </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
-                <div className="grid grid-cols-1 gap-2 max-h-[65vh] overflow-y-auto pr-1">
-                  {[
-                    { id: 'overview', label: 'OVERVIEW', icon: Activity },
-                    { id: 'trips', label: 'INCOME SUMMARY', icon: History },
-                    { id: 'rankings', label: 'RANKINGS', icon: Users },
-                    { id: 'fleet', label: 'FLEET DATA', icon: Database },
-                    { id: 'messages', label: 'MESSAGES', icon: MessageSquare, badge: messagesData?.messages?.some((m: any) => !m.isRead && !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))) },
-                    { id: 'accounts', label: 'ACCOUNT SHEET', icon: IdCard },
-                    { id: 'driver-manage', label: 'DRIVER MANAGE', icon: Users },
-                    { id: 'commission', label: 'VEHICLE & COMMISSIONS', icon: Activity },
-                    { id: 'report', label: 'REPORTS', icon: ClipboardCheck },
-                    { id: 'salary', label: 'SALARY', icon: Wallet },
-                  ].map((item) => {
-                    const ItemIcon = item.icon;
-                    const isActive = adminTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setAdminTab(item.id as any);
-                          setShowAdminMobileMenu(false);
-                        }}
-                        className={cn(
-                          "w-full flex items-center justify-between p-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all border",
-                          isActive
-                            ? "bg-emerald-500 text-slate-950 border-emerald-400 shadow-lg shadow-emerald-500/20"
-                            : "bg-white/5 text-slate-300 hover:bg-white/10 border-white/5"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <ItemIcon className={cn("w-4 h-4", isActive ? "text-slate-950" : "text-emerald-400")} />
-                          <span>{item.label}</span>
-                        </div>
-                        {item.badge && (
-                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-white/10 flex flex-col gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAlert(null);
-                    setStage('dashboard');
-                    setShowAdminMobileMenu(false);
-                  }}
-                  className="w-full py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white flex items-center justify-center gap-2 border border-red-500/20 transition-all"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Exit Admin Control
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Under Development Modal */}
-      <AnimatePresence>
-        {showDevPopup && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white p-6 sm:p-8 w-full max-w-sm text-center space-y-5 rounded-3xl shadow-2xl border border-slate-100"
-            >
-              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto">
-                <AlertCircle className="w-8 h-8 text-amber-500" />
-              </div>
-              <div className="space-y-1.5">
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">COMING SOON</h3>
-                <p className="text-slate-500 text-xs font-bold leading-relaxed">This feature is still under development. Please check back later!</p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDevPopup(false)}
-                  className="w-full py-3 rounded-2xl bg-amber-500 text-white hover:bg-amber-600 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
-                >
-                  OKAY, GOT IT
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Logout Confirmation Modal */}
-      <AnimatePresence>
-        {showLogoutConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white p-6 sm:p-8 w-full max-w-sm text-center space-y-5 rounded-3xl shadow-2xl border border-slate-100"
-            >
-              <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center mx-auto">
-                <LogOut className="w-8 h-8 text-rose-500" />
-              </div>
-              <div className="space-y-1.5">
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">ARE YOU SURE?</h3>
-                <p className="text-slate-500 text-xs font-bold leading-relaxed">You will need to login again to access your fleet records.</p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
-                >
-                  CANCEL
-                </button>
-                <button
-                  onClick={confirmLogout}
-                  className="flex-1 py-3 rounded-2xl bg-rose-500 text-white hover:bg-rose-600 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
-                >
-                  YES, LOGOUT
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-
-      {/* Staff Comment Modal */}
-      <AnimatePresence>
-        {showCommentModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white p-6 w-full max-w-md text-center space-y-5 rounded-3xl shadow-2xl border border-slate-100"
-            >
-              <div className="flex items-center gap-2.5 text-slate-800 font-extrabold text-sm mb-1 justify-center">
-                <MessageSquare className="w-5 h-5 text-[#18859c]" />
-                STAFF COMMENT
-              </div>
-              <p className="text-xs font-bold text-slate-500 mb-2">Enter or update the staff comment for this trip.</p>
-              
-              <textarea
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#18859c] transition-all resize-none font-medium shadow-inner"
-                placeholder="Enter staff comment here..."
-                rows={4}
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
+        {/* Admin Dashboard Burger Menu Modal */}
+        {/* Admin Dashboard Burger Menu Left Drawer */}
+        <AnimatePresence>
+          {showAdminMobileMenu && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowAdminMobileMenu(false)}
+                className="fixed inset-0 z-[120] bg-slate-950/80 backdrop-blur-sm cursor-pointer"
               />
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCommentModal(false)}
-                  disabled={savingComment}
-                  className="flex-1 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
-                >
-                  CANCEL
-                </button>
-                <button
-                  onClick={handleSaveComment}
-                  disabled={savingComment || commentText === commentTarget?.comment}
-                  className="flex-1 py-3 rounded-2xl bg-[#18859c] hover:bg-[#157489] disabled:opacity-50 text-white transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm flex justify-center items-center gap-2 cursor-pointer"
-                >
-                  {savingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SAVE'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Desktop Driver Info Bar (Shown on Desktop only) */}
-      {stage !== 'admin' && (
-        <div className="hidden md:flex items-center gap-4 mb-6">
-          <div className="glass-card p-4 flex items-center justify-between gap-4 flex-1">
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-center px-3 border-r border-white/10">
-                <IdCard className="w-5 h-5 text-emerald-500 mb-1" />
-                <span className="text-xs font-bold text-white">{user[0]}</span>
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white">{user[4]}</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-400">
-                  <Phone className="w-3 h-3" />
-                  <span className="text-[10px]">{user[3]}</span>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors shrink-0"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-          
-          <button
-            onClick={handleSyncAccountSheet}
-            disabled={isSyncingAccounts}
-            className={`shrink-0 flex flex-col items-center justify-center p-3 sm:px-5 rounded-2xl transition-all border shadow-lg ${
-              isSyncingAccounts 
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' 
-                : 'bg-emerald-500/20 border-emerald-500 hover:bg-emerald-500 hover:text-white text-emerald-500 shadow-emerald-500/20 hover:shadow-emerald-500/40'
-            }`}
-            title="Sync Account Data"
-          >
-            <RefreshCw className={`w-6 h-6 mb-1 ${isSyncingAccounts ? 'animate-spin opacity-50' : ''}`} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">{isSyncingAccounts ? 'Syncing...' : 'Sync Data'}</span>
-          </button>
-        </div>
-      )}
-
-      {/* Driver Dashboard View */}
-      <AnimatePresence mode="wait">
-        {stage === 'dashboard' ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-          >
-            {/* Desktop Dashboard View (Original Design) */}
-            <div className="hidden md:grid grid-cols-2 gap-4 mb-8">
-              <button
-                onClick={handleNewRecord}
-                disabled={loading}
-                className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
+              {/* Left Drawer Panel */}
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 220 }}
+                className="fixed top-0 left-0 bottom-0 z-[130] w-[85%] max-w-xs bg-slate-900 border-r border-emerald-500/20 p-5 shadow-2xl flex flex-col justify-between overflow-y-auto"
               >
-                <div className="p-4 rounded-2xl bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-4">
-                  <Plus className="w-8 h-8 text-emerald-500 group-hover:text-white" />
-                </div>
-                <span className="font-bold text-sm">NEW RECORD</span>
-              </button>
-              <button
-                onClick={handleUpdateBtnClick}
-                disabled={loading}
-                className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group"
-              >
-                <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
-                  <RefreshCw className="w-8 h-8 text-blue-500 group-hover:text-white" />
-                </div>
-                <span className="font-bold text-sm text-center">UPDATE RECORD</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  window.history.pushState({ stage: 'last-trip' }, '');
-                  setStage('last-trip');
-                }}
-                disabled={loading}
-                className="flex flex-col items-center justify-center p-8 glass-card hover:border-purple-500/50 transition-all group"
-              >
-                <div className="p-4 rounded-2xl bg-purple-500/10 group-hover:bg-purple-500 group-hover:text-white transition-all mb-4">
-                  <MapPin className="w-8 h-8 text-purple-500 group-hover:text-white" />
-                </div>
-                <span className="font-bold text-sm text-center uppercase">Last Trip Details</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  window.history.pushState({ stage: 'salary' }, '');
-                  setStage('salary');
-                }}
-                disabled={loading}
-                className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
-              >
-                <div className="p-4 rounded-2xl bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-4">
-                  <IdCard className="w-8 h-8 text-emerald-500 group-hover:text-white" />
-                </div>
-                <span className="font-bold text-sm text-center uppercase">Salary Details</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  window.history.pushState({ stage: 'contact-office' }, '');
-                  setStage('contact-office');
-                }}
-                disabled={loading}
-                className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group relative"
-              >
-                {(() => {
-                  const unreadCount = inboxMessages.filter((m: any) => !m.isRead).length;
-                  if (unreadCount > 0) {
-                    return (
-                      <div className="absolute top-4 right-4 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse flex items-center justify-center min-w-[24px] h-[24px] px-1.5 z-10">
-                        <span className="text-[12px] font-black text-white">{unreadCount}</span>
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                        <Menu className="w-5 h-5" />
                       </div>
-                    );
-                  }
-                  return null;
-                })()}
-                <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
-                  <MessageSquare className="w-8 h-8 text-blue-500 group-hover:text-white" />
-                </div>
-                <span className="font-bold text-sm text-center uppercase">Contact Office</span>
-              </button>
-
-              {user[2]?.toLowerCase() === 'admin' && (
-                <button
-                  onClick={() => {
-                    window.history.pushState({ stage: 'admin' }, '');
-                    setAlert(null);
-                    setStage('admin');
-                  }}
-                  disabled={loading}
-                  className="flex flex-col items-center justify-center p-8 glass-card hover:border-rose-500/50 transition-all group"
-                >
-                  <div className="p-4 rounded-2xl bg-rose-500/10 group-hover:bg-rose-500 group-hover:text-white transition-all mb-4">
-                    <Lock className="w-8 h-8 text-rose-500 group-hover:text-white" />
-                  </div>
-                  <span className="font-bold text-sm text-center uppercase">Admin Dashboard</span>
-                </button>
-              )}
-            </div>
-
-            {/* Mobile Driver Dashboard View */}
-            <div className="md:hidden max-w-md mx-auto">
-              <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-24 min-h-[calc(100vh-1rem)] flex flex-col justify-between">
-                {/* Mobile Brand Logo Header (At Top) */}
-                <div className="flex items-center gap-3 py-1 px-1 mb-4">
-                  <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain rounded-md shadow-sm" />
-                  <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
-                    YSM FLEET MANAGEMENT
-                  </h1>
-                </div>
-
-                {/* Top Sliding Banner Section */}
-                <div className="relative overflow-hidden bg-white rounded-3xl p-3 border border-slate-200/80 shadow-sm mb-4">
-                  <div className="relative min-h-[210px]">
-                    <AnimatePresence mode="wait">
-                      {bannerSlide === 0 ? (
-                        /* Slide 1: Notice Board with Image Banner */
-                        <motion.div
-                          key="notice-slide"
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -20 }}
-                          transition={{ duration: 0.3 }}
-                          className="flex flex-col justify-between h-full space-y-2.5"
-                        >
-                          <div className="flex items-center justify-between px-1">
-                            <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs uppercase tracking-wider">
-                              <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
-                                <MessageSquare className="w-3.5 h-3.5" />
-                              </span>
-                              <span>Notice Board</span>
-                            </div>
-                            {inboxMessages.some((m: any) => !m.isRead) ? (
-                              <span className="px-2 py-0.5 text-[9px] font-black bg-rose-500 text-white rounded-full uppercase tracking-wider animate-pulse">
-                                New Notice
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Notice Banner */}
-                          <div 
-                            onClick={() => {
-                              window.history.pushState({ stage: 'contact-office' }, '');
-                              setStage('contact-office');
-                            }}
-                            className="-mx-3 -mb-3 rounded-b-[22px] overflow-hidden group cursor-pointer"
-                          >
-                            <img
-                              src="/notice/notice_banner.jpg"
-                              alt="Notice Banner"
-                              className="w-full h-auto aspect-[2752/1536] object-fill transition-transform duration-300 group-hover:scale-105"
-                              style={{ imageRendering: '-webkit-optimize-contrast' }}
-                            />
-                          </div>
-                        </motion.div>
-                      ) : (
-                        /* Slide 2: Monthly Summary */
-                        <motion.div
-                          key="stats-slide"
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -20 }}
-                          transition={{ duration: 0.3 }}
-                          className="flex flex-col justify-between h-full space-y-3 py-1"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs uppercase tracking-wider">
-                              <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
-                                <TrendingUp className="w-3.5 h-3.5" />
-                              </span>
-                              <span>Current Month Overview</span>
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                              {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3 py-1">
-                            {/* Combined Salary Sum & Monthly Hires Card */}
-                            <div className="bg-emerald-50/70 border border-emerald-200/80 p-3 sm:p-3.5 rounded-2xl flex flex-col justify-between h-34 shadow-xs space-y-2">
-                              {/* Salary Sum Section (Top) */}
-                              <div>
-                                <div className="text-[10px] font-extrabold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
-                                  <Wallet className="w-3.5 h-3.5 text-teal-600" />
-                                  Salary Sum
-                                </div>
-                                <div className="text-sm font-black text-teal-900 mt-0.5 truncate" title={`Rs. ${dashMonthStats.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}>
-                                  {dashMonthStats.loading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin text-teal-600 inline" />
-                                  ) : (
-                                    `Rs. ${dashMonthStats.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Monthly Hires Section (Bottom) */}
-                              <div className="pt-1.5 border-t border-emerald-200/60">
-                                <div className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                                  <Car className="w-3.5 h-3.5 text-emerald-600" />
-                                  Monthly Hires
-                                </div>
-                                <div className="text-base font-black text-emerald-900 mt-0.5">
-                                  {dashMonthStats.loading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600 inline" />
-                                  ) : (
-                                    `${dashMonthStats.hireCount} Hires`
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Pie Chart Card (Right Side Space) */}
-                            <div className="bg-slate-50/90 border border-slate-200/80 p-2.5 rounded-2xl flex flex-col justify-between h-34 shadow-xs relative overflow-hidden">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[9px] font-extrabold text-slate-700 uppercase tracking-wider truncate" title="Since July 1st">
-                                  Since July 1st
-                                </span>
-                                <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                  {dashMonthStats.totalSalarySinceJuly > 0 
-                                    ? `${Math.round((dashMonthStats.totalSalary / dashMonthStats.totalSalarySinceJuly) * 100)}%` 
-                                    : '100%'}
-                                </span>
-                              </div>
-
-                              {/* Donut Pie Chart Container */}
-                              <div className="relative flex-1 flex items-center justify-center my-0.5">
-                                {dashMonthStats.loading ? (
-                                  <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
-                                ) : (
-                                  <div className="w-full h-16 relative flex items-center justify-center">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                      <PieChart>
-                                        <Pie
-                                          data={[
-                                            { name: 'Current Month', value: Math.max(0, dashMonthStats.totalSalary) },
-                                            { name: 'Prior Months (from July 1)', value: Math.max(0, dashMonthStats.totalSalarySinceJuly - dashMonthStats.totalSalary) }
-                                          ]}
-                                          cx="50%"
-                                          cy="50%"
-                                          innerRadius={18}
-                                          outerRadius={28}
-                                          paddingAngle={3}
-                                          dataKey="value"
-                                          stroke="none"
-                                        >
-                                          <Cell key="cell-curr" fill="#059669" />
-                                          <Cell key="cell-prev" fill="#cbd5e1" />
-                                        </Pie>
-                                        <RechartsTooltip 
-                                          formatter={(val: any) => [`Rs. ${Number(val).toLocaleString()}`, 'Salary']} 
-                                          contentStyle={{ fontSize: '10px', borderRadius: '8px', padding: '4px 8px' }}
-                                        />
-                                      </PieChart>
-                                    </ResponsiveContainer>
-                                    {/* Donut Inner Label */}
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                      <span className="text-[10px] font-black text-slate-900 leading-none">
-                                        {dashMonthStats.totalSalarySinceJuly > 0 
-                                          ? `${Math.round((dashMonthStats.totalSalary / dashMonthStats.totalSalarySinceJuly) * 100)}%` 
-                                          : '100%'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Footer Label with Total Salary Since July 1st */}
-                              <div className="text-center pt-1 border-t border-slate-200/60">
-                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-wider truncate">Total Since July 1</div>
-                                <div className="text-[10px] font-black text-slate-800 truncate" title={`Rs. ${dashMonthStats.totalSalarySinceJuly.toLocaleString()}`}>
-                                  Rs. {dashMonthStats.totalSalarySinceJuly.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* Pagination Indicator Dots & Arrow Controls */}
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setBannerSlide(0)}
-                        className={cn(
-                          "h-2 rounded-full transition-all duration-300 cursor-pointer",
-                          bannerSlide === 0 ? "w-6 bg-[#18859c]" : "w-2 bg-slate-200 hover:bg-slate-300"
-                        )}
-                        aria-label="Notice Board Slide"
-                      />
-                      <button
-                        onClick={() => setBannerSlide(1)}
-                        className={cn(
-                          "h-2 rounded-full transition-all duration-300 cursor-pointer",
-                          bannerSlide === 1 ? "w-6 bg-[#18859c]" : "w-2 bg-slate-200 hover:bg-slate-300"
-                        )}
-                        aria-label="Monthly Stats Slide"
-                      />
+                      <div>
+                        <h3 className="text-base font-black text-white uppercase tracking-wider">ADMIN MENU</h3>
+                        <p className="text-[10px] text-slate-400 font-medium">Select a dashboard module</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      {/* Small Stop / Play Toggle Button */}
-                      <button
-                        onClick={() => setIsBannerPaused(prev => !prev)}
-                        className={cn(
-                          "p-1 rounded-md transition-colors cursor-pointer mr-0.5",
-                          isBannerPaused 
-                            ? "text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200" 
-                            : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                        )}
-                        title={isBannerPaused ? "Resume Auto-Slide" : "Stop Auto-Slide"}
-                        aria-label={isBannerPaused ? "Resume Auto-Slide" : "Stop Auto-Slide"}
-                      >
-                        {isBannerPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                      </button>
-                      <button
-                        onClick={() => setBannerSlide(prev => (prev === 0 ? 1 : 0))}
-                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setBannerSlide(prev => (prev === 0 ? 1 : 0))}
-                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-
-              {/* Records Section */}
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-400 tracking-wide px-1">Records</p>
-                <div className="grid grid-cols-3 gap-3">
-                  {/* New */}
-                  <button
-                    onClick={handleNewRecord}
-                    disabled={loading}
-                    className="bg-[#ebf9f1] border border-emerald-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
-                  >
-                    <Plus className="w-6 h-6 text-emerald-600 group-hover:scale-110 transition-transform" />
-                    <span className="font-bold text-emerald-700 text-xs">New</span>
-                  </button>
-
-                  {/* Update */}
-                  <button
-                    onClick={handleUpdateBtnClick}
-                    disabled={loading}
-                    className="bg-[#fffbf0] border border-amber-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
-                  >
-                    <RotateCw className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform" />
-                    <span className="font-bold text-amber-700 text-xs">Update</span>
-                  </button>
-
-                  {/* Leave Request */}
-                  <button
-                    onClick={() => setShowDevPopup(true)}
-                    disabled={loading}
-                    className="bg-[#f0f4ff] border border-blue-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
-                  >
-                    <Calendar className="w-6 h-6 text-blue-600 group-hover:scale-110 transition-transform" />
-                    <span className="font-bold text-blue-700 text-xs text-center leading-tight">Leave<br/>Request</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Menu Section */}
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-400 tracking-wide px-1">Menu</p>
-                <div className="grid grid-cols-3 gap-3">
-                  {/* Last trip */}
-                  <button
-                    onClick={() => {
-                      window.history.pushState({ stage: 'last-trip' }, '');
-                      setStage('last-trip');
-                    }}
-                    disabled={loading}
-                    className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
-                  >
-                    <div className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-purple-500" />
-                    </div>
-                    <span className="font-bold text-slate-700 text-xs">Last trip</span>
-                  </button>
-
-                  {/* Salary */}
-                  <button
-                    onClick={() => {
-                      window.history.pushState({ stage: 'salary' }, '');
-                      setStage('salary');
-                    }}
-                    disabled={loading}
-                    className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
-                  >
-                    <div className="w-9 h-9 rounded-full bg-teal-50 flex items-center justify-center">
-                      <Wallet className="w-5 h-5 text-teal-600" />
-                    </div>
-                    <span className="font-bold text-slate-700 text-xs">Salary</span>
-                  </button>
-
-                  {/* Contact */}
-                  <button
-                    onClick={() => {
-                      window.history.pushState({ stage: 'contact-office' }, '');
-                      setStage('contact-office');
-                    }}
-                    disabled={loading}
-                    className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group relative"
-                  >
-                    {(() => {
-                      const unreadCount = inboxMessages.filter((m: any) => !m.isRead).length;
-                      if (unreadCount > 0) {
-                        return (
-                          <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-extrabold rounded-full w-5 h-5 flex items-center justify-center shadow-md animate-bounce">
-                            {unreadCount}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                    <div className="w-9 h-9 rounded-full bg-sky-50 flex items-center justify-center">
-                      <MessageSquare className="w-5 h-5 text-sky-500" />
-                    </div>
-                    <span className="font-bold text-slate-700 text-xs">Contact</span>
-                  </button>
-                </div>
-              </div>
-
-                {/* Yellow & White Message Send Box Card */}
-                <div className="bg-gradient-to-br from-amber-50 via-white to-amber-100/60 rounded-3xl p-3.5 shadow-sm border border-amber-200/80 space-y-2.5 mt-3">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="font-extrabold text-sm tracking-wide text-amber-900 flex items-center gap-1.5">
-                      <MessageSquare className="w-4 h-4 text-amber-600" />
-                      Send Message to Office
-                    </span>
-                    <span className="text-[10px] font-bold bg-amber-500/20 text-amber-800 px-2.5 py-0.5 rounded-full border border-amber-500/30">
-                      Senu Cabs
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white rounded-2xl p-1.5 border border-amber-200 shadow-inner">
-                    <input
-                      type="text"
-                      placeholder="Type message to office..."
-                      value={officeMessage}
-                      onChange={(e) => setOfficeMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && officeMessage.trim() && !sendingMessage) {
-                          handleSendMessage();
-                        }
-                      }}
-                      className="flex-1 bg-transparent px-3 py-1.5 text-sm text-slate-800 placeholder:text-amber-700/50 focus:outline-none font-medium"
-                    />
-                    <button 
-                      onClick={handleSendMessage}
-                      disabled={sendingMessage || !officeMessage.trim()}
-                      className="w-9 h-9 rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:hover:bg-amber-500 text-white flex items-center justify-center shadow-sm transition-all shrink-0 cursor-pointer"
-                      title="Send Message to Office"
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminMobileMenu(false)}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
                     >
-                      {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Send className="w-4 h-4 text-white translate-x-0.5" />}
+                      <X className="w-5 h-5" />
                     </button>
                   </div>
+
+                  <div className="grid grid-cols-1 gap-2 max-h-[65vh] overflow-y-auto pr-1">
+                    {[
+                      { id: 'overview', label: 'OVERVIEW', icon: Activity },
+                      { id: 'trips', label: 'INCOME SUMMARY', icon: History },
+                      { id: 'rankings', label: 'RANKINGS', icon: Users },
+                      { id: 'fleet', label: 'FLEET DATA', icon: Database },
+                      { id: 'messages', label: 'MESSAGES', icon: MessageSquare, badge: messagesData?.messages?.some((m: any) => !m.isRead && !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))) },
+                      { id: 'accounts', label: 'ACCOUNT SHEET', icon: IdCard },
+
+                      { id: 'lak-mobile', label: 'LAK MOBILE', icon: Car },
+                      { id: 'driver-manage', label: 'DRIVER MANAGE', icon: Users },
+                      { id: 'commission', label: 'VEHICLE & COMMISSIONS', icon: Activity },
+                      { id: 'report', label: 'REPORTS', icon: ClipboardCheck },
+                      { id: 'salary', label: 'SALARY', icon: Wallet },
+                    ].map((item) => {
+                      const ItemIcon = item.icon;
+                      const isActive = adminTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setAdminTab(item.id as any);
+                            setShowAdminMobileMenu(false);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between p-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all border",
+                            isActive
+                              ? "bg-emerald-500 text-slate-950 border-emerald-400 shadow-lg shadow-emerald-500/20"
+                              : "bg-white/5 text-slate-300 hover:bg-white/10 border-white/5"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <ItemIcon className={cn("w-4 h-4", isActive ? "text-slate-950" : "text-emerald-400")} />
+                            <span>{item.label}</span>
+                          </div>
+                          {item.badge && (
+                            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10 flex flex-col gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAlert(null);
+                      setStage('dashboard');
+                      setShowAdminMobileMenu(false);
+                    }}
+                    className="w-full py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white flex items-center justify-center gap-2 border border-red-500/20 transition-all"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Exit Admin Control
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Under Development Modal */}
+        <AnimatePresence>
+          {showDevPopup && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white p-6 sm:p-8 w-full max-w-sm text-center space-y-5 rounded-3xl shadow-2xl border border-slate-100"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-8 h-8 text-amber-500" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">COMING SOON</h3>
+                  <p className="text-slate-500 text-xs font-bold leading-relaxed">This feature is still under development. Please check back later!</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDevPopup(false)}
+                    className="w-full py-3 rounded-2xl bg-amber-500 text-white hover:bg-amber-600 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
+                  >
+                    OKAY, GOT IT
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Logout Confirmation Modal */}
+        <AnimatePresence>
+          {showLogoutConfirm && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white p-6 sm:p-8 w-full max-w-sm text-center space-y-5 rounded-3xl shadow-2xl border border-slate-100"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center mx-auto">
+                  <LogOut className="w-8 h-8 text-rose-500" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">ARE YOU SURE?</h3>
+                  <p className="text-slate-500 text-xs font-bold leading-relaxed">You will need to login again to access your fleet records.</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="flex-1 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    onClick={confirmLogout}
+                    className="flex-1 py-3 rounded-2xl bg-rose-500 text-white hover:bg-rose-600 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
+                  >
+                    YES, LOGOUT
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+
+        {/* Staff Comment Modal */}
+        <AnimatePresence>
+          {showCommentModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white p-6 w-full max-w-md text-center space-y-5 rounded-3xl shadow-2xl border border-slate-100"
+              >
+                <div className="flex items-center gap-2.5 text-slate-800 font-extrabold text-sm mb-1 justify-center">
+                  <MessageSquare className="w-5 h-5 text-[#18859c]" />
+                  STAFF COMMENT
+                </div>
+                <p className="text-xs font-bold text-slate-500 mb-2">Enter or update the staff comment for this trip.</p>
+
+                <textarea
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#18859c] transition-all resize-none font-medium shadow-inner"
+                  placeholder="Enter staff comment here..."
+                  rows={4}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                />
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowCommentModal(false)}
+                    disabled={savingComment}
+                    className="flex-1 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm cursor-pointer"
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    onClick={handleSaveComment}
+                    disabled={savingComment || commentText === commentTarget?.comment}
+                    className="flex-1 py-3 rounded-2xl bg-[#18859c] hover:bg-[#157489] disabled:opacity-50 text-white transition-all font-extrabold text-xs uppercase tracking-wider shadow-sm flex justify-center items-center gap-2 cursor-pointer"
+                  >
+                    {savingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SAVE'}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Desktop Driver Info Bar (Shown on Desktop only) */}
+        {stage !== 'admin' && (
+          <div className="hidden md:flex items-center gap-4 mb-6">
+            <div className="glass-card p-4 flex items-center justify-between gap-4 flex-1">
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col items-center px-3 border-r border-white/10">
+                  <IdCard className="w-5 h-5 text-emerald-500 mb-1" />
+                  <span className="text-xs font-bold text-white">{user[0]}</span>
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">{user[4]}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Phone className="w-3 h-3" />
+                    <span className="text-[10px]">{user[3]}</span>
+                  </div>
                 </div>
               </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-full transition-colors shrink-0"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
 
-                {/* Bottom Navigation Bar */}
-              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-white border border-slate-100 rounded-full p-2 shadow-xl flex items-center justify-around z-50">
-                <button 
-                  onClick={() => setStage('dashboard')}
-                  className="p-2 rounded-full text-sky-500 hover:bg-sky-50 transition-colors cursor-pointer" 
-                  title="Home"
+            <button
+              onClick={handleSyncAccountSheet}
+              disabled={isSyncingAccounts}
+              className={`shrink-0 flex flex-col items-center justify-center p-3 sm:px-5 rounded-2xl transition-all border shadow-lg ${isSyncingAccounts
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                  : 'bg-emerald-500/20 border-emerald-500 hover:bg-emerald-500 hover:text-white text-emerald-500 shadow-emerald-500/20 hover:shadow-emerald-500/40'
+                }`}
+              title="Sync Account Data"
+            >
+              <RefreshCw className={`w-6 h-6 mb-1 ${isSyncingAccounts ? 'animate-spin opacity-50' : ''}`} />
+              <span className="text-[10px] font-bold uppercase tracking-wider">{isSyncingAccounts ? 'Syncing...' : 'Sync Data'}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Driver Dashboard View */}
+        <AnimatePresence mode="wait">
+          {stage === 'dashboard' ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              {/* Desktop Dashboard View (Original Design) */}
+              <div className="hidden md:grid grid-cols-2 gap-4 mb-8">
+                <button
+                  onClick={handleNewRecord}
+                  disabled={loading}
+                  className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
                 >
-                  <Home className="w-5 h-5" />
+                  <div className="p-4 rounded-2xl bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-4">
+                    <Plus className="w-8 h-8 text-emerald-500 group-hover:text-white" />
+                  </div>
+                  <span className="font-bold text-sm">NEW RECORD</span>
                 </button>
-                <button 
-                  onClick={handleSyncAccountSheet}
-                  disabled={isSyncingAccounts}
-                  className="p-2 rounded-full text-emerald-500 hover:bg-emerald-50 transition-colors cursor-pointer" 
-                  title="Sync Data"
+                <button
+                  onClick={handleUpdateBtnClick}
+                  disabled={loading}
+                  className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group"
                 >
-                  <RotateCw className={cn("w-5 h-5", isSyncingAccounts && "animate-spin")} />
+                  <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
+                    <RefreshCw className="w-8 h-8 text-blue-500 group-hover:text-white" />
+                  </div>
+                  <span className="font-bold text-sm text-center">UPDATE RECORD</span>
                 </button>
+
+                <button
+                  onClick={() => {
+                    window.history.pushState({ stage: 'last-trip' }, '');
+                    setStage('last-trip');
+                  }}
+                  disabled={loading}
+                  className="flex flex-col items-center justify-center p-8 glass-card hover:border-purple-500/50 transition-all group"
+                >
+                  <div className="p-4 rounded-2xl bg-purple-500/10 group-hover:bg-purple-500 group-hover:text-white transition-all mb-4">
+                    <MapPin className="w-8 h-8 text-purple-500 group-hover:text-white" />
+                  </div>
+                  <span className="font-bold text-sm text-center uppercase">Last Trip Details</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    window.history.pushState({ stage: 'salary' }, '');
+                    setStage('salary');
+                  }}
+                  disabled={loading}
+                  className="flex flex-col items-center justify-center p-8 glass-card hover:border-emerald-500/50 transition-all group"
+                >
+                  <div className="p-4 rounded-2xl bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-4">
+                    <IdCard className="w-8 h-8 text-emerald-500 group-hover:text-white" />
+                  </div>
+                  <span className="font-bold text-sm text-center uppercase">Salary Details</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    window.history.pushState({ stage: 'contact-office' }, '');
+                    setStage('contact-office');
+                  }}
+                  disabled={loading}
+                  className="flex flex-col items-center justify-center p-8 glass-card hover:border-blue-500/50 transition-all group relative"
+                >
+                  {(() => {
+                    const unreadCount = inboxMessages.filter((m: any) => !m.isRead).length;
+                    if (unreadCount > 0) {
+                      return (
+                        <div className="absolute top-4 right-4 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse flex items-center justify-center min-w-[24px] h-[24px] px-1.5 z-10">
+                          <span className="text-[12px] font-black text-white">{unreadCount}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  <div className="p-4 rounded-2xl bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-white transition-all mb-4">
+                    <MessageSquare className="w-8 h-8 text-blue-500 group-hover:text-white" />
+                  </div>
+                  <span className="font-bold text-sm text-center uppercase">Contact Office</span>
+                </button>
+
                 {user[2]?.toLowerCase() === 'admin' && (
-                  <button 
+                  <button
                     onClick={() => {
                       window.history.pushState({ stage: 'admin' }, '');
                       setAlert(null);
                       setStage('admin');
                     }}
                     disabled={loading}
-                    className="p-2 rounded-full text-amber-500 hover:bg-amber-50 transition-colors cursor-pointer" 
-                    title="Admin Dashboard"
+                    className="flex flex-col items-center justify-center p-8 glass-card hover:border-rose-500/50 transition-all group"
                   >
-                    <ShieldCheck className="w-5 h-5" />
+                    <div className="p-4 rounded-2xl bg-rose-500/10 group-hover:bg-rose-500 group-hover:text-white transition-all mb-4">
+                      <Lock className="w-8 h-8 text-rose-500 group-hover:text-white" />
+                    </div>
+                    <span className="font-bold text-sm text-center uppercase">Admin Dashboard</span>
                   </button>
                 )}
-                <button 
-                  onClick={handleLogout}
-                  className="p-2 rounded-full text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer" 
-                  title="Logout"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
               </div>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
 
-      {stage === 'contact-office' && (
-        <div className="max-w-md mx-auto">
-          <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
-            {/* Header */}
-            <div className="flex items-center justify-between py-1 px-1">
-              <div className="flex items-center gap-3">
-                <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain rounded-md shadow-sm" />
-                <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
-                  CONTACT OFFICE
-                </h1>
-              </div>
-              <button
-                onClick={() => setStage('dashboard')}
-                className="w-9 h-9 rounded-full bg-white text-slate-600 border border-slate-200 flex items-center justify-center shadow-sm hover:bg-slate-50 transition-all cursor-pointer"
-                title="Back to Dashboard"
-              >
-                <ChevronLeft className="w-5 h-5 text-slate-700" />
-              </button>
-            </div>
+              {/* Mobile Driver Dashboard View */}
+              <div className="md:hidden max-w-md mx-auto">
+                <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-24 min-h-[calc(100vh-1rem)] flex flex-col justify-between">
+                  {/* Mobile Brand Logo Header (At Top) */}
+                  <div className="flex items-center gap-3 py-1 px-1 mb-4">
+                    <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain rounded-md shadow-sm" />
+                    <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
+                      YSM FLEET MANAGEMENT
+                    </h1>
+                  </div>
 
-            {/* Tab Selection */}
-            <div className="flex gap-2 p-1.5 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
-              <button
-                onClick={() => setOfficeTab('send')}
-                className={cn(
-                  "flex-1 py-2.5 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all cursor-pointer",
-                  officeTab === 'send' 
-                    ? "bg-[#18859c] text-white shadow-sm" 
-                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                )}
-              >
-                Send Message
-              </button>
-              <button
-                onClick={() => setOfficeTab('inbox')}
-                className={cn(
-                  "flex-1 py-2.5 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all cursor-pointer relative",
-                  officeTab === 'inbox' 
-                    ? "bg-[#18859c] text-white shadow-sm" 
-                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                )}
-              >
-                Inbox
-                {inboxMessages.some((m: any) => !m.isRead) && (
-                  <span className="absolute top-2 right-3 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                )}
-              </button>
-            </div>
-
-            {officeTab === 'send' && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-amber-50 via-white to-amber-100/60 rounded-3xl p-5 shadow-sm border border-amber-200/80 space-y-4"
-              >
-                <div className="flex items-center gap-2.5 text-amber-900 font-extrabold text-sm">
-                  <MessageSquare className="w-5 h-5 text-amber-600" />
-                  SEND MESSAGE TO SENU CABS OFFICE
-                </div>
-                <p className="text-xs font-bold text-amber-900/80 leading-relaxed bg-amber-500/10 p-3.5 rounded-2xl border border-amber-500/20">
-                  Senu cabs කාර්යාලය වෙත පැමිණිල්ලක්, පණිවුඩයක් හා කිසියම් දැනුම් දීමක් කිරීමට අවශ්‍ය නම් පහත "Send Message" පහසුකම භාවිත කරන්න.
-                </p>
-                <textarea
-                  className="w-full bg-white border border-amber-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-amber-700/50 focus:outline-none focus:border-amber-400 transition-all resize-none font-medium shadow-inner"
-                  placeholder="Type your message here..."
-                  rows={5}
-                  value={officeMessage}
-                  onChange={(e) => setOfficeMessage(e.target.value)}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={sendingMessage || !officeMessage.trim()}
-                  className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer"
-                >
-                  {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> SEND MESSAGE</>}
-                </button>
-
-                <div className="mt-6 pt-4 border-t border-amber-200/60 space-y-3">
-                  <h4 className="text-xs font-extrabold text-amber-900/70 uppercase tracking-wider">Last 10 Sent Messages</h4>
-                  {fetchingSentMessages ? (
-                    <div className="py-4 text-center text-amber-700 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2"/>Loading...</div>
-                  ) : sentMessages.length === 0 ? (
-                    <div className="py-4 text-center text-slate-400 text-xs font-bold bg-white rounded-2xl border border-amber-100">No messages sent yet.</div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {sentMessages.map((msg, i) => (
-                        <div key={i} className="bg-white border border-amber-200/80 p-3.5 rounded-2xl shadow-sm">
-                          <div className="text-[10px] font-extrabold text-amber-600 mb-1 uppercase tracking-wider">{msg.timestamp}</div>
-                          <p className="text-xs font-medium text-slate-700 whitespace-pre-wrap">{msg.message}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {officeTab === 'inbox' && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200/80 space-y-4"
-              >
-                <div className="flex items-center gap-2.5 text-slate-800 font-extrabold text-sm mb-2">
-                  <MessageSquare className="w-5 h-5 text-sky-500" />
-                  INBOX
-                </div>
-                
-                <div className="space-y-3">
-                  {fetchingInboxMessages ? (
-                    <div className="py-10 text-center text-slate-400 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2"/>Loading...</div>
-                  ) : inboxMessages.length === 0 ? (
-                    <div className="py-10 flex flex-col items-center justify-center text-center gap-3 bg-slate-50 rounded-2xl border border-slate-100">
-                      <MessageSquare className="w-8 h-8 text-slate-400" />
-                      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">No messages in inbox</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {inboxMessages.map((msg: any, i) => (
-                        <div 
-                          key={i} 
-                          onClick={async () => {
-                            if (!msg.isRead) {
-                              try {
-                                await fetch('/api/fleet/message', {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ id: msg._id })
-                                });
-                                setInboxMessages(prev => prev.map(m => m._id === msg._id ? { ...m, isRead: true } : m));
-                              } catch (e) {}
-                            }
-                          }}
-                          className={cn(
-                            "p-3.5 rounded-2xl transition-all border",
-                            !msg.isRead 
-                              ? "bg-amber-50/60 border-amber-300 shadow-sm cursor-pointer" 
-                              : "bg-slate-50 border-slate-100"
-                          )}
-                        >
-                          <div className="flex justify-between items-center mb-1.5">
-                            <div className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider flex items-center gap-2">
-                              {!msg.isRead && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>}
-                              {msg.isRead && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
-                              FROM ADMIN
+                  {/* Top Sliding Banner Section */}
+                  <div className="relative overflow-hidden bg-white rounded-3xl p-3 border border-slate-200/80 shadow-sm mb-4">
+                    <div className="relative min-h-[210px]">
+                      <AnimatePresence mode="wait">
+                        {bannerSlide === 0 ? (
+                          /* Slide 1: Notice Board with Image Banner */
+                          <motion.div
+                            key="notice-slide"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex flex-col justify-between h-full space-y-2.5"
+                          >
+                            <div className="flex items-center justify-between px-1">
+                              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs uppercase tracking-wider">
+                                <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                </span>
+                                <span>Notice Board</span>
+                              </div>
+                              {inboxMessages.some((m: any) => !m.isRead) ? (
+                                <span className="px-2 py-0.5 text-[9px] font-black bg-rose-500 text-white rounded-full uppercase tracking-wider animate-pulse">
+                                  New Notice
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              )}
                             </div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{msg.timestamp}</div>
-                          </div>
-                          <p className={cn("text-xs whitespace-pre-wrap transition-colors", !msg.isRead ? "text-slate-900 font-extrabold" : "text-slate-600 font-medium")}>{msg.message}</p>
-                        </div>
-                      ))}
+
+                            {/* Notice Banner */}
+                            <div
+                              onClick={() => {
+                                window.history.pushState({ stage: 'contact-office' }, '');
+                                setStage('contact-office');
+                              }}
+                              className="-mx-3 -mb-3 rounded-b-[22px] overflow-hidden group cursor-pointer"
+                            >
+                              <img
+                                src="/notice/notice_banner.jpg"
+                                alt="Notice Banner"
+                                className="w-full h-auto aspect-[2752/1536] object-fill transition-transform duration-300 group-hover:scale-105"
+                                style={{ imageRendering: '-webkit-optimize-contrast' }}
+                              />
+                            </div>
+                          </motion.div>
+                        ) : (
+                          /* Slide 2: Monthly Summary */
+                          <motion.div
+                            key="stats-slide"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex flex-col justify-between h-full space-y-3 py-1"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs uppercase tracking-wider">
+                                <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
+                                  <TrendingUp className="w-3.5 h-3.5" />
+                                </span>
+                                <span>Current Month Overview</span>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 py-1">
+                              {/* Combined Salary Sum & Monthly Hires Card */}
+                              <div className="bg-emerald-50/70 border border-emerald-200/80 p-3 sm:p-3.5 rounded-2xl flex flex-col justify-between h-34 shadow-xs space-y-2">
+                                {/* Salary Sum Section (Top) */}
+                                <div>
+                                  <div className="text-[10px] font-extrabold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Wallet className="w-3.5 h-3.5 text-teal-600" />
+                                    Salary Sum
+                                  </div>
+                                  <div className="text-sm font-black text-teal-900 mt-0.5 truncate" title={`Rs. ${dashMonthStats.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}>
+                                    {dashMonthStats.loading ? (
+                                      <Loader2 className="w-4 h-4 animate-spin text-teal-600 inline" />
+                                    ) : (
+                                      `Rs. ${dashMonthStats.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Monthly Hires Section (Bottom) */}
+                                <div className="pt-1.5 border-t border-emerald-200/60">
+                                  <div className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Car className="w-3.5 h-3.5 text-emerald-600" />
+                                    Monthly Hires
+                                  </div>
+                                  <div className="text-base font-black text-emerald-900 mt-0.5">
+                                    {dashMonthStats.loading ? (
+                                      <Loader2 className="w-4 h-4 animate-spin text-emerald-600 inline" />
+                                    ) : (
+                                      `${dashMonthStats.hireCount} Hires`
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Pie Chart Card (Right Side Space) */}
+                              <div className="bg-slate-50/90 border border-slate-200/80 p-2.5 rounded-2xl flex flex-col justify-between h-34 shadow-xs relative overflow-hidden">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] font-extrabold text-slate-700 uppercase tracking-wider truncate" title="Since July 1st">
+                                    Since July 1st
+                                  </span>
+                                  <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    {dashMonthStats.totalSalarySinceJuly > 0
+                                      ? `${Math.round((dashMonthStats.totalSalary / dashMonthStats.totalSalarySinceJuly) * 100)}%`
+                                      : '100%'}
+                                  </span>
+                                </div>
+
+                                {/* Donut Pie Chart Container */}
+                                <div className="relative flex-1 flex items-center justify-center my-0.5">
+                                  {dashMonthStats.loading ? (
+                                    <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+                                  ) : (
+                                    <div className="w-full h-16 relative flex items-center justify-center">
+                                      <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                          <Pie
+                                            data={[
+                                              { name: 'Current Month', value: Math.max(0, dashMonthStats.totalSalary) },
+                                              { name: 'Prior Months (from July 1)', value: Math.max(0, dashMonthStats.totalSalarySinceJuly - dashMonthStats.totalSalary) }
+                                            ]}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={18}
+                                            outerRadius={28}
+                                            paddingAngle={3}
+                                            dataKey="value"
+                                            stroke="none"
+                                          >
+                                            <Cell key="cell-curr" fill="#059669" />
+                                            <Cell key="cell-prev" fill="#cbd5e1" />
+                                          </Pie>
+                                          <RechartsTooltip
+                                            formatter={(val: any) => [`Rs. ${Number(val).toLocaleString()}`, 'Salary']}
+                                            contentStyle={{ fontSize: '10px', borderRadius: '8px', padding: '4px 8px' }}
+                                          />
+                                        </PieChart>
+                                      </ResponsiveContainer>
+                                      {/* Donut Inner Label */}
+                                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <span className="text-[10px] font-black text-slate-900 leading-none">
+                                          {dashMonthStats.totalSalarySinceJuly > 0
+                                            ? `${Math.round((dashMonthStats.totalSalary / dashMonthStats.totalSalarySinceJuly) * 100)}%`
+                                            : '100%'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Footer Label with Total Salary Since July 1st */}
+                                <div className="text-center pt-1 border-t border-slate-200/60">
+                                  <div className="text-[8px] font-bold text-slate-400 uppercase tracking-wider truncate">Total Since July 1</div>
+                                  <div className="text-[10px] font-black text-slate-800 truncate" title={`Rs. ${dashMonthStats.totalSalarySinceJuly.toLocaleString()}`}>
+                                    Rs. {dashMonthStats.totalSalarySinceJuly.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
 
-            <button
-              onClick={() => setStage('dashboard')}
-              className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4 text-slate-500" /> Back to Dashboard
-            </button>
-          </div>
-        </div>
-      )}
-
-      {stage === 'admin' && (
-        <div className="space-y-8 pb-0">
-          {/* Mobile Burger Bar Header & Filters */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-2 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-white/10 w-full mb-1">
-            <button
-              type="button"
-              onClick={() => setShowAdminMobileMenu(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 rounded-xl text-xs font-black tracking-wider uppercase transition-all shadow-lg shadow-emerald-500/20 active:scale-95 shrink-0 self-start lg:self-center"
-            >
-              <Menu className="w-4 h-4" />
-              <span>MENU</span>
-            </button>
-
-            {/* Filters */}
-            {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && adminTab !== 'report' && (
-              <div className="flex flex-col md:flex-row items-end gap-2 flex-1 w-full">
-                <div className={cn("grid gap-2 flex-1 w-full px-2 py-0.5", adminTab === 'salary' ? "grid-cols-2 md:grid-cols-3 max-w-2xl" : "grid-cols-2 md:grid-cols-6")}>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                      <Calendar className="w-2.5 h-2.5" /> From
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full input-field py-0 text-[10px] text-white h-7"
-                      value={adminFilters.startDate}
-                      onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                      <Calendar className="w-2.5 h-2.5" /> To
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full input-field py-0 text-[10px] text-white h-7"
-                      value={adminFilters.endDate}
-                      onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
-                    />
-                  </div>
-                  {adminTab !== 'salary' && (
-                    <>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
-                        <select
-                          className="w-full input-field py-0 text-[10px] text-white h-7"
-                          value={adminFilters.purpose}
-                          onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
-                        >
-                          {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
-                        </select>
+                    {/* Pagination Indicator Dots & Arrow Controls */}
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setBannerSlide(0)}
+                          className={cn(
+                            "h-2 rounded-full transition-all duration-300 cursor-pointer",
+                            bannerSlide === 0 ? "w-6 bg-[#18859c]" : "w-2 bg-slate-200 hover:bg-slate-300"
+                          )}
+                          aria-label="Notice Board Slide"
+                        />
+                        <button
+                          onClick={() => setBannerSlide(1)}
+                          className={cn(
+                            "h-2 rounded-full transition-all duration-300 cursor-pointer",
+                            bannerSlide === 1 ? "w-6 bg-[#18859c]" : "w-2 bg-slate-200 hover:bg-slate-300"
+                          )}
+                          aria-label="Monthly Stats Slide"
+                        />
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
-                        <select
-                          className="w-full input-field py-0 text-[10px] text-white h-7"
-                          value={adminFilters.status}
-                          onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
+                      <div className="flex items-center gap-1">
+                        {/* Small Stop / Play Toggle Button */}
+                        <button
+                          onClick={() => setIsBannerPaused(prev => !prev)}
+                          className={cn(
+                            "p-1 rounded-md transition-colors cursor-pointer mr-0.5",
+                            isBannerPaused
+                              ? "text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200"
+                              : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                          )}
+                          title={isBannerPaused ? "Resume Auto-Slide" : "Stop Auto-Slide"}
+                          aria-label={isBannerPaused ? "Resume Auto-Slide" : "Stop Auto-Slide"}
                         >
-                          {(adminData?.filterOptions?.statuses || ["All", "Approved", "Pending", "Cancelled"]).map((s: string) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
-                        <select
-                          className="w-full input-field py-0 text-[10px] text-white h-7"
-                          value={adminFilters.vehicle}
-                          onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
+                          {isBannerPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                        </button>
+                        <button
+                          onClick={() => setBannerSlide(prev => (prev === 0 ? 1 : 0))}
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                         >
-                          <option value="All">All Vehicles</option>
-                          {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                        </select>
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setBannerSlide(prev => (prev === 0 ? 1 : 0))}
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
                       </div>
-                    </>
-                  )}
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
-                    <select
-                      className="w-full input-field py-0 text-[10px] text-white h-7"
-                      value={adminFilters.driver}
-                      onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
-                    >
-                      <option value="All">All Drivers</option>
-                      {(adminData?.tables?.driversList || [])
-                        .filter((driver: any) => driver.status === 'Active' && driver.username)
-                        .map((driver: any) => (
-                          <option key={driver.username} value={driver.username}>
-                            {driver.username}
-                          </option>
-                        ))}
-                    </select>
+                    </div>
                   </div>
-                </div>
-                <button
-                  onClick={resetAdminFilters}
-                  className="h-7 px-4 mb-0.5 mr-0.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shrink-0 w-full md:w-auto"
-                  title="Clear Filters"
-                >
-                  <X className="w-3 h-3" /> CLEAR
-                </button>
-              </div>
-            )}
-          </div>
-          {fetchingAdmin && !adminData ? (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
-              <div className="relative">
-                <div className="w-24 h-24 border-4 border-emerald-500/10 rounded-full"></div>
-                <div className="w-24 h-24 border-4 border-emerald-500 rounded-full animate-spin border-t-transparent absolute inset-0"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <TrendingUp className="w-10 h-10 text-emerald-500 animate-pulse" />
-                </div>
-              </div>
-              <div className="text-center space-y-2">
-                <h3 className="text-xl font-black text-white tracking-widest uppercase shadow-emerald-500/50 drop-shadow-md">Admin Dashboard</h3>
-                <p className="text-emerald-500 font-black tracking-[0.25em] text-[10px] uppercase animate-pulse">Synchronizing Data...</p>
-              </div>
-            </div>
-          ) : adminData ? (
-            <div className="space-y-8">
 
 
-              {adminTab === 'overview' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="glass-card p-4 md:p-6 space-y-4 text-slate-200"
-                  style={{ minHeight: 'calc(100vh - 12rem)' }}
-                >
-                  {/* Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-700">
-                    <h2 className="text-lg font-bold text-white">Fleet KPI Dashboard</h2>
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                      <select
-                        className="bg-slate-800 text-white text-[11px] font-bold px-2 py-1.5 rounded shadow-sm border border-slate-700 outline-none cursor-pointer shrink-0"
-                        value={(() => {
-                          const today = new Date();
-                          const y = today.getFullYear();
-                          const m = String(today.getMonth() + 1).padStart(2, '0');
-                          const d = String(today.getDate()).padStart(2, '0');
-                          const todayStr = `${y}-${m}-${d}`;
-                        
-                          const lastWeek = new Date(today);
-                          lastWeek.setDate(today.getDate() - 7);
-                          const wy = lastWeek.getFullYear();
-                          const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
-                          const wd = String(lastWeek.getDate()).padStart(2, '0');
-                          const lastWeekStr = `${wy}-${wm}-${wd}`;
-                        
-                          if (adminFilters.endDate === todayStr) {
-                            if (adminFilters.startDate === todayStr) return 'Daily';
-                            if (adminFilters.startDate === lastWeekStr) return 'Weekly';
-                            if (adminFilters.startDate === `${y}-${m}-01`) return 'Monthly';
-                            if (adminFilters.startDate === `${y}-01-01`) return 'Yearly';
+                  {/* Records Section */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-400 tracking-wide px-1">Records</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {/* New */}
+                      <button
+                        onClick={handleNewRecord}
+                        disabled={loading}
+                        className="bg-[#ebf9f1] border border-emerald-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                      >
+                        <Plus className="w-6 h-6 text-emerald-600 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-emerald-700 text-xs">New</span>
+                      </button>
+
+                      {/* Update */}
+                      <button
+                        onClick={handleUpdateBtnClick}
+                        disabled={loading}
+                        className="bg-[#fffbf0] border border-amber-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                      >
+                        <RotateCw className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-amber-700 text-xs">Update</span>
+                      </button>
+
+                      {/* Leave Request */}
+                      <button
+                        onClick={() => setShowDevPopup(true)}
+                        disabled={loading}
+                        className="bg-[#f0f4ff] border border-blue-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                      >
+                        <Calendar className="w-6 h-6 text-blue-600 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-blue-700 text-xs text-center leading-tight">Leave<br />Request</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Menu Section */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-400 tracking-wide px-1">Menu</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {/* Last trip */}
+                      <button
+                        onClick={() => {
+                          window.history.pushState({ stage: 'last-trip' }, '');
+                          setStage('last-trip');
+                        }}
+                        disabled={loading}
+                        className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                      >
+                        <div className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center">
+                          <MapPin className="w-5 h-5 text-purple-500" />
+                        </div>
+                        <span className="font-bold text-slate-700 text-xs">Last trip</span>
+                      </button>
+
+                      {/* Salary */}
+                      <button
+                        onClick={() => {
+                          window.history.pushState({ stage: 'salary' }, '');
+                          setStage('salary');
+                        }}
+                        disabled={loading}
+                        className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                      >
+                        <div className="w-9 h-9 rounded-full bg-teal-50 flex items-center justify-center">
+                          <Wallet className="w-5 h-5 text-teal-600" />
+                        </div>
+                        <span className="font-bold text-slate-700 text-xs">Salary</span>
+                      </button>
+
+                      {/* Contact */}
+                      <button
+                        onClick={() => {
+                          window.history.pushState({ stage: 'contact-office' }, '');
+                          setStage('contact-office');
+                        }}
+                        disabled={loading}
+                        className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group relative"
+                      >
+                        {(() => {
+                          const unreadCount = inboxMessages.filter((m: any) => !m.isRead).length;
+                          if (unreadCount > 0) {
+                            return (
+                              <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-extrabold rounded-full w-5 h-5 flex items-center justify-center shadow-md animate-bounce">
+                                {unreadCount}
+                              </div>
+                            );
                           }
-                          return 'Custom';
+                          return null;
                         })()}
-                        onChange={(e) => {
-                          const preset = e.target.value;
-                          const today = new Date();
-                          const y = today.getFullYear();
-                          const m = String(today.getMonth() + 1).padStart(2, '0');
-                          const d = String(today.getDate()).padStart(2, '0');
-                          const todayStr = `${y}-${m}-${d}`;
+                        <div className="w-9 h-9 rounded-full bg-sky-50 flex items-center justify-center">
+                          <MessageSquare className="w-5 h-5 text-sky-500" />
+                        </div>
+                        <span className="font-bold text-slate-700 text-xs">Contact</span>
+                      </button>
+                    </div>
+                  </div>
 
-                          if (preset === 'Daily') {
-                            setAdminFilters({ ...adminFilters, startDate: todayStr, endDate: todayStr });
-                          } else if (preset === 'Weekly') {
-                            const lastWeek = new Date(today);
-                            lastWeek.setDate(today.getDate() - 7);
-                            const wy = lastWeek.getFullYear();
-                            const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
-                            const wd = String(lastWeek.getDate()).padStart(2, '0');
-                            setAdminFilters({ ...adminFilters, startDate: `${wy}-${wm}-${wd}`, endDate: todayStr });
-                          } else if (preset === 'Monthly') {
-                            setAdminFilters({ ...adminFilters, startDate: `${y}-${m}-01`, endDate: todayStr });
-                          } else if (preset === 'Yearly') {
-                            setAdminFilters({ ...adminFilters, startDate: `${y}-01-01`, endDate: todayStr });
+                  {/* Yellow & White Message Send Box Card */}
+                  <div className="bg-gradient-to-br from-amber-50 via-white to-amber-100/60 rounded-3xl p-3.5 shadow-sm border border-amber-200/80 space-y-2.5 mt-3">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="font-extrabold text-sm tracking-wide text-amber-900 flex items-center gap-1.5">
+                        <MessageSquare className="w-4 h-4 text-amber-600" />
+                        Send Message to Office
+                      </span>
+                      <span className="text-[10px] font-bold bg-amber-500/20 text-amber-800 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                        Senu Cabs
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white rounded-2xl p-1.5 border border-amber-200 shadow-inner">
+                      <input
+                        type="text"
+                        placeholder="Type message to office..."
+                        value={officeMessage}
+                        onChange={(e) => setOfficeMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && officeMessage.trim() && !sendingMessage) {
+                            handleSendMessage();
                           }
                         }}
+                        className="flex-1 bg-transparent px-3 py-1.5 text-sm text-slate-800 placeholder:text-amber-700/50 focus:outline-none font-medium"
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={sendingMessage || !officeMessage.trim()}
+                        className="w-9 h-9 rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:hover:bg-amber-500 text-white flex items-center justify-center shadow-sm transition-all shrink-0 cursor-pointer"
+                        title="Send Message to Office"
                       >
-                        <option value="Daily">Daily</option>
-                        <option value="Weekly">Weekly</option>
-                        <option value="Monthly">Monthly</option>
-                        <option value="Yearly">Yearly</option>
-                        <option value="Custom" hidden>Custom</option>
-                      </select>
-                      
-                      <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded shadow-sm border border-slate-700 shrink-0 max-w-full overflow-x-auto">
-                        <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
-                        <input
-                          type="date"
-                          className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[84px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
-                          value={adminFilters.startDate}
-                          onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
-                        />
-                        <span className="text-slate-400 text-[10px] font-bold shrink-0">—</span>
-                        <input
-                          type="date"
-                          className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[84px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
-                          value={adminFilters.endDate}
-                          onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
-                        />
-                      </div>
+                        {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Send className="w-4 h-4 text-white translate-x-0.5" />}
+                      </button>
                     </div>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                    {/* Left Column (Main content) */}
-                    <div className="lg:col-span-7 xl:col-span-7 space-y-4">
-                      {/* Top KPI Cards */}
-                      <div className="flex flex-row w-full gap-2 overflow-x-auto custom-scrollbar pb-1">
-                        {[
-                          { title: 'HIRE COUNT', value: adminData.kpis.hireCount, color: 'text-emerald-400', trend: '+4%', isUp: true },
-                          { title: 'TOTAL REVENUE', value: `Rs. ${adminData.kpis.totalSales.toLocaleString()}`, color: 'text-emerald-400', trend: '+8%', isUp: true },
-                          { title: 'FUEL COST', value: `Rs. ${adminData.kpis.totalFuel.toLocaleString()}`, color: 'text-rose-400', trend: '-10%', isUp: false },
-                          { title: 'REPAIR COST', value: `Rs. ${adminData.kpis.totalRepairCost.toLocaleString()}`, color: 'text-rose-400', trend: '+49%', isUp: true },
-                          { title: 'FUEL LITERS', value: `${(adminData.kpis.totalFuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L`, color: 'text-white', trend: 'N/A', isUp: true },
-                          { title: 'TOTAL MILEAGE', value: `${(adminData.kpis.totalMileage || 0).toLocaleString()} KM`, color: 'text-slate-200', trend: 'N/A', isUp: true },
-                          { title: 'DRIVER COMMISSION', value: `Rs. ${(adminData.kpis.totalCommission || 0).toLocaleString()}`, color: 'text-rose-400', trend: 'N/A', isUp: true },
-                        ].map((kpi, idx) => (
-                          <div key={idx} className="flex-1 min-w-[120px] bg-[#0f172a] p-2 rounded-lg shadow-sm border border-slate-800 flex flex-col justify-between h-20">
-                            <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wide truncate">{kpi.title}</h3>
-                            <div className={`text-sm font-bold tracking-tight leading-none truncate ${kpi.color}`}>
-                              {kpi.value}
-                            </div>
-                            <div className="flex items-center gap-1 mt-auto truncate">
-                              <div className="w-3.5 h-3.5 rounded-full bg-slate-900 flex items-center justify-center shrink-0">
-                                <TrendingUp className="w-2 h-2 text-slate-500" />
-                              </div>
-                              <span className={`text-[8px] font-semibold truncate ${kpi.isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {kpi.isUp ? '▲' : '▼'} {kpi.trend}
-                              </span>
-                              <div className="ml-auto w-3.5 h-3.5 rounded flex items-center justify-center bg-slate-900 shrink-0">
-                                <Calendar className="w-2 h-2 text-slate-500" />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                {/* Bottom Navigation Bar */}
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-white border border-slate-100 rounded-full p-2 shadow-xl flex items-center justify-around z-50">
+                  <button
+                    onClick={() => setStage('dashboard')}
+                    className="p-2 rounded-full text-sky-500 hover:bg-sky-50 transition-colors cursor-pointer"
+                    title="Home"
+                  >
+                    <Home className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleSyncAccountSheet}
+                    disabled={isSyncingAccounts}
+                    className="p-2 rounded-full text-emerald-500 hover:bg-emerald-50 transition-colors cursor-pointer"
+                    title="Sync Data"
+                  >
+                    <RotateCw className={cn("w-5 h-5", isSyncingAccounts && "animate-spin")} />
+                  </button>
+                  {user[2]?.toLowerCase() === 'admin' && (
+                    <button
+                      onClick={() => {
+                        window.history.pushState({ stage: 'admin' }, '');
+                        setAlert(null);
+                        setStage('admin');
+                      }}
+                      disabled={loading}
+                      className="p-2 rounded-full text-amber-500 hover:bg-amber-50 transition-colors cursor-pointer"
+                      title="Admin Dashboard"
+                    >
+                      <ShieldCheck className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="p-2 rounded-full text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                    title="Logout"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
-                    {/* Right Column Wrapper */}
-                    <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-4">
-                      {/* Right Sidebar (Fleet Summary) */}
-                      <div className="bg-[#0f172a] rounded-lg shadow-sm border border-slate-800 overflow-hidden flex flex-col min-h-[480px] max-h-[600px] xl:max-h-full">
-                        <div className="p-3 border-b border-slate-800 bg-slate-900 flex items-center justify-between shrink-0">
-                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex-shrink-0">Fleet summary</h3>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => {
-                                const headers = ["Vehicle", "Hire Income", "KM", "Fuel Cost", "Fuel (L)", "KM/L", "Fuel %"];
-                                const rows = (adminData.tables.topVehicles || []).map((v: any) => {
-                                  const kmpl = v.fuelLiters ? (v.mileage / v.fuelLiters) : 0;
-                                  return [
-                                    v.vehicle,
-                                    Math.round(v.hireIncome).toLocaleString(),
-                                    Math.round(v.mileage).toLocaleString(),
-                                    `Rs.${Math.round(v.fuelCost).toLocaleString()}`,
-                                    `${(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L`,
-                                    kmpl.toFixed(2),
-                                    `${v.fuelPercentage.toFixed(2)}%`
-                                  ];
-                                });
-                                const csvContent = [headers.join("\t"), ...rows.map((r: any) => r.join("\t"))].join("\n");
-                                navigator.clipboard.writeText(csvContent);
-                                setAlert({ type: 'success', message: 'Copied to clipboard!' });
-                              }}
-                              className="p-1 hover:bg-slate-800 rounded transition-colors"
-                              title="Copy Table"
-                            >
-                              <Copy className="w-3.5 h-3.5 text-slate-400" />
-                            </button>
-                            <Car className="w-3.5 h-3.5 text-slate-400" />
-                          </div>
-                        </div>
-                        <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar bg-slate-950 text-white p-2">
-                          <table className="w-full text-left text-xs font-sans border-collapse">
-                            <thead>
-                              <tr className="border-b border-white/10 text-slate-400 bg-slate-950">
-                                <th className="py-3 px-2 font-bold whitespace-nowrap min-w-[100px] sticky left-0 z-10 bg-slate-950 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.5)]">Vehicle</th>
-                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Hire Income</th>
-                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM</th>
-                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel Cost</th>
-                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel (L)</th>
-                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM/L</th>
-                                <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel %</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                              {(adminData.tables.topVehicles || []).map((v: any, i: number) => {
-                                const kmpl = v.fuelLiters ? (v.mileage / v.fuelLiters) : 0;
-                                return (
-                                  <tr key={i} className="hover:bg-white/5 transition-colors group">
-                                    <td className="py-3 px-2 font-bold text-slate-300 whitespace-nowrap min-w-[100px] sticky left-0 z-10 bg-slate-950 group-hover:bg-[#1a2332] shadow-[4px_0_10px_-2px_rgba(0,0,0,0.5)]">{v.vehicle}</td>
-                                    <td className="py-3 px-2 text-right text-white font-mono whitespace-nowrap">{Math.round(v.hireIncome).toLocaleString()}</td>
-                                    <td className="py-3 px-2 text-right text-slate-300 font-mono whitespace-nowrap">{Math.round(v.mileage).toLocaleString()}</td>
-                                    <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
-                                    <td className="py-3 px-2 text-right text-amber-400 font-mono whitespace-nowrap" title={v.fuelCost && v.fuelLiters > 0 ? `Rs. ${(v.fuelCost / v.fuelLiters).toFixed(2)} / L` : undefined}>{(v.fuelLiters || 0).toLocaleString(undefined, {maximumFractionDigits: 1})} L</td>
-                                    <td className="py-3 px-2 text-right text-blue-400 font-mono whitespace-nowrap">{kmpl.toFixed(2)}</td>
-                                    <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">{v.fuelPercentage.toFixed(2)}%</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
+        {stage === 'contact-office' && (
+          <div className="max-w-md mx-auto">
+            <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
+              {/* Header */}
+              <div className="flex items-center justify-between py-1 px-1">
+                <div className="flex items-center gap-3">
+                  <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain rounded-md shadow-sm" />
+                  <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
+                    CONTACT OFFICE
+                  </h1>
+                </div>
+                <button
+                  onClick={() => setStage('dashboard')}
+                  className="w-9 h-9 rounded-full bg-white text-slate-600 border border-slate-200 flex items-center justify-center shadow-sm hover:bg-slate-50 transition-all cursor-pointer"
+                  title="Back to Dashboard"
+                >
+                  <ChevronLeft className="w-5 h-5 text-slate-700" />
+                </button>
+              </div>
 
-                      {/* Profit Calculation Card */}
-                      <div className="bg-[#0f172a] border border-slate-800 rounded-lg p-4 text-white flex flex-col justify-between shadow-sm">
-                        <div className="border-b border-slate-800 pb-2 mb-3 flex items-center justify-between">
-                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Profit equation</h3>
-                          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider font-mono">Formula: Rev - Cost</span>
-                        </div>
-                        
-                        <div className="space-y-2 text-sm font-sans">
-                          <div className="flex justify-between items-center">
-                            <span className="text-slate-400">Total Revenue</span>
-                            <span className="font-bold text-emerald-400">Rs. {adminData.kpis.totalSales.toLocaleString()}</span>
-                          </div>
-                          
-                          <div className="flex justify-between items-center text-rose-400">
-                            <span className="text-slate-400">(-) Fuel Cost</span>
-                            <span className="font-semibold">- Rs. {adminData.kpis.totalFuel.toLocaleString()}</span>
-                          </div>
+              {/* Tab Selection */}
+              <div className="flex gap-2 p-1.5 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
+                <button
+                  onClick={() => setOfficeTab('send')}
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all cursor-pointer",
+                    officeTab === 'send'
+                      ? "bg-[#18859c] text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  )}
+                >
+                  Send Message
+                </button>
+                <button
+                  onClick={() => setOfficeTab('inbox')}
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all cursor-pointer relative",
+                    officeTab === 'inbox'
+                      ? "bg-[#18859c] text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  )}
+                >
+                  Inbox
+                  {inboxMessages.some((m: any) => !m.isRead) && (
+                    <span className="absolute top-2 right-3 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                  )}
+                </button>
+              </div>
 
-                          <div className="flex justify-between items-center text-rose-400">
-                            <span className="text-slate-400">(-) Repair Cost</span>
-                            <span className="font-semibold">- Rs. {adminData.kpis.totalRepairCost.toLocaleString()}</span>
-                          </div>
-
-                          <div className="flex justify-between items-center text-rose-400">
-                            <span className="text-slate-400">(-) Driver Commission</span>
-                            <span className="font-semibold">- Rs. {adminData.kpis.totalCommission.toLocaleString()}</span>
-                          </div>
-
-                          <div className="border-t border-slate-800 my-2 pt-2 flex justify-between items-center">
-                            <span className="text-sm font-black tracking-wider text-slate-400 uppercase">Profit</span>
-                            <span className={cn(
-                              "text-base font-black font-mono",
-                              adminData.kpis.netIncome >= 0 ? "text-emerald-400" : "text-rose-500"
-                            )}>
-                              Rs. {adminData.kpis.netIncome.toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {adminTab === 'rankings' && (
+              {officeTab === 'send' && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                  className="bg-gradient-to-br from-amber-50 via-white to-amber-100/60 rounded-3xl p-5 shadow-sm border border-amber-200/80 space-y-4"
                 >
-                  <div className="glass-card overflow-hidden">
-                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Vehicles by Sales</h3>
-                      <Car className="w-4 h-4 text-emerald-500" />
-                    </div>
-                    <div className="divide-y divide-white/5">
-                      {[...(adminData.tables.topVehicles || [])].sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0)).slice(0, 10).map((v: any, i: number) => (
-                        <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                            <span className="text-xs font-bold text-white">{v.vehicle}</span>
-                          </div>
-                          <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-2.5 text-amber-900 font-extrabold text-sm">
+                    <MessageSquare className="w-5 h-5 text-amber-600" />
+                    SEND MESSAGE TO SENU CABS OFFICE
                   </div>
+                  <p className="text-xs font-bold text-amber-900/80 leading-relaxed bg-amber-500/10 p-3.5 rounded-2xl border border-amber-500/20">
+                    Senu cabs කාර්යාලය වෙත පැමිණිල්ලක්, පණිවුඩයක් හා කිසියම් දැනුම් දීමක් කිරීමට අවශ්‍ය නම් පහත "Send Message" පහසුකම භාවිත කරන්න.
+                  </p>
+                  <textarea
+                    className="w-full bg-white border border-amber-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-amber-700/50 focus:outline-none focus:border-amber-400 transition-all resize-none font-medium shadow-inner"
+                    placeholder="Type your message here..."
+                    rows={5}
+                    value={officeMessage}
+                    onChange={(e) => setOfficeMessage(e.target.value)}
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={sendingMessage || !officeMessage.trim()}
+                    className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer"
+                  >
+                    {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> SEND MESSAGE</>}
+                  </button>
 
-                  <div className="glass-card overflow-hidden">
-                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Drivers by Sales</h3>
-                      <Users className="w-4 h-4 text-blue-500" />
-                    </div>
-                    <div className="divide-y divide-white/5">
-                      {adminData.tables.topDrivers.map((d: any, i: number) => (
-                        <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
-                            <span className="text-xs font-bold text-white">{adminData.driverNames?.[d.driver] || d.driver}</span>
+                  <div className="mt-6 pt-4 border-t border-amber-200/60 space-y-3">
+                    <h4 className="text-xs font-extrabold text-amber-900/70 uppercase tracking-wider">Last 10 Sent Messages</h4>
+                    {fetchingSentMessages ? (
+                      <div className="py-4 text-center text-amber-700 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading...</div>
+                    ) : sentMessages.length === 0 ? (
+                      <div className="py-4 text-center text-slate-400 text-xs font-bold bg-white rounded-2xl border border-amber-100">No messages sent yet.</div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {sentMessages.map((msg, i) => (
+                          <div key={i} className="bg-white border border-amber-200/80 p-3.5 rounded-2xl shadow-sm">
+                            <div className="text-[10px] font-extrabold text-amber-600 mb-1 uppercase tracking-wider">{msg.timestamp}</div>
+                            <p className="text-xs font-medium text-slate-700 whitespace-pre-wrap">{msg.message}</p>
                           </div>
-                          <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
 
-              {adminTab === 'trips' && (
-                <>
-                <div className="flex justify-end mb-4 w-full">
-                  <div className="glass-card p-2 px-3 flex flex-wrap items-center gap-2 max-w-full overflow-x-auto">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5 shrink-0"><Calendar className="w-3 h-3" /> Filter Range</span>
-                    <div className="flex items-center gap-2 shrink-0">
+              {officeTab === 'inbox' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200/80 space-y-4"
+                >
+                  <div className="flex items-center gap-2.5 text-slate-800 font-extrabold text-sm mb-2">
+                    <MessageSquare className="w-5 h-5 text-sky-500" />
+                    INBOX
+                  </div>
+
+                  <div className="space-y-3">
+                    {fetchingInboxMessages ? (
+                      <div className="py-10 text-center text-slate-400 text-xs font-bold"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading...</div>
+                    ) : inboxMessages.length === 0 ? (
+                      <div className="py-10 flex flex-col items-center justify-center text-center gap-3 bg-slate-50 rounded-2xl border border-slate-100">
+                        <MessageSquare className="w-8 h-8 text-slate-400" />
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">No messages in inbox</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {inboxMessages.map((msg: any, i) => (
+                          <div
+                            key={i}
+                            onClick={async () => {
+                              if (!msg.isRead) {
+                                try {
+                                  await fetch('/api/fleet/message', {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id: msg._id })
+                                  });
+                                  setInboxMessages(prev => prev.map(m => m._id === msg._id ? { ...m, isRead: true } : m));
+                                } catch (e) { }
+                              }
+                            }}
+                            className={cn(
+                              "p-3.5 rounded-2xl transition-all border",
+                              !msg.isRead
+                                ? "bg-amber-50/60 border-amber-300 shadow-sm cursor-pointer"
+                                : "bg-slate-50 border-slate-100"
+                            )}
+                          >
+                            <div className="flex justify-between items-center mb-1.5">
+                              <div className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider flex items-center gap-2">
+                                {!msg.isRead && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>}
+                                {msg.isRead && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
+                                FROM ADMIN
+                              </div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{msg.timestamp}</div>
+                            </div>
+                            <p className={cn("text-xs whitespace-pre-wrap transition-colors", !msg.isRead ? "text-slate-900 font-extrabold" : "text-slate-600 font-medium")}>{msg.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              <button
+                onClick={() => setStage('dashboard')}
+                className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4 text-slate-500" /> Back to Dashboard
+              </button>
+            </div>
+          </div>
+        )}
+
+        {stage === 'admin' && (
+          <div className="space-y-8 pb-0">
+            {/* Mobile Burger Bar Header & Filters */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-2 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-white/10 w-full mb-1">
+              <button
+                type="button"
+                onClick={() => setShowAdminMobileMenu(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 rounded-xl text-xs font-black tracking-wider uppercase transition-all shadow-lg shadow-emerald-500/20 active:scale-95 shrink-0 self-start lg:self-center"
+              >
+                <Menu className="w-4 h-4" />
+                <span>MENU</span>
+              </button>
+
+              {/* Filters */}
+              {adminTab !== 'overview' && adminTab !== 'vehicles' && adminTab !== 'driver-manage' && adminTab !== 'trips' && adminTab !== 'rankings' && adminTab !== 'messages' && adminTab !== 'commission' && adminTab !== 'report' && adminTab !== 'lak-mobile' && (
+                <div className="flex flex-col md:flex-row items-end gap-2 flex-1 w-full">
+                  <div className={cn("grid gap-2 flex-1 w-full px-2 py-0.5", adminTab === 'salary' ? "grid-cols-2 md:grid-cols-3 max-w-2xl" : "grid-cols-2 md:grid-cols-6")}>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <Calendar className="w-2.5 h-2.5" /> From
+                      </label>
                       <input
                         type="date"
-                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider cursor-pointer"
+                        className="w-full input-field py-0 text-[10px] text-white h-7"
                         value={adminFilters.startDate}
                         onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
                       />
-                      <span className="text-slate-500 text-[10px]">-</span>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <Calendar className="w-2.5 h-2.5" /> To
+                      </label>
                       <input
                         type="date"
-                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider cursor-pointer"
+                        className="w-full input-field py-0 text-[10px] text-white h-7"
                         value={adminFilters.endDate}
                         onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
                       />
-                      <History className="w-4 h-4 text-emerald-500 ml-1 shrink-0" />
                     </div>
-                  </div>
-                </div>
-                <div className="flex flex-col xl:flex-row gap-6 items-start w-full">
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="glass-card overflow-hidden w-full lg:w-max max-w-full"
-                  >
-                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fuel Summary</h3>
-                      <Activity className="w-4 h-4 text-emerald-500" />
-                    </div>
-                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="border-b border-white/5 bg-white/[0.02]">
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Vehicle</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Hire Income</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">KM</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Personal</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel Cost</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel (L)</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">KM/L</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel %</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {(adminData.tables.topVehicles || []).map((v: any, i: number) => (
-                            <tr key={i} className="hover:bg-white/5 transition-colors group">
-                              <td className="px-4 py-3 text-[10px] font-bold text-white whitespace-nowrap">{v.vehicle}</td>
-                              <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.hireIncome?.toLocaleString() || '0'}</td>
-                              <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.mileage?.toLocaleString() || '0'}</td>
-                              <td className="px-4 py-3 text-[10px] font-bold text-amber-500 whitespace-nowrap text-right">{v.personalMileage?.toLocaleString() || '0'}</td>
-                              <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.fuelCost || 0).toLocaleString()}</td>
-                              <td className="px-4 py-3 text-[10px] text-amber-400 whitespace-nowrap text-right" title={v.fuelCost && v.fuelLiters > 0 ? `Rs. ${(v.fuelCost / v.fuelLiters).toFixed(2)} / L` : undefined}>{v.fuelLiters > 0 ? (Math.round(v.fuelLiters * 10) / 10) : '0'} L</td>
-                              <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">{v.fuelLiters > 0 ? (v.mileage / v.fuelLiters).toFixed(2) : '0.00'}</td>
-                              <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">{v.fuelPercentage > 0 ? v.fuelPercentage.toFixed(2) + '%' : '0.00%'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </motion.div>
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="glass-card overflow-hidden w-full lg:w-max max-w-full"
-                  >
-                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fleet Summaries</h3>
-                      <History className="w-4 h-4 text-emerald-500" />
-                    </div>
-                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="border-b border-white/5 bg-white/[0.02]">
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Vehicle</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Hire Count</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit Count</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash Count</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit Income</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash Income</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit SC Due</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash SC Due</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {(() => {
-                            const vehicles = adminData.tables.topVehicles || [];
-                            
-                            let totalHireCount = 0;
-                            let totalCreditCount = 0;
-                            let totalCashCount = 0;
-                            let totalCreditIncome = 0;
-                            let totalCashIncome = 0;
-                            let totalCreditScDue = 0;
-                            let totalCashScDue = 0;
-
-                            const rows = vehicles.map((v: any, i: number) => {
-                              totalHireCount += v.hireCount || 0;
-                              totalCreditCount += v.creditHireCount || 0;
-                              totalCashCount += v.cashHireCount || 0;
-                              totalCreditIncome += v.creditIncome || 0;
-                              totalCashIncome += v.cashIncome || 0;
-                              totalCreditScDue += v.creditScDue || 0;
-                              totalCashScDue += v.cashScDue || 0;
-                              
-                              return (
-                                <tr key={i} className="hover:bg-white/5 transition-colors group">
-                                  <td className="px-4 py-3 text-[10px] font-bold text-white whitespace-nowrap">{v.vehicle}</td>
-                                  <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.hireCount || 0}</td>
-                                  <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.creditHireCount || 0}</td>
-                                  <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.cashHireCount || 0}</td>
-                                  <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">Rs. {Math.round(v.creditIncome || 0).toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.cashIncome || 0).toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">Rs. {Math.round(v.creditScDue || 0).toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.cashScDue || 0).toLocaleString()}</td>
-                                </tr>
-                              );
-                            });
-
-                            return (
-                              <>
-                                {rows}
-                                {vehicles.length > 0 && (
-                                  <tr className="bg-emerald-500/10 border-t-2 border-emerald-500/30">
-                                    <td className="px-4 py-4 text-xs font-black text-white whitespace-nowrap uppercase tracking-widest drop-shadow-md">Total</td>
-                                    <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalHireCount}</td>
-                                    <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalCreditCount}</td>
-                                    <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalCashCount}</td>
-                                    <td className="px-4 py-4 text-xs font-black text-blue-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCreditIncome).toLocaleString()}</td>
-                                    <td className="px-4 py-4 text-xs font-black text-rose-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCashIncome).toLocaleString()}</td>
-                                    <td className="px-4 py-4 text-xs font-black text-blue-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCreditScDue).toLocaleString()}</td>
-                                    <td className="px-4 py-4 text-xs font-black text-rose-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCashScDue).toLocaleString()}</td>
-                                  </tr>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </tbody>
-                      </table>
-                    </div>
-                  </motion.div>
-                </div>
-              </>
-              )}
-
-              {adminTab === 'fleet' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="glass-card overflow-hidden"
-                >
-                  <div className="p-4 border-b border-white/5 bg-white/5 flex flex-col 2xl:flex-row items-start 2xl:items-center justify-between gap-4">
-                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 w-full 2xl:w-auto justify-between 2xl:justify-start">
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:block whitespace-nowrap">Complete Fleet Data</h3>
-                      
-                      {/* Pagination Controls */}
-                      {adminData.pagination && adminData.pagination.totalPages > 1 && (
-                        <div className="flex items-center gap-3">
-                          <p className="text-[9px] text-slate-500 font-medium whitespace-nowrap">
-                            Showing <span className="text-white font-bold">{((adminData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(adminData.pagination.page * 50, adminData.pagination.totalItems)}</span> of <span className="text-white font-bold">{adminData.pagination.totalItems}</span>
-                          </p>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setAdminPage(prev => Math.max(1, prev - 1))} disabled={adminData.pagination.page === 1} className="p-1 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 transition-all"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                            {Array.from({ length: Math.min(5, adminData.pagination.totalPages) }).map((_, i) => {
-                              let pageNum = 1;
-                              if (adminData.pagination.totalPages <= 5) pageNum = i + 1;
-                              else if (adminData.pagination.page <= 3) pageNum = i + 1;
-                              else if (adminData.pagination.page >= adminData.pagination.totalPages - 2) pageNum = adminData.pagination.totalPages - 4 + i;
-                              else pageNum = adminData.pagination.page - 2 + i;
-                              return (
-                                <button key={i} onClick={() => setAdminPage(pageNum)} className={cn("w-6 h-6 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center", adminData.pagination.page === pageNum ? "bg-emerald-500 text-black" : "text-slate-400 hover:text-white hover:bg-white/5")}>{pageNum}</button>
-                              );
-                            })}
-                            <button onClick={() => setAdminPage(prev => Math.min(adminData.pagination.totalPages, prev + 1))} disabled={adminData.pagination.page === adminData.pagination.totalPages} className="p-1 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 transition-all"><ChevronRight className="w-3.5 h-3.5" /></button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-1.5 mr-2 w-80 hidden sm:flex">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                          <input
-                            type="text"
-                            placeholder="Search fleet data..."
-                            className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-1.5 pl-8 pr-3 text-[10px] text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
-                            value={fleetSearch}
-                            onChange={(e) => setFleetSearch(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleExecuteFleetSearch();
-                              }
-                            }}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleExecuteFleetSearch}
-                          className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] rounded-lg transition-all flex items-center gap-1 shadow-sm uppercase tracking-wider whitespace-nowrap"
-                          title="Search Fleet Data"
-                        >
-                          <Search className="w-3 h-3" />
-                          Search
-                        </button>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full hidden sm:inline-block">{adminData.tables.fleetData.length} Records</span>
-                      <button
-                        onClick={() => fetchAdminSales()}
-                        className="p-1.5 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white"
-                        title="Refresh Data"
-                      >
-                        <RefreshCw className={cn("w-3.5 h-3.5", fetchingAdmin && "animate-spin")} />
-                      </button>
-                      <label className="px-3 py-1 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer">
-                        {importingCsv ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                        <span className="hidden sm:inline">{importingCsv ? 'Importing...' : 'Import CSV'}</span>
-                        <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} disabled={importingCsv} />
-                      </label>
-                      <button
-                        onClick={handleExportCSV}
-                        className="px-3 py-1 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-black rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1"
-                        title="Export to CSV"
-                      >
-                        <Download className="w-3 h-3" />
-                        Export CSV
-                      </button>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
-                    <table className="w-full text-left relative">
-                      <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
-                        <tr className="border-b border-white/5 bg-white/[0.02]">
-                          {[
-                            'Status', 'STAFF COMMENT', 'FR Ref', 'Purpose', 'Start TS', 'Driver', 'Vehicle Num',
-                            'Garage Start', 'Garage End', 'End TS',
-                            'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
-                            'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
-                            'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-                            'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS', 'Payment Type',
-                            'Actions'
-                          ].map(h => (
-                            <th key={h} className={cn(
-                              "py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
-                              (h === 'Status' || h === 'STAFF COMMENT') ? "px-2 sm:px-6" : "px-6",
-                              h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5" : ""
-                            )}>
-                              {h === 'STAFF COMMENT' ? (
-                                <>
-                                  <span className="sm:hidden">STF CMM</span>
-                                  <span className="hidden sm:inline">STAFF COMMENT</span>
-                                </>
-                              ) : h === 'FR Ref' ? (
-                                <>
-                                  <span className="sm:hidden">FR REF</span>
-                                  <span className="hidden sm:inline">FR Ref</span>
-                                </>
-                              ) : (
-                                h
-                              )}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {adminData.tables.fleetData.map((t: any, i: number) => {
-                          const vehicleNum = t.values[4];
-                          const rawGarageStart = t.values[6];
-                          
-                          const currentStatusStr = String(t.values[0] || '').toLowerCase();
-                          const isCurrentIgnoredForAlerts = currentStatusStr.includes('cancel') || currentStatusStr.includes('approved');
-                          const isPurposeFiltered = adminFilters.purpose !== 'All';
-                          const prevTrip = vehicleNum ? prevTripMap.get(t) : null;
-                          const rawPrevGarageEnd = prevTrip ? prevTrip.values[8] : null;
-
-                          let mismatch = 0;
-                          let hasMismatch = false;
-                          
-                          if (
-                            !isCurrentIgnoredForAlerts && !isPurposeFiltered &&
-                            rawGarageStart !== undefined && rawGarageStart !== null && String(rawGarageStart).trim() !== '' &&
-                            rawPrevGarageEnd !== undefined && rawPrevGarageEnd !== null && String(rawPrevGarageEnd).trim() !== ''
-                          ) {
-                            const garageStart = Number(String(rawGarageStart).replace(/[^\d.-]/g, ''));
-                            const prevGarageEnd = Number(String(rawPrevGarageEnd).replace(/[^\d.-]/g, ''));
-                            if (!isNaN(garageStart) && !isNaN(prevGarageEnd) && garageStart !== prevGarageEnd) {
-                              mismatch = Math.abs(garageStart - prevGarageEnd);
-                              hasMismatch = mismatch > 0;
-                            }
-                          }
-
-                          const getFuelLiterTooltip = (idx: string | number) => {
-                            if (idx === 'fuel_liters') {
-                              const rawCost = t.values[9];
-                              const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
-                              
-                              const rawComments = t.values[10] || '';
-                              const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
-                              let litersStr = '';
-                              if (fuelMatches.length > 0) {
-                                const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                                const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                if (m) litersStr = m[1];
-                              }
-                              const liters = Number(litersStr);
-                              if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
-                                return `Rs. ${(cost / liters).toFixed(2)} / L`;
-                              }
-                            } else if (idx === 26) {
-                              const rawCost = t.values[24];
-                              const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
-                              const rawLiters = t.values[26];
-                              const liters = Number(String(rawLiters || '').replace(/[^\d.-]/g, ''));
-                              if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
-                                return `Rs. ${(cost / liters).toFixed(2)} / L`;
-                              }
-                            }
-                            return undefined;
-                          };
-
-                          return (
-                            <tr 
-                              key={i} 
-                              className="transition-colors group hover:bg-white/5"
-                            >
-                            {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
-                              const cellTooltip = (hasMismatch && idx === 6)
-                                ? `${mismatch} km mismatch with the last trip for this vehicle`
-                                : idx === 'staff_comment'
-                                ? (t.values[27] ? String(t.values[27]) : undefined)
-                                : getFuelLiterTooltip(idx);
-
-                              return (
-                              <td 
-                                key={idx} 
-                                className={cn(
-                                  "py-2 text-xs whitespace-nowrap",
-                                  (idx === 0 || idx === 'staff_comment') ? "px-2 sm:px-6" : "px-6",
-                                  hasMismatch && idx === 6 ? "font-bold" : ""
-                                )}
-                                title={cellTooltip}
-                              >
-                                {idx === 'staff_comment' ? (
-                                  <div 
-                                    onClick={() => {
-                                      const rawComment = t.values[27] || '';
-                                      const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
-                                      const currentComment = isDate ? '' : rawComment;
-                                      setCommentTarget({ rf: t.rf, comment: currentComment });
-                                      setCommentText(currentComment);
-                                      setShowCommentModal(true);
-                                    }}
-                                    title={(() => {
-                                      const rawComment = t.values[27] || '';
-                                      const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
-                                      return isDate ? undefined : (rawComment ? String(rawComment) : undefined);
-                                    })()}
-                                    className="flex items-center gap-1 sm:gap-2 cursor-pointer hover:bg-white/10 p-1 rounded transition-colors group min-w-[40px] sm:min-w-[80px]"
-                                  >
-                                    {(() => {
-                                      const rawComment = t.values[27] || '';
-                                      const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
-                                      const commentVal = isDate ? '' : rawComment;
-                                      if (commentVal) {
-                                        const commentStr = String(commentVal).trim();
-                                        const words = commentStr ? commentStr.split(/\s+/) : [];
-                                        const preview = words.length > 4 ? words.slice(0, 4).join(' ') + '...' : commentStr;
-                                        return (
-                                          <span className="text-white text-xs" title={String(commentVal)}>
-                                            {preview}
-                                          </span>
-                                        );
-                                      }
-                                      return (
-                                        <span className="text-slate-500 italic text-[10px] flex items-center gap-1">
-                                          <Plus className="w-3 h-3" /> Add
-                                        </span>
-                                      );
-                                    })()}
-                                    {!/^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(t.values[27] || "").trim()) && t.values[27] && <Edit className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                                  </div>
-                                ) : idx === 'repair_meter' ? (
-                                  <span className="text-white">
-                                    {t.values[5] === 'Repair' ? (t.values[6] || t.values[8] || '-') : '-'}
-                                  </span>
-                                ) : idx === 'fuel_meter' || idx === 'fuel_liters' ? (
-                                  <span className="text-white" title={getFuelLiterTooltip(idx)}>
-                                    {(() => {
-                                      const rawComments = t.values[10] || '';
-                                      const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
-                                      if (fuelMatches.length > 0) {
-                                        const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                                        if (idx === 'fuel_meter') {
-                                          const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                          return m ? m[1] : '-';
-                                        } else {
-                                          const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                          return m ? m[1] : '-';
-                                        }
-                                      } else {
-                                        const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-                                        const oldFuelMatch = rawComments.match(oldFuelRegex);
-                                        if (oldFuelMatch && idx === 'fuel_meter') return oldFuelMatch[1];
-                                        return '-';
-                                      }
-                                    })()}
-                                  </span>
-                                ) : idx === 0 ? (
-                                  <div className="relative inline-flex items-center justify-center">
-                                    <select
-                                      value={t.values[idx as number] || 'Pending'}
-                                      onChange={async (e) => {
-                                        const newStatus = e.target.value;
-                                        const newValues = [...t.values];
-                                        newValues[0] = newStatus;
-                                        setAlert({ type: 'warning', message: 'Updating status...' });
-                                        try {
-                                          const res = await fetch('/api/admin/edit-trip', {
-                                            method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ reference: t.rf, rawValues: newValues })
-                                          });
-                                          const data = await safeJson(res);
-                                          if (data.error) throw new Error(data.error);
-                                          setAlert({ type: 'success', message: 'Status updated!' });
-                                          
-                                          // Update local state optimistically
-                                          const newFleetData = [...adminData.tables.fleetData];
-                                          const rowIdx = newFleetData.findIndex((r: any) => r.rf === t.rf);
-                                          if (rowIdx > -1) {
-                                            newFleetData[rowIdx].values[0] = newStatus;
-                                            newFleetData[rowIdx].status = newStatus;
-                                            setAdminData({
-                                              ...adminData,
-                                              tables: {
-                                                ...adminData.tables,
-                                                fleetData: newFleetData
-                                              }
-                                            });
-                                          }
-                                        } catch (err: any) {
-                                          setAlert({ type: 'error', message: err.message || 'Failed to update status' });
-                                        }
-                                      }}
-                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                    >
-                                      <option value="Pending" className="bg-slate-800 text-white font-bold">Pending</option>
-                                      <option value="Approved" className="bg-slate-800 text-white font-bold">Approved</option>
-                                      <option value="Cancelled" className="bg-slate-800 text-white font-bold">Cancelled</option>
-                                    </select>
-                                    <div
-                                      className={cn(
-                                        "pointer-events-none flex items-center justify-center font-black leading-none text-center",
-                                        "w-5 h-5 rounded-full text-[10px] sm:w-auto sm:h-auto sm:px-2 sm:py-1 sm:text-[8px] sm:uppercase sm:tracking-widest",
-                                        (t.values[idx as number] || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
-                                        (t.values[idx as number] || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
-                                        "bg-yellow-200 text-yellow-900"
-                                      )}
-                                    >
-                                      <span className="sm:hidden">
-                                        {(() => {
-                                          const st = String(t.values[idx as number] || 'Pending').toLowerCase();
-                                          if (st.includes('approved')) return 'A';
-                                          if (st.includes('cancel')) return 'C';
-                                          return 'P';
-                                        })()}
-                                      </span>
-                                      <span className="hidden sm:inline">
-                                        {t.values[idx as number] || 'Pending'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ) : idx === 5 ? (
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    t.values[idx as number] === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
-                                  )}>
-                                    {t.values[idx as number]}
-                                  </span>
-                                ) : idx === 10 ? (
-                                  <span className="font-sans font-normal text-white">
-                                    {(() => {
-                                      let val = (t.values[10] || '').toString();
-                                      val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
-                                      return val || '-';
-                                    })()}
-                                  </span>
-                                ) : idx === 1 ? (
-                                  <div className="flex items-center gap-2">
-                                    {(() => {
-                                      const sLossRaw = t.values[18];
-                                      const eLossRaw = t.values[19];
-                                      if (sLossRaw !== undefined && sLossRaw !== null && String(sLossRaw).trim() !== '' &&
-                                          eLossRaw !== undefined && eLossRaw !== null && String(eLossRaw).trim() !== '') {
-                                        const sLoss = Number(String(sLossRaw).replace(/[^\d.-]/g, ''));
-                                        const eLoss = Number(String(eLossRaw).replace(/[^\d.-]/g, ''));
-                                        if (!isNaN(sLoss) && !isNaN(eLoss) && sLoss !== eLoss) {
-                                          const currentStatusStr = String(t.values[0] || '').toLowerCase();
-                                          if (!currentStatusStr.includes('cancel') && !currentStatusStr.includes('approved')) {
-                                            return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Start and End Loss mismatch"></span>;
-                                          }
-                                        }
-                                      }
-                                      return null;
-                                    })()}
-                                    <span className="text-white">{t.values[idx as number] !== undefined && t.values[idx as number] !== null ? t.values[idx as number].toString() : '-'}</span>
-                                  </div>
-                                ) : idx === 32 ? (
-                                  <span className="font-sans font-normal text-white">
-                                    {(() => {
-                                      const hasFuel = Boolean(
-                                        (t.values[9] !== undefined && t.values[9] !== null && String(t.values[9]).trim() !== '' && t.values[9] !== '0' && t.values[9] !== 0) ||
-                                        (t.values[24] !== undefined && t.values[24] !== null && String(t.values[24]).trim() !== '' && t.values[24] !== '0' && t.values[24] !== 0) ||
-                                        (t.values[25] !== undefined && t.values[25] !== null && String(t.values[25]).trim() !== '') ||
-                                        (t.values[26] !== undefined && t.values[26] !== null && String(t.values[26]).trim() !== '') ||
-                                        (t.values[28] !== undefined && t.values[28] !== null && String(t.values[28]).trim() !== '') ||
-                                        (t.values[10] && String(t.values[10]).includes('(Fuel'))
-                                      );
-                                      if (!hasFuel) return '-';
-                                      return t.values[32] || 'Office card';
-                                    })()}
-                                  </span>
-                                ) : (
-                                  <span className={cn(
-                                    "font-sans font-normal flex items-center gap-1.5",
-                                    (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
-                                      (idx === 9 || idx === 11 || idx === 24) ? "text-rose-400" : "text-white"
-                                  )} title={getFuelLiterTooltip(idx)}>
-                                    {hasMismatch && idx === 6 && (
-                                      <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0"></span>
-                                    )}
-                                    {(() => {
-                                      const isFinished = t.values[8] !== undefined && t.values[8] !== null && String(t.values[8]).trim() !== '';
-                                      if (!isFinished && (idx === 18 || idx === 19 || idx === 22)) {
-                                        return '0';
-                                      }
-                                      if (idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || String(t.values[idx as number]).trim() === '')) {
-                                        return '0';
-                                      }
-                                      return (t.values[idx as number] !== undefined && t.values[idx as number] !== null) ? t.values[idx as number].toString() : '-';
-                                    })()}
-                                  </span>
-                                )}
-                              </td>
-                            );
-                            })}
-                            <td className={cn(
-                              "px-6 py-2 text-xs whitespace-nowrap sticky right-0 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors",
-                              activeActionRowRef === t.rf ? "z-50" : "z-10"
-                            )}>
-                              <div className="relative group/action">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveActionRowRef(activeActionRowRef === t.rf ? null : t.rf);
-                                  }}
-                                  className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer outline-none active:scale-95"
-                                  title="Actions"
-                                >
-                                  <MoreVertical className="w-4 h-4 text-slate-400 hover:text-white transition-colors" />
-                                </button>
-
-                                {activeActionRowRef === t.rf && (
-                                  <div
-                                    className="fixed inset-0 z-[40]"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveActionRowRef(null);
-                                    }}
-                                  />
-                                )}
-
-                                <div
-                                  className={cn(
-                                    "absolute right-full top-0 mr-2 w-36 bg-slate-800 border border-slate-700/80 rounded-xl shadow-2xl transition-all flex flex-col gap-1 p-1.5 z-[60]",
-                                    activeActionRowRef === t.rf ? "opacity-100 visible" : "opacity-0 invisible group-hover/action:opacity-100 group-hover/action:visible"
-                                  )}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveActionRowRef(null);
-                                      setViewingTrip(t);
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sky-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" /> View Trip
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      setActiveActionRowRef(null);
-                                      setViewingImages({ rf: t.rf, images: null, loading: true });
-                                      try {
-                                        const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
-                                        const data = await safeJson(res);
-                                        setViewingImages({ rf: t.rf, images: data.images || [], loading: false });
-                                      } catch (err) {
-                                        setViewingImages({ rf: t.rf, images: [], loading: false });
-                                      }
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
-                                  >
-                                    <ImageIcon className="w-3.5 h-3.5" /> Proofs
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveActionRowRef(null);
-                                      let fMeter = '';
-                                      let fLiters = '';
-                                      let cleanComments = t.values[10] || '';
-                                      const fuelMatches: any[] = Array.from(cleanComments.toString().matchAll(/\(Fuel - (.*?)\)/g));
-                                      if (fuelMatches.length > 0) {
-                                        const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                                        const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                        if (m1) fMeter = m1[1];
-                                        const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                        if (m2) fLiters = m2[1];
-                                      } else {
-                                        const oldMatch = cleanComments.toString().match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
-                                        if (oldMatch) fMeter = oldMatch[1];
-                                      }
-                                      cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
-                                      setEditingTrip({ ...t, fMeter, fLiters, cleanComments });
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
-                                  >
-                                    <Edit className="w-3.5 h-3.5" /> Edit Trip
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveActionRowRef(null);
-                                      handleDeleteFleetRow(t.rf);
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-red-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" /> Delete Trip
-                                  </button>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination Controls moved to top */}
-                </motion.div>
-              )}
-            </div>
-          ) : null}
-
-
-
-          {adminTab === 'driver-manage' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
-            >
-              <div className="glass-card p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <Users className="w-5 h-5 text-emerald-500" />
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Driver Management</h3>
-                  </div>
-                  <button
-                    onClick={() => setAddingDriver({ username: '', password: '', name: '', phone: '', role: 'driver', status: 'Active', vehicle: 'Unassigned' })}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-black transition-colors uppercase tracking-wider shadow-lg shadow-emerald-500/20"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Driver
-                  </button>
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search drivers..."
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
-                      value={driverManageFilters.search}
-                      onChange={(e) => setDriverManageFilters({ ...driverManageFilters, search: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-4">
-                    <select
-                      className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      value={driverManageFilters.driver}
-                      onChange={(e) => setDriverManageFilters({ ...driverManageFilters, driver: e.target.value })}
-                    >
-                      <option value="All">All Drivers</option>
-                      {adminData?.filterOptions?.drivers?.map((d: string) => (
-                        <option key={d} value={d}>{adminData.driverNames?.[d] || d}</option>
-                      ))}
-                    </select>
-                    <select
-                      className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      value={driverManageFilters.status}
-                      onChange={(e) => setDriverManageFilters({ ...driverManageFilters, status: e.target.value })}
-                    >
-                      <option value="All">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                    <select
-                      className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      value={driverManageFilters.vehicle}
-                      onChange={(e) => setDriverManageFilters({ ...driverManageFilters, vehicle: e.target.value })}
-                    >
-                      <option value="All">All Vehicles</option>
-                      <option value="Unassigned">Unassigned</option>
-                      {adminData?.filterOptions?.vehicles?.map((v: string) => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                
-                {adminData?.tables?.driversList?.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="border-b border-white/5 bg-white/[0.02]">
-                          {['User Name', 'Password', 'Role', 'Name', 'Phone Number', 'Assigned Vehicle', 'Status', 'Actions'].map(h => (
-                            <th key={h} className={cn(
-                              "px-10 py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
-                              h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 w-[1%]" : "",
-                              h === 'Name' ? "w-full" : ""
-                            )}>
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {adminData.tables.driversList.filter((driver: any) => {
-                          const searchTerm = driverManageFilters.search.toLowerCase();
-                          if (searchTerm && !driver.username.toLowerCase().includes(searchTerm) && !(driver.name || '').toLowerCase().includes(searchTerm)) {
-                            return false;
-                          }
-                          if (driverManageFilters.driver !== 'All' && driver.username !== driverManageFilters.driver) {
-                            return false;
-                          }
-                          if (driverManageFilters.status !== 'All' && driver.status !== driverManageFilters.status) {
-                            return false;
-                          }
-                          let assignedVehicle = "Unassigned";
-                          Object.keys(vehicleDrivers).forEach(v => {
-                            if (vehicleDrivers[v] === driver.username) assignedVehicle = v;
-                          });
-                          if (driverManageFilters.vehicle !== 'All' && driverManageFilters.vehicle !== assignedVehicle) {
-                            return false;
-                          }
-                          return true;
-                        }).map((driver: any, i: number) => {
-                          // Find assigned vehicle
-                          let assignedVehicle = "Unassigned";
-                          Object.keys(vehicleDrivers).forEach(v => {
-                            if (vehicleDrivers[v] === driver.username) {
-                              assignedVehicle = v;
-                            }
-                          });
-
-                          return (
-                            <tr key={i} className="hover:bg-white/5 transition-colors group">
-                              <td className="px-10 py-2 text-xs font-bold text-emerald-500 whitespace-nowrap">{driver.username}</td>
-                              <td className="px-10 py-2 text-xs font-mono text-slate-400 whitespace-nowrap">{driver.password}</td>
-                              <td className="px-10 py-2 text-xs font-bold text-indigo-400 whitespace-nowrap">{driver.role}</td>
-                              <td className="px-10 py-2 text-xs font-bold text-white whitespace-nowrap">{driver.name || '-'}</td>
-                              <td className="px-10 py-2 text-xs text-slate-400 whitespace-nowrap">{driver.phone || '-'}</td>
-                              <td className="px-10 py-2 text-xs whitespace-nowrap">
-                                <span className={cn(
-                                  "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
-                                  assignedVehicle === 'Unassigned' ? "bg-white/5 text-slate-500" : "bg-sky-500/10 text-sky-500 border border-sky-500/20"
-                                )}>
-                                  {assignedVehicle}
-                                </span>
-                              </td>
-                              <td className="px-10 py-2 text-xs whitespace-nowrap">
-                                <span className={cn(
-                                  "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
-                                  driver.status === 'Active' ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
-                                )}>
-                                  {driver.status}
-                                </span>
-                              </td>
-                              <td className="px-10 py-2 text-xs w-[1%] whitespace-nowrap flex items-center gap-2 sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
-                                <button
-                                  onClick={() => setViewingDriver(driver)}
-                                  className="flex items-center gap-1 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500 text-sky-500 hover:text-black border border-sky-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
-                                >
-                                  <Eye className="w-3 h-3" />
-                                  View
-                                </button>
-                                <button
-                                  onClick={() => setEditingDriver({ ...driver, vehicle: assignedVehicle })}
-                                  className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
-                                >
-                                  <Edit className="w-3 h-3" />
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteDriver(driver.username)}
-                                  className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  Delete
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-slate-400 text-xs">No driver data available. Please refresh the dashboard.</p>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {adminTab === 'accounts' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
-            >
-              <div className="glass-card overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center gap-3">
-                    <IdCard className="w-5 h-5 text-emerald-500" />
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Sheet Data</h3>
-                  </div>
-                  <div className="flex items-center gap-2 flex-1 max-w-md ml-auto">
-                    <div className="relative w-full">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="text"
-                        placeholder="Search records..."
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
-                        value={accountSearch}
-                        onChange={(e) => setAccountSearch(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleSyncAccountSheet}
-                      disabled={isSyncingAccounts}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-                    >
-                      {isSyncingAccounts ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                      SYNC NOW
-                    </button>
-                    <button
-                      onClick={() => fetchAccountSheetData()}
-                      className="p-2 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white"
-                      title="Refresh Data"
-                    >
-                      <RefreshCw className={cn("w-4 h-4", fetchingAccountData && "animate-spin")} />
-                    </button>
-                  </div>
-                </div>
-
-                {fetchingAccountData ? (
-                  <div className="p-20 flex flex-col items-center justify-center space-y-4">
-                    <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
-                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Account Data...</p>
-                  </div>
-                ) : accountSheetData?.data?.length > 0 ? (
-                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
-                    <table className="w-full text-left relative">
-                      <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
-                        <tr className="border-b border-white/5 bg-white/[0.02]">
-                          {(accountSheetData?.headers || [
-                            'Status', 'FR Ref', 'Start TS', 'Driver', 'Vehicle Num',
-                            'Purpose', 'Garage Start', 'End TS', 'Garage End',
-                            'Fuel Cost', 'Comments', 'Repair Cost', 'Trip Ref',
-                            'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
-                            'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-                            'Loss (End)', 'Folder URL', 'Folder ID', 'Total Mileage', 'Final Price'
-                          ]).map((h: string) => (
-                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {accountSheetData.data
-                          .map((row: any, i: number) => (
-                          <tr key={i} className="hover:bg-white/5 transition-colors group">
-                            {(row.rawValues || []).map((val: any, idx: number) => (
-                              <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
-                                {idx === 0 ? (
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                    (val || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
-                                    (val || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
-                                    "bg-yellow-200 text-yellow-900"
-                                  )}>
-                                    {val || 'Pending'}
-                                  </span>
-                                ) : (
-                                  <span className="font-sans font-normal text-white">
-                                    {val !== undefined && val !== null ? val.toString() : '-'}
-                                  </span>
-                                )}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="p-20 text-center">
-                    <p className="text-slate-500 font-bold">No account data found.</p>
-                  </div>
-                )}
-
-                {/* Pagination for account sheet */}
-                {accountSheetData?.pagination && accountSheetData.pagination.totalPages > 1 && (
-                  <div className="p-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
-                    <p className="text-[10px] text-slate-500 font-medium">
-                      Showing <span className="text-white font-bold">{((accountSheetData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(accountSheetData.pagination.page * 50, accountSheetData.pagination.totalItems)}</span> of <span className="text-white font-bold">{accountSheetData.pagination.totalItems}</span> records
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setAdminPage(prev => Math.max(1, prev - 1))}
-                        disabled={accountSheetData.pagination.page === 1}
-                        className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setAdminPage(prev => Math.min(accountSheetData.pagination.totalPages, prev + 1))}
-                        disabled={accountSheetData.pagination.page === accountSheetData.pagination.totalPages}
-                        className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {adminTab === 'messages' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
-            >
-              <div className="flex gap-2 p-1 bg-slate-900 border border-white/5 rounded-xl w-full max-w-md mb-6">
-                <button
-                  onClick={() => setAdminMessageTab('sent')}
-                  className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", adminMessageTab === 'sent' ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
-                >
-                  Sent Box
-                </button>
-                <button
-                  onClick={() => setAdminMessageTab('inbox')}
-                  className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", adminMessageTab === 'inbox' ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
-                >
-                  Inbox
-                </button>
-              </div>
-
-              {adminMessageTab === 'sent' && (
-                <div className="glass-card overflow-hidden">
-                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sent Messages</h3>
-                    <button
-                      onClick={() => setShowAdminMessageModal(true)}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-                    >
-                      <Plus className="w-3 h-3" />
-                      NEW MESSAGE
-                    </button>
-                  </div>
-                  {fetchingMessages ? (
-                    <div className="p-20 flex flex-col items-center justify-center space-y-4">
-                      <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-                      <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Messages...</p>
-                    </div>
-                  ) : (() => {
-                    const isAdminMsg = (m: any) => m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber);
-                    const adminSent = (messagesData?.messages || []).filter(isAdminMsg);
-                    if (adminSent.length === 0) {
-                      return (
-                        <div className="p-10 flex flex-col items-center justify-center text-center gap-3">
-                          <MessageSquare className="w-8 h-8 text-slate-600" />
-                          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No sent messages</p>
-                        </div>
-                      );
-                    }
-                    
-                    const groupedAdminSent = Object.values(adminSent.reduce((acc: any, curr: any) => {
-                      const key = `${curr.message}_${curr.timestamp}`;
-                      if (!acc[key]) {
-                        acc[key] = { ...curr, recipients: [curr.driverId] };
-                      } else {
-                        if (!acc[key].recipients.includes(curr.driverId)) {
-                          acc[key].recipients.push(curr.driverId);
-                        }
-                      }
-                      return acc;
-                    }, {})) as any[];
-                    
-                    return (
-                      <div className="space-y-3 p-4">
-                        {groupedAdminSent.map((msg: any, i: number) => (
-                          <div key={i} className="bg-slate-900/50 border border-white/5 p-4 rounded-xl flex flex-col md:flex-row justify-between gap-4 group hover:bg-white/5 transition-colors">
-                            <div className="space-y-2">
-                              <p className="text-xs font-medium text-slate-200 whitespace-pre-wrap">"{msg.message}"</p>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[10px] font-bold text-emerald-400 mb-2 uppercase tracking-widest">{msg.timestamp}</span>
-                                <span className="text-slate-600 text-[10px]">â€¢</span>
-                                <span className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">Sent to {msg.recipients.length} driver(s)</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {adminMessageTab === 'inbox' && (
-                <div className="glass-card overflow-hidden">
-                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Messages</h3>
-                    <MessageSquare className="w-4 h-4 text-emerald-500" />
-                  </div>
-
-                {fetchingMessages ? (
-                  <div className="p-20 flex flex-col items-center justify-center space-y-4">
-                    <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Messages...</p>
-                  </div>
-                ) : (messagesData?.messages || []).filter((m: any) => !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))).length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="border-b border-white/5 bg-white/[0.02]">
-                          {['Status', 'Driver ID', 'Driver Name', 'Message Preview', 'Actions'].map(h => (
-                            <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {(messagesData?.messages || []).filter((m: any) => !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))).map((msg: any, i: number) => (
-                          <tr key={i} className={cn("hover:bg-white/5 transition-colors group", !msg.isRead && "bg-blue-500/[0.02]")}>
-                            <td className="px-6 py-4">
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                msg.isRead ? "bg-slate-500/10 text-slate-500" : "bg-blue-500 text-white shadow-lg shadow-blue-500/20"
-                              )}>
-                                {msg.isRead ? 'READ' : 'NEW'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-[10px] font-bold text-white">{msg.driverId}</td>
-                            <td className="px-6 py-4 text-[10px] font-bold text-slate-300">{msg.driverName || '-'}</td>
-                            <td className="px-6 py-4 text-[10px] text-slate-500 max-w-[200px] truncate italic">"{msg.message}"</td>
-                            <td className="px-6 py-4">
-                              <button
-                                onClick={async () => {
-                                  setSelectedMessage(msg);
-                                  if (!msg.isRead) {
-                                    await fetch('/api/admin/messages', {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ id: msg._id }),
-                                    });
-                                    fetchAdminMessages(); // Refresh status
-                                  }
-                                }}
-                                className="px-4 py-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all border border-blue-500/20"
-                              >
-                                VIEW
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="p-20 text-center">
-                    <p className="text-slate-500 font-bold">No messages found.</p>
-                  </div>
-                )}
-                </div>
-              )}
-
-              {/* New Message Popup */}
-              <AnimatePresence>
-                {showAdminMessageModal && (
-                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                    <motion.div
-                      initial={{ scale: 0.95, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.95, opacity: 0 }}
-                      className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative"
-                    >
-                      <button 
-                        onClick={() => setShowAdminMessageModal(false)}
-                        className="absolute top-4 right-4 text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      <h3 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2 mb-6">
-                        <MessageSquare className="w-5 h-5 text-emerald-500" />
-                        Send Message to Drivers
-                      </h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Select Driver(s)</label>
-                          <div className="relative" ref={driverDropdownRef}>
-                            <div 
-                              onClick={() => setShowDriverDropdown(!showDriverDropdown)}
-                              className="w-full bg-slate-950 border border-emerald-500/20 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-all cursor-pointer flex justify-between items-center hover:border-emerald-500/50"
-                            >
-                              <span className="truncate text-slate-200">
-                                {adminMessageDriver.includes('All') 
-                                  ? 'All Drivers' 
-                                  : adminMessageDriver.length > 0 
-                                    ? `${adminMessageDriver.length} Driver(s) Selected` 
-                                    : 'Select Drivers'}
-                              </span>
-                              <div className="text-emerald-500/50 text-[10px]">â–¼</div>
-                            </div>
-                            
-                            <AnimatePresence>
-                              {showDriverDropdown && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: -5 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -5 }}
-                                  className="absolute top-full mt-2 w-full bg-slate-950 border border-emerald-500/30 rounded-xl overflow-hidden z-[110] shadow-[0_10px_40px_-10px_rgba(16,185,129,0.2)] max-h-[220px] overflow-y-auto custom-scrollbar"
-                                >
-                                  <div 
-                                    onClick={() => setAdminMessageDriver(['All'])}
-                                    className="p-3 border-b border-white/5 cursor-pointer hover:bg-emerald-500/10 flex items-center gap-3 transition-colors"
-                                  >
-                                    <div className={cn("w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all", adminMessageDriver.includes('All') ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-900")}>
-                                      {adminMessageDriver.includes('All') && <CheckCircle2 className="w-3 h-3 text-black" />}
-                                    </div>
-                                    <span className={cn("text-xs font-bold", adminMessageDriver.includes('All') ? "text-emerald-400" : "text-white")}>All Drivers</span>
-                                  </div>
-                                  
-                                  {(adminData?.tables?.driversList || [])
-                                    .filter((driver: any) => driver.status === 'Active' && driver.username)
-                                    .map((driver: any, idx: number) => {
-                                      const d = driver.username;
-                                      const isSelected = adminMessageDriver.includes(d);
-                                      return (
-                                        <div 
-                                          key={d || `driver-${idx}`}
-                                          onClick={() => {
-                                            if (adminMessageDriver.includes('All')) {
-                                              setAdminMessageDriver([d]);
-                                            } else {
-                                              if (isSelected) {
-                                                const newSelection = adminMessageDriver.filter(val => val !== d);
-                                                setAdminMessageDriver(newSelection.length === 0 ? ['All'] : newSelection);
-                                              } else {
-                                                setAdminMessageDriver([...adminMessageDriver, d]);
-                                              }
-                                            }
-                                          }}
-                                          className={cn("p-3 border-b border-white/5 cursor-pointer hover:bg-white/5 flex items-center gap-3 transition-colors", isSelected && "bg-emerald-500/5")}
-                                        >
-                                          <div className={cn("w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all", isSelected ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-900")}>
-                                            {isSelected && <CheckCircle2 className="w-3 h-3 text-black" />}
-                                          </div>
-                                          <span className={cn("text-xs", isSelected ? "font-medium text-emerald-400" : "font-normal text-slate-400")}>
-                                            {driver.name || d} ({d})
-                                          </span>
-                                        </div>
-                                      );
-                                    })}
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Message</label>
-                          <textarea
-                            className="w-full bg-slate-950 border border-white/5 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-emerald-500 transition-all resize-none"
-                            rows={5}
-                            placeholder="Type your message here..."
-                            value={adminMessageText}
-                            onChange={(e) => setAdminMessageText(e.target.value)}
-                          />
-                        </div>
-                        <button
-                          onClick={async () => {
-                            try {
-                              let driverIds = adminMessageDriver;
-                              if (driverIds.includes('All')) {
-                                driverIds = (adminData?.tables?.driversList || [])
-                                  .filter((d: any) => d.status === 'Active' && d.username)
-                                  .map((d: any) => d.username);
-                              }
-                              
-                              driverIds = driverIds.filter(Boolean);
-                              
-                              if (driverIds.length === 0) {
-                                window.alert("No drivers selected or available.");
-                                return;
-                              }
-                              
-                              const res = await fetch('/api/admin/send-message', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  driverIds,
-                                  message: adminMessageText
-                                }),
-                              });
-                              
-                              const data = await res.json();
-                              if (data.error) throw new Error(data.error);
-                              
-                              setAlert({ type: 'success', message: `Message sent to ${data.count} driver(s)!` });
-                              setShowAdminMessageModal(false);
-                              setAdminMessageText('');
-                              setAdminMessageDriver(['All']);
-                              fetchAdminMessages();
-                            } catch (err: any) {
-                              setAlert({ type: 'error', message: err.message || 'Failed to send message' });
-                            }
-                          }}
-                          disabled={!adminMessageText.trim() || adminMessageDriver.length === 0}
-                          className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
-                        >
-                          SEND MESSAGE
-                        </button>
-                      </div>
-                    </motion.div>
-                  </div>
-                )}
-              </AnimatePresence>
-
-              {/* Message View Modal */}
-              <AnimatePresence>
-                {selectedMessage && (
-                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                      className="w-full max-w-lg glass-card p-8 space-y-6 relative border-blue-500/30 bg-slate-900/90 shadow-2xl shadow-blue-500/10"
-                    >
-                      <button
-                        onClick={() => setSelectedMessage(null)}
-                        className="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-
-                      <div className="flex items-center gap-4 mb-2">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                          <MessageSquare className="w-6 h-6 text-blue-500" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-black text-white uppercase tracking-tight">Driver Message</h3>
-                          <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{selectedMessage.timestamp}</p>
-                        </div>
-                      </div>
-
-                      <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    {adminTab !== 'salary' && (
+                      <>
                         <div className="space-y-1">
-                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Driver</p>
-                          <p className="text-sm font-bold text-white">{selectedMessage.driverName} ({selectedMessage.driverId})</p>
+                          <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
+                          <select
+                            className="w-full input-field py-0 text-[10px] text-white h-7"
+                            value={adminFilters.purpose}
+                            onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
+                          >
+                            {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
+                          </select>
                         </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Message Content</p>
-                        <div className="bg-white/5 p-6 rounded-2xl border border-white/5 min-h-[150px]">
-                          <p className="text-slate-200 text-sm leading-relaxed italic">
-                            "{selectedMessage.message}"
-                          </p>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
+                          <select
+                            className="w-full input-field py-0 text-[10px] text-white h-7"
+                            value={adminFilters.status}
+                            onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
+                          >
+                            {(adminData?.filterOptions?.statuses || ["All", "Approved", "Pending", "Cancelled"]).map((s: string) => <option key={s} value={s}>{s}</option>)}
+                          </select>
                         </div>
-                      </div>
-
-                      <button
-                        onClick={() => setSelectedMessage(null)}
-                        className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition-all shadow-lg shadow-blue-600/20 uppercase tracking-widest text-xs"
-                      >
-                        CLOSE MESSAGE
-                      </button>
-                    </motion.div>
-                  </div>
-                )}
-              </AnimatePresence>
-
-              {/* Pagination for messages */}
-              {messagesData?.pagination && messagesData.pagination.totalPages > 1 && (
-                <div className="p-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
-                  <p className="text-[10px] text-slate-500 font-medium">
-                    Showing <span className="text-white font-bold">{((messagesData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(messagesData.pagination.page * 50, messagesData.pagination.totalItems)}</span> of <span className="text-white font-bold">{messagesData.pagination.totalItems}</span> messages
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setAdminPage(prev => Math.max(1, prev - 1))}
-                      disabled={messagesData.pagination.page === 1}
-                      className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setAdminPage(prev => Math.min(messagesData.pagination.totalPages, prev + 1))}
-                      disabled={messagesData.pagination.page === messagesData.pagination.totalPages}
-                      className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* DRIVER COMMISSION TAB */}
-          {adminTab === 'commission' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
-            >
-              {/* Add Vehicle Section */}
-              <div className="glass-card p-4 border border-white/5 bg-white/5 mb-6 flex flex-col sm:flex-row items-center gap-4">
-                <div className="flex-1 space-y-1 w-full text-left">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Plus className="w-3 h-3 text-emerald-500" />
-                    Add New Vehicle
-                  </h3>
-                  <p className="text-[9px] text-slate-500">Add a vehicle number to make it available system-wide</p>
-                </div>
-                <div className="flex w-full sm:w-auto items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="e.g. CBK-0647"
-                    className="w-full sm:w-48 input-field h-9 text-xs"
-                    value={newVehicleNumber}
-                    onChange={(e) => setNewVehicleNumber(e.target.value.toUpperCase())}
-                  />
-                  <button
-                    onClick={async () => {
-                      if (!newVehicleNumber.trim()) return;
-                      setAddingVehicle(true);
-                      try {
-                        const res = await fetch('/api/admin/add-vehicle', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ vehicleNumber: newVehicleNumber.trim() })
-                        });
-                        const data = await safeJson(res);
-                        if (!res.ok) throw new Error(data.error || 'Failed to add vehicle');
-                        setAlert({ type: 'success', message: `${newVehicleNumber} added successfully!` });
-                        setNewVehicleNumber('');
-                        fetchAdminSales(true);
-                      } catch (err: any) {
-                        setAlert({ type: 'error', message: err.message });
-                      } finally {
-                        setAddingVehicle(false);
-                      }
-                    }}
-                    disabled={addingVehicle || !newVehicleNumber.trim()}
-                    className="h-9 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shadow-lg shadow-emerald-500/20"
-                  >
-                    {addingVehicle ? 'ADDING...' : 'ADD VEHICLE'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="glass-card overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Commission Rates</h3>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await fetch('/api/admin/commissions', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ commissions: vehicleCommissions })
-                        });
-                        if (!res.ok) throw new Error('Failed to save');
-                        setAlert({ type: 'success', message: 'Commission rates saved to database successfully!' });
-                      } catch (err) {
-                        setAlert({ type: 'error', message: 'Error saving commission rates' });
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
-                  >
-                    SAVE ALL
-                  </button>
-                </div>
-                
-                {adminData?.filterOptions?.vehicles && adminData.filterOptions.vehicles.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="border-b border-white/5 bg-white/[0.02]">
-                          <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest w-1/2">Vehicle Number</th>
-                          <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest w-1/4">Commission Rate (%)</th>
-                          <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest w-1/4">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {adminData.filterOptions.vehicles.map((vehicle: string) => (
-                          <tr key={vehicle} className="hover:bg-white/5 transition-colors group">
-                            <td className="px-6 py-4 text-sm font-bold text-white">
-                              {vehicle}
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="relative w-32">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  placeholder="e.g. 10"
-                                  value={vehicleCommissions[vehicle] !== undefined ? vehicleCommissions[vehicle] : ''}
-                                  onChange={(e) => setVehicleCommissions(prev => ({ ...prev, [vehicle]: parseFloat(e.target.value) || 0 }))}
-                                  className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors pr-8"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const res = await fetch('/api/admin/commissions', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ commissions: vehicleCommissions })
-                                    });
-                                    if (!res.ok) throw new Error('Failed to save');
-                                    setAlert({ type: 'success', message: `Commission rate for ${vehicle} updated to ${vehicleCommissions[vehicle] || 0}% in database` });
-                                  } catch (err) {
-                                    setAlert({ type: 'error', message: 'Error updating commission rate' });
-                                  }
-                                }}
-                                className="px-4 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black text-[10px] font-black uppercase tracking-widest transition-all border border-emerald-500/20"
-                              >
-                                Update
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="p-20 text-center">
-                    <p className="text-slate-500 font-bold">No vehicles found. Please refresh the dashboard.</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* REPORT TAB */}
-          {adminTab === 'report' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
-            >
-              <div className="glass-card p-4 border border-white/5 bg-white/5">
-                <div className="flex flex-col md:flex-row md:items-end gap-4">
-                  <div className="flex items-center gap-3 md:mr-2 mb-2 md:mb-0">
-                    <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hidden md:block">
-                      <ClipboardCheck className="w-4 h-4 text-emerald-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-white uppercase tracking-widest whitespace-nowrap">
-                        Report
-                      </h3>
-                      <p className="text-[10px] text-slate-400">Settings</p>
-                    </div>
-                  </div>
-
-                  <div className={cn("flex-1 grid grid-cols-1 gap-3", reportCategory === 'Tank wise fuel analyzing' ? "md:grid-cols-3" : "md:grid-cols-2")}>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Vehicle</label>
+                          <select
+                            className="w-full input-field py-0 text-[10px] text-white h-7"
+                            value={adminFilters.vehicle}
+                            onChange={(e) => setAdminFilters({ ...adminFilters, vehicle: e.target.value })}
+                          >
+                            <option value="All">All Vehicles</option>
+                            {adminData?.filterOptions.vehicles.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        </div>
+                      </>
+                    )}
                     <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Category</label>
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Driver</label>
                       <select
-                        className="w-full input-field py-0 px-3 text-xs text-white h-9"
-                        value={reportCategory}
-                        onChange={(e) => setReportCategory(e.target.value as 'Credit' | 'Invoice' | 'Recent Trips' | 'Tank wise fuel analyzing')}
+                        className="w-full input-field py-0 text-[10px] text-white h-7"
+                        value={adminFilters.driver}
+                        onChange={(e) => setAdminFilters({ ...adminFilters, driver: e.target.value })}
                       >
-                        <option value="Credit">Credit Report</option>
-                        <option value="Invoice">Invoice Report</option>
-                        <option value="Recent Trips">Recent Trips</option>
-                        <option value="Tank wise fuel analyzing">Tank wise fuel analyzing</option>
+                        <option value="All">All Drivers</option>
+                        {(adminData?.tables?.driversList || [])
+                          .filter((driver: any) => driver.status === 'Active' && driver.username)
+                          .map((driver: any) => (
+                            <option key={driver.username} value={driver.username}>
+                              {driver.username}
+                            </option>
+                          ))}
                       </select>
                     </div>
+                  </div>
+                  <button
+                    onClick={resetAdminFilters}
+                    className="h-7 px-4 mb-0.5 mr-0.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 shrink-0 w-full md:w-auto"
+                    title="Clear Filters"
+                  >
+                    <X className="w-3 h-3" /> CLEAR
+                  </button>
+                </div>
+              )}
+            </div>
+            {fetchingAdmin && !adminData ? (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+                <div className="relative">
+                  <div className="w-24 h-24 border-4 border-emerald-500/10 rounded-full"></div>
+                  <div className="w-24 h-24 border-4 border-emerald-500 rounded-full animate-spin border-t-transparent absolute inset-0"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <TrendingUp className="w-10 h-10 text-emerald-500 animate-pulse" />
+                  </div>
+                </div>
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-black text-white tracking-widest uppercase shadow-emerald-500/50 drop-shadow-md">Admin Dashboard</h3>
+                  <p className="text-emerald-500 font-black tracking-[0.25em] text-[10px] uppercase animate-pulse">Synchronizing Data...</p>
+                </div>
+              </div>
+            ) : adminData ? (
+              <div className="space-y-8">
 
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Date Range</label>
-                      <div className="flex items-center gap-2 h-9">
+
+                {adminTab === 'overview' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="glass-card p-4 md:p-6 space-y-4 text-slate-200"
+                    style={{ minHeight: 'calc(100vh - 12rem)' }}
+                  >
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-700">
+                      <h2 className="text-lg font-bold text-white">Fleet KPI Dashboard</h2>
+                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                         <select
-                          className="bg-slate-800 text-white text-[11px] font-bold px-2 h-full rounded shadow-sm border border-slate-700 outline-none cursor-pointer"
+                          className="bg-slate-800 text-white text-[11px] font-bold px-2 py-1.5 rounded shadow-sm border border-slate-700 outline-none cursor-pointer shrink-0"
                           value={(() => {
                             const today = new Date();
                             const y = today.getFullYear();
                             const m = String(today.getMonth() + 1).padStart(2, '0');
                             const d = String(today.getDate()).padStart(2, '0');
                             const todayStr = `${y}-${m}-${d}`;
-                          
+
                             const lastWeek = new Date(today);
                             lastWeek.setDate(today.getDate() - 7);
                             const wy = lastWeek.getFullYear();
                             const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
                             const wd = String(lastWeek.getDate()).padStart(2, '0');
                             const lastWeekStr = `${wy}-${wm}-${wd}`;
-                          
-                            if (reportEndDate === todayStr) {
-                              if (reportStartDate === todayStr) return 'Daily';
-                              if (reportStartDate === lastWeekStr) return 'Weekly';
-                              if (reportStartDate === `${y}-${m}-01`) return 'Monthly';
-                              if (reportStartDate === `${y}-01-01`) return 'Yearly';
+
+                            if (adminFilters.endDate === todayStr) {
+                              if (adminFilters.startDate === todayStr) return 'Daily';
+                              if (adminFilters.startDate === lastWeekStr) return 'Weekly';
+                              if (adminFilters.startDate === `${y}-${m}-01`) return 'Monthly';
+                              if (adminFilters.startDate === `${y}-01-01`) return 'Yearly';
                             }
                             return 'Custom';
                           })()}
@@ -5737,22 +4000,18 @@ export default function FleetApp() {
                             const todayStr = `${y}-${m}-${d}`;
 
                             if (preset === 'Daily') {
-                              setReportStartDate(todayStr);
-                              setReportEndDate(todayStr);
+                              setAdminFilters({ ...adminFilters, startDate: todayStr, endDate: todayStr });
                             } else if (preset === 'Weekly') {
                               const lastWeek = new Date(today);
                               lastWeek.setDate(today.getDate() - 7);
                               const wy = lastWeek.getFullYear();
                               const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
                               const wd = String(lastWeek.getDate()).padStart(2, '0');
-                              setReportStartDate(`${wy}-${wm}-${wd}`);
-                              setReportEndDate(todayStr);
+                              setAdminFilters({ ...adminFilters, startDate: `${wy}-${wm}-${wd}`, endDate: todayStr });
                             } else if (preset === 'Monthly') {
-                              setReportStartDate(`${y}-${m}-01`);
-                              setReportEndDate(todayStr);
+                              setAdminFilters({ ...adminFilters, startDate: `${y}-${m}-01`, endDate: todayStr });
                             } else if (preset === 'Yearly') {
-                              setReportStartDate(`${y}-01-01`);
-                              setReportEndDate(todayStr);
+                              setAdminFilters({ ...adminFilters, startDate: `${y}-01-01`, endDate: todayStr });
                             }
                           }}
                         >
@@ -5762,43 +4021,1837 @@ export default function FleetApp() {
                           <option value="Yearly">Yearly</option>
                           <option value="Custom" hidden>Custom</option>
                         </select>
-                        
-                        <div className="flex-1 flex items-center justify-between gap-1 bg-slate-800 px-2 h-full rounded shadow-sm border border-slate-700">
+
+                        <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded shadow-sm border border-slate-700 shrink-0 max-w-full overflow-x-auto">
                           <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
                           <input
                             type="date"
-                            className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[90px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
-                            value={reportStartDate}
-                            onChange={(e) => setReportStartDate(e.target.value)}
+                            className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[84px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                            value={adminFilters.startDate}
+                            onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
                           />
                           <span className="text-slate-400 text-[10px] font-bold shrink-0">—</span>
                           <input
                             type="date"
-                            className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[90px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
-                            value={reportEndDate}
-                            onChange={(e) => setReportEndDate(e.target.value)}
+                            className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[84px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                            value={adminFilters.endDate}
+                            onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
                           />
                         </div>
                       </div>
                     </div>
-                    {reportCategory === 'Tank wise fuel analyzing' && (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vehicle</label>
-                        <select
-                          className="w-full input-field py-0 px-3 text-xs text-white h-9"
-                          value={reportVehicleFilter}
-                          onChange={(e) => setReportVehicleFilter(e.target.value)}
-                        >
-                          <option value="All">All Vehicles</option>
-                          {options.vehicles.map(v => (
-                            <option key={v} value={v}>{v}</option>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                      {/* Left Column (Main content) */}
+                      <div className="lg:col-span-7 xl:col-span-7 space-y-4">
+                        {/* Top KPI Cards */}
+                        <div className="flex flex-row w-full gap-2 overflow-x-auto custom-scrollbar pb-1">
+                          {[
+                            { title: 'HIRE COUNT', value: adminData.kpis.hireCount, color: 'text-emerald-400', trend: '+4%', isUp: true },
+                            { title: 'TOTAL REVENUE', value: `Rs. ${adminData.kpis.totalSales.toLocaleString()}`, color: 'text-emerald-400', trend: '+8%', isUp: true },
+                            { title: 'FUEL COST', value: `Rs. ${adminData.kpis.totalFuel.toLocaleString()}`, color: 'text-rose-400', trend: '-10%', isUp: false },
+                            { title: 'REPAIR COST', value: `Rs. ${adminData.kpis.totalRepairCost.toLocaleString()}`, color: 'text-rose-400', trend: '+49%', isUp: true },
+                            { title: 'FUEL LITERS', value: `${(adminData.kpis.totalFuelLiters || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} L`, color: 'text-white', trend: 'N/A', isUp: true },
+                            { title: 'TOTAL MILEAGE', value: `${(adminData.kpis.totalMileage || 0).toLocaleString()} KM`, color: 'text-slate-200', trend: 'N/A', isUp: true },
+                            { title: 'DRIVER COMMISSION', value: `Rs. ${(adminData.kpis.totalCommission || 0).toLocaleString()}`, color: 'text-rose-400', trend: 'N/A', isUp: true },
+                          ].map((kpi, idx) => (
+                            <div key={idx} className="flex-1 min-w-[120px] bg-[#0f172a] p-2 rounded-lg shadow-sm border border-slate-800 flex flex-col justify-between h-20">
+                              <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wide truncate">{kpi.title}</h3>
+                              <div className={`text-sm font-bold tracking-tight leading-none truncate ${kpi.color}`}>
+                                {kpi.value}
+                              </div>
+                              <div className="flex items-center gap-1 mt-auto truncate">
+                                <div className="w-3.5 h-3.5 rounded-full bg-slate-900 flex items-center justify-center shrink-0">
+                                  <TrendingUp className="w-2 h-2 text-slate-500" />
+                                </div>
+                                <span className={`text-[8px] font-semibold truncate ${kpi.isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {kpi.isUp ? '▲' : '▼'} {kpi.trend}
+                                </span>
+                                <div className="ml-auto w-3.5 h-3.5 rounded flex items-center justify-center bg-slate-900 shrink-0">
+                                  <Calendar className="w-2 h-2 text-slate-500" />
+                                </div>
+                              </div>
+                            </div>
                           ))}
-                        </select>
+                        </div>
+                      </div>
+
+                      {/* Right Column Wrapper */}
+                      <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-4">
+                        {/* Right Sidebar (Fleet Summary) */}
+                        <div className="bg-[#0f172a] rounded-lg shadow-sm border border-slate-800 overflow-hidden flex flex-col min-h-[480px] max-h-[600px] xl:max-h-full">
+                          <div className="p-3 border-b border-slate-800 bg-slate-900 flex items-center justify-between shrink-0">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wide flex-shrink-0">Fleet summary</h3>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const headers = ["Vehicle", "Hire Income", "KM", "Fuel Cost", "Fuel (L)", "KM/L", "Fuel %"];
+                                  const rows = (adminData.tables.topVehicles || []).map((v: any) => {
+                                    const kmpl = v.fuelLiters ? (v.mileage / v.fuelLiters) : 0;
+                                    return [
+                                      v.vehicle,
+                                      Math.round(v.hireIncome).toLocaleString(),
+                                      Math.round(v.mileage).toLocaleString(),
+                                      `Rs.${Math.round(v.fuelCost).toLocaleString()}`,
+                                      `${(v.fuelLiters || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} L`,
+                                      kmpl.toFixed(2),
+                                      `${v.fuelPercentage.toFixed(2)}%`
+                                    ];
+                                  });
+                                  const csvContent = [headers.join("\t"), ...rows.map((r: any) => r.join("\t"))].join("\n");
+                                  navigator.clipboard.writeText(csvContent);
+                                  setAlert({ type: 'success', message: 'Copied to clipboard!' });
+                                }}
+                                className="p-1 hover:bg-slate-800 rounded transition-colors"
+                                title="Copy Table"
+                              >
+                                <Copy className="w-3.5 h-3.5 text-slate-400" />
+                              </button>
+                              <Car className="w-3.5 h-3.5 text-slate-400" />
+                            </div>
+                          </div>
+                          <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar bg-slate-950 text-white p-2">
+                            <table className="w-full text-left text-xs font-sans border-collapse">
+                              <thead>
+                                <tr className="border-b border-white/10 text-slate-400 bg-slate-950">
+                                  <th className="py-3 px-2 font-bold whitespace-nowrap min-w-[100px] sticky left-0 z-10 bg-slate-950 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.5)]">Vehicle</th>
+                                  <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Hire Income</th>
+                                  <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM</th>
+                                  <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel Cost</th>
+                                  <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel (L)</th>
+                                  <th className="py-3 px-2 font-bold text-right whitespace-nowrap">KM/L</th>
+                                  <th className="py-3 px-2 font-bold text-right whitespace-nowrap">Fuel %</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5">
+                                {(adminData.tables.topVehicles || []).map((v: any, i: number) => {
+                                  const kmpl = v.fuelLiters ? (v.mileage / v.fuelLiters) : 0;
+                                  return (
+                                    <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                      <td className="py-3 px-2 font-bold text-slate-300 whitespace-nowrap min-w-[100px] sticky left-0 z-10 bg-slate-950 group-hover:bg-[#1a2332] shadow-[4px_0_10px_-2px_rgba(0,0,0,0.5)]">{v.vehicle}</td>
+                                      <td className="py-3 px-2 text-right text-white font-mono whitespace-nowrap">{Math.round(v.hireIncome).toLocaleString()}</td>
+                                      <td className="py-3 px-2 text-right text-slate-300 font-mono whitespace-nowrap">{Math.round(v.mileage).toLocaleString()}</td>
+                                      <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">Rs.{Math.round(v.fuelCost).toLocaleString()}</td>
+                                      <td className="py-3 px-2 text-right text-amber-400 font-mono whitespace-nowrap" title={v.fuelCost && v.fuelLiters > 0 ? `Rs. ${(v.fuelCost / v.fuelLiters).toFixed(2)} / L` : undefined}>{(v.fuelLiters || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} L</td>
+                                      <td className="py-3 px-2 text-right text-blue-400 font-mono whitespace-nowrap">{kmpl.toFixed(2)}</td>
+                                      <td className="py-3 px-2 text-right text-rose-400 font-mono whitespace-nowrap">{v.fuelPercentage.toFixed(2)}%</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* Profit Calculation Card */}
+                        <div className="bg-[#0f172a] border border-slate-800 rounded-lg p-4 text-white flex flex-col justify-between shadow-sm">
+                          <div className="border-b border-slate-800 pb-2 mb-3 flex items-center justify-between">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Profit equation</h3>
+                            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider font-mono">Formula: Rev - Cost</span>
+                          </div>
+
+                          <div className="space-y-2 text-sm font-sans">
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-400">Total Revenue</span>
+                              <span className="font-bold text-emerald-400">Rs. {adminData.kpis.totalSales.toLocaleString()}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center text-rose-400">
+                              <span className="text-slate-400">(-) Fuel Cost</span>
+                              <span className="font-semibold">- Rs. {adminData.kpis.totalFuel.toLocaleString()}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center text-rose-400">
+                              <span className="text-slate-400">(-) Repair Cost</span>
+                              <span className="font-semibold">- Rs. {adminData.kpis.totalRepairCost.toLocaleString()}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center text-rose-400">
+                              <span className="text-slate-400">(-) Driver Commission</span>
+                              <span className="font-semibold">- Rs. {adminData.kpis.totalCommission.toLocaleString()}</span>
+                            </div>
+
+                            <div className="border-t border-slate-800 my-2 pt-2 flex justify-between items-center">
+                              <span className="text-sm font-black tracking-wider text-slate-400 uppercase">Profit</span>
+                              <span className={cn(
+                                "text-base font-black font-mono",
+                                adminData.kpis.netIncome >= 0 ? "text-emerald-400" : "text-rose-500"
+                              )}>
+                                Rs. {adminData.kpis.netIncome.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {adminTab === 'rankings' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                  >
+                    <div className="glass-card overflow-hidden">
+                      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Vehicles by Sales</h3>
+                        <Car className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div className="divide-y divide-white/5">
+                        {[...(adminData.tables.topVehicles || [])].sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0)).slice(0, 10).map((v: any, i: number) => (
+                          <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                              <span className="text-xs font-bold text-white">{v.vehicle}</span>
+                            </div>
+                            <span className="text-xs font-black text-emerald-500">Rs. {v.sales.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="glass-card overflow-hidden">
+                      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top 10 Drivers by Sales</h3>
+                        <Users className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div className="divide-y divide-white/5">
+                        {adminData.tables.topDrivers.map((d: any, i: number) => (
+                          <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black text-slate-500">#{i + 1}</span>
+                              <span className="text-xs font-bold text-white">{adminData.driverNames?.[d.driver] || d.driver}</span>
+                            </div>
+                            <span className="text-xs font-black text-blue-500">Rs. {d.sales.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {adminTab === 'trips' && (
+                  <>
+                    <div className="flex justify-end mb-4 w-full">
+                      <div className="glass-card p-2 px-3 flex flex-wrap items-center gap-2 max-w-full overflow-x-auto">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5 shrink-0"><Calendar className="w-3 h-3" /> Filter Range</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <input
+                            type="date"
+                            className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider cursor-pointer"
+                            value={adminFilters.startDate}
+                            onChange={(e) => setAdminFilters({ ...adminFilters, startDate: e.target.value })}
+                          />
+                          <span className="text-slate-500 text-[10px]">-</span>
+                          <input
+                            type="date"
+                            className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none w-24 uppercase tracking-wider cursor-pointer"
+                            value={adminFilters.endDate}
+                            onChange={(e) => setAdminFilters({ ...adminFilters, endDate: e.target.value })}
+                          />
+                          <History className="w-4 h-4 text-emerald-500 ml-1 shrink-0" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col xl:flex-row gap-6 items-start w-full">
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="glass-card overflow-hidden w-full lg:w-max max-w-full"
+                      >
+                        <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fuel Summary</h3>
+                          <Activity className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                          <table className="w-full text-left">
+                            <thead>
+                              <tr className="border-b border-white/5 bg-white/[0.02]">
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Vehicle</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Hire Income</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">KM</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Personal</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel Cost</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel (L)</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">KM/L</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Fuel %</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {(adminData.tables.topVehicles || []).map((v: any, i: number) => (
+                                <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                  <td className="px-4 py-3 text-[10px] font-bold text-white whitespace-nowrap">{v.vehicle}</td>
+                                  <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.hireIncome?.toLocaleString() || '0'}</td>
+                                  <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.mileage?.toLocaleString() || '0'}</td>
+                                  <td className="px-4 py-3 text-[10px] font-bold text-amber-500 whitespace-nowrap text-right">{v.personalMileage?.toLocaleString() || '0'}</td>
+                                  <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.fuelCost || 0).toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-[10px] text-amber-400 whitespace-nowrap text-right" title={v.fuelCost && v.fuelLiters > 0 ? `Rs. ${(v.fuelCost / v.fuelLiters).toFixed(2)} / L` : undefined}>{v.fuelLiters > 0 ? (Math.round(v.fuelLiters * 10) / 10) : '0'} L</td>
+                                  <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">{v.fuelLiters > 0 ? (v.mileage / v.fuelLiters).toFixed(2) : '0.00'}</td>
+                                  <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">{v.fuelPercentage > 0 ? v.fuelPercentage.toFixed(2) + '%' : '0.00%'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="glass-card overflow-hidden w-full lg:w-max max-w-full"
+                      >
+                        <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fleet Summaries</h3>
+                          <History className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                          <table className="w-full text-left">
+                            <thead>
+                              <tr className="border-b border-white/5 bg-white/[0.02]">
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Vehicle</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Hire Count</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit Count</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash Count</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit Income</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash Income</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Credit SC Due</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">Cash SC Due</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {(() => {
+                                const vehicles = adminData.tables.topVehicles || [];
+
+                                let totalHireCount = 0;
+                                let totalCreditCount = 0;
+                                let totalCashCount = 0;
+                                let totalCreditIncome = 0;
+                                let totalCashIncome = 0;
+                                let totalCreditScDue = 0;
+                                let totalCashScDue = 0;
+
+                                const rows = vehicles.map((v: any, i: number) => {
+                                  totalHireCount += v.hireCount || 0;
+                                  totalCreditCount += v.creditHireCount || 0;
+                                  totalCashCount += v.cashHireCount || 0;
+                                  totalCreditIncome += v.creditIncome || 0;
+                                  totalCashIncome += v.cashIncome || 0;
+                                  totalCreditScDue += v.creditScDue || 0;
+                                  totalCashScDue += v.cashScDue || 0;
+
+                                  return (
+                                    <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                      <td className="px-4 py-3 text-[10px] font-bold text-white whitespace-nowrap">{v.vehicle}</td>
+                                      <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.hireCount || 0}</td>
+                                      <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.creditHireCount || 0}</td>
+                                      <td className="px-4 py-3 text-[10px] font-bold text-emerald-500 whitespace-nowrap text-right">{v.cashHireCount || 0}</td>
+                                      <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">Rs. {Math.round(v.creditIncome || 0).toLocaleString()}</td>
+                                      <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.cashIncome || 0).toLocaleString()}</td>
+                                      <td className="px-4 py-3 text-[10px] text-blue-400 whitespace-nowrap text-right">Rs. {Math.round(v.creditScDue || 0).toLocaleString()}</td>
+                                      <td className="px-4 py-3 text-[10px] text-rose-400 whitespace-nowrap text-right">Rs. {Math.round(v.cashScDue || 0).toLocaleString()}</td>
+                                    </tr>
+                                  );
+                                });
+
+                                return (
+                                  <>
+                                    {rows}
+                                    {vehicles.length > 0 && (
+                                      <tr className="bg-emerald-500/10 border-t-2 border-emerald-500/30">
+                                        <td className="px-4 py-4 text-xs font-black text-white whitespace-nowrap uppercase tracking-widest drop-shadow-md">Total</td>
+                                        <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalHireCount}</td>
+                                        <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalCreditCount}</td>
+                                        <td className="px-4 py-4 text-xs font-black text-emerald-400 whitespace-nowrap text-right drop-shadow-md">{totalCashCount}</td>
+                                        <td className="px-4 py-4 text-xs font-black text-blue-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCreditIncome).toLocaleString()}</td>
+                                        <td className="px-4 py-4 text-xs font-black text-rose-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCashIncome).toLocaleString()}</td>
+                                        <td className="px-4 py-4 text-xs font-black text-blue-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCreditScDue).toLocaleString()}</td>
+                                        <td className="px-4 py-4 text-xs font-black text-rose-400 whitespace-nowrap text-right drop-shadow-md">Rs. {Math.round(totalCashScDue).toLocaleString()}</td>
+                                      </tr>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </tbody>
+                          </table>
+                        </div>
+                      </motion.div>
+                    </div>
+                  </>
+                )}
+
+                {adminTab === 'fleet' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="glass-card overflow-hidden"
+                  >
+                    <div className="p-4 border-b border-white/5 bg-white/5 flex flex-col 2xl:flex-row items-start 2xl:items-center justify-between gap-4">
+                      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 w-full 2xl:w-auto justify-between 2xl:justify-start">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:block whitespace-nowrap">Complete Fleet Data</h3>
+
+                        {/* Pagination Controls */}
+                        {adminData.pagination && adminData.pagination.totalPages > 1 && (
+                          <div className="flex items-center gap-3">
+                            <p className="text-[9px] text-slate-500 font-medium whitespace-nowrap">
+                              Showing <span className="text-white font-bold">{((adminData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(adminData.pagination.page * 50, adminData.pagination.totalItems)}</span> of <span className="text-white font-bold">{adminData.pagination.totalItems}</span>
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => setAdminPage(prev => Math.max(1, prev - 1))} disabled={adminData.pagination.page === 1} className="p-1 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 transition-all"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                              {Array.from({ length: Math.min(5, adminData.pagination.totalPages) }).map((_, i) => {
+                                let pageNum = 1;
+                                if (adminData.pagination.totalPages <= 5) pageNum = i + 1;
+                                else if (adminData.pagination.page <= 3) pageNum = i + 1;
+                                else if (adminData.pagination.page >= adminData.pagination.totalPages - 2) pageNum = adminData.pagination.totalPages - 4 + i;
+                                else pageNum = adminData.pagination.page - 2 + i;
+                                return (
+                                  <button key={i} onClick={() => setAdminPage(pageNum)} className={cn("w-6 h-6 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center", adminData.pagination.page === pageNum ? "bg-emerald-500 text-black" : "text-slate-400 hover:text-white hover:bg-white/5")}>{pageNum}</button>
+                                );
+                              })}
+                              <button onClick={() => setAdminPage(prev => Math.min(adminData.pagination.totalPages, prev + 1))} disabled={adminData.pagination.page === adminData.pagination.totalPages} className="p-1 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 transition-all"><ChevronRight className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 mr-2 w-80 hidden sm:flex">
+                          <div className="relative flex-1">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                            <input
+                              type="text"
+                              placeholder="Search fleet data..."
+                              className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-1.5 pl-8 pr-3 text-[10px] text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                              value={fleetSearch}
+                              onChange={(e) => setFleetSearch(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleExecuteFleetSearch();
+                                }
+                              }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleExecuteFleetSearch}
+                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] rounded-lg transition-all flex items-center gap-1 shadow-sm uppercase tracking-wider whitespace-nowrap"
+                            title="Search Fleet Data"
+                          >
+                            <Search className="w-3 h-3" />
+                            Search
+                          </button>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full hidden sm:inline-block">{adminData.tables.fleetData.length} Records</span>
+                        <button
+                          onClick={() => fetchAdminSales()}
+                          className="p-1.5 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white"
+                          title="Refresh Data"
+                        >
+                          <RefreshCw className={cn("w-3.5 h-3.5", fetchingAdmin && "animate-spin")} />
+                        </button>
+                        <label className="px-3 py-1 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer">
+                          {importingCsv ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                          <span className="hidden sm:inline">{importingCsv ? 'Importing...' : 'Import CSV'}</span>
+                          <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} disabled={importingCsv} />
+                        </label>
+                        <button
+                          onClick={handleExportCSV}
+                          className="px-3 py-1 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-black rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1"
+                          title="Export to CSV"
+                        >
+                          <Download className="w-3 h-3" />
+                          Export CSV
+                        </button>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
+                      <table className="w-full text-left relative">
+                        <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
+                          <tr className="border-b border-white/5 bg-white/[0.02]">
+                            {[
+                              'Status', 'STAFF COMMENT', 'FR Ref', 'Purpose', 'Start TS', 'Driver', 'Vehicle Num',
+                              'Garage Start', 'Garage End', 'End TS',
+                              'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
+                              'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
+                              'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
+                              'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS', 'Payment Type',
+                              'Actions'
+                            ].map(h => (
+                              <th key={h} className={cn(
+                                "py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                                (h === 'Status' || h === 'STAFF COMMENT') ? "px-2 sm:px-6" : "px-6",
+                                h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5" : ""
+                              )}>
+                                {h === 'STAFF COMMENT' ? (
+                                  <>
+                                    <span className="sm:hidden">STF CMM</span>
+                                    <span className="hidden sm:inline">STAFF COMMENT</span>
+                                  </>
+                                ) : h === 'FR Ref' ? (
+                                  <>
+                                    <span className="sm:hidden">FR REF</span>
+                                    <span className="hidden sm:inline">FR Ref</span>
+                                  </>
+                                ) : (
+                                  h
+                                )}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {adminData.tables.fleetData.map((t: any, i: number) => {
+                            const vehicleNum = t.values[4];
+                            const rawGarageStart = t.values[6];
+
+                            const currentStatusStr = String(t.values[0] || '').toLowerCase();
+                            const isCurrentIgnoredForAlerts = currentStatusStr.includes('cancel') || currentStatusStr.includes('approved');
+                            const isPurposeFiltered = adminFilters.purpose !== 'All';
+                            const prevTrip = vehicleNum ? prevTripMap.get(t) : null;
+                            const rawPrevGarageEnd = prevTrip ? prevTrip.values[8] : null;
+
+                            let mismatch = 0;
+                            let hasMismatch = false;
+
+                            if (
+                              !isCurrentIgnoredForAlerts && !isPurposeFiltered &&
+                              rawGarageStart !== undefined && rawGarageStart !== null && String(rawGarageStart).trim() !== '' &&
+                              rawPrevGarageEnd !== undefined && rawPrevGarageEnd !== null && String(rawPrevGarageEnd).trim() !== ''
+                            ) {
+                              const garageStart = Number(String(rawGarageStart).replace(/[^\d.-]/g, ''));
+                              const prevGarageEnd = Number(String(rawPrevGarageEnd).replace(/[^\d.-]/g, ''));
+                              if (!isNaN(garageStart) && !isNaN(prevGarageEnd) && garageStart !== prevGarageEnd) {
+                                mismatch = Math.abs(garageStart - prevGarageEnd);
+                                hasMismatch = mismatch > 0;
+                              }
+                            }
+
+                            const getFuelLiterTooltip = (idx: string | number) => {
+                              if (idx === 'fuel_liters') {
+                                const rawCost = t.values[9];
+                                const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
+
+                                const rawComments = t.values[10] || '';
+                                const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                let litersStr = '';
+                                if (fuelMatches.length > 0) {
+                                  const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+                                  const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                  if (m) litersStr = m[1];
+                                }
+                                const liters = Number(litersStr);
+                                if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
+                                  return `Rs. ${(cost / liters).toFixed(2)} / L`;
+                                }
+                              } else if (idx === 26) {
+                                const rawCost = t.values[24];
+                                const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
+                                const rawLiters = t.values[26];
+                                const liters = Number(String(rawLiters || '').replace(/[^\d.-]/g, ''));
+                                if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
+                                  return `Rs. ${(cost / liters).toFixed(2)} / L`;
+                                }
+                              }
+                              return undefined;
+                            };
+
+                            return (
+                              <tr
+                                key={i}
+                                className="transition-colors group hover:bg-white/5"
+                              >
+                                {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
+                                  const cellTooltip = (hasMismatch && idx === 6)
+                                    ? `${mismatch} km mismatch with the last trip for this vehicle`
+                                    : idx === 'staff_comment'
+                                      ? (t.values[27] ? String(t.values[27]) : undefined)
+                                      : getFuelLiterTooltip(idx);
+
+                                  return (
+                                    <td
+                                      key={idx}
+                                      className={cn(
+                                        "py-2 text-xs whitespace-nowrap",
+                                        (idx === 0 || idx === 'staff_comment') ? "px-2 sm:px-6" : "px-6",
+                                        hasMismatch && idx === 6 ? "font-bold" : ""
+                                      )}
+                                      title={cellTooltip}
+                                    >
+                                      {idx === 'staff_comment' ? (
+                                        <div
+                                          onClick={() => {
+                                            const rawComment = t.values[27] || '';
+                                            const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
+                                            const currentComment = isDate ? '' : rawComment;
+                                            setCommentTarget({ rf: t.rf, comment: currentComment });
+                                            setCommentText(currentComment);
+                                            setShowCommentModal(true);
+                                          }}
+                                          title={(() => {
+                                            const rawComment = t.values[27] || '';
+                                            const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
+                                            return isDate ? undefined : (rawComment ? String(rawComment) : undefined);
+                                          })()}
+                                          className="flex items-center gap-1 sm:gap-2 cursor-pointer hover:bg-white/10 p-1 rounded transition-colors group min-w-[40px] sm:min-w-[80px]"
+                                        >
+                                          {(() => {
+                                            const rawComment = t.values[27] || '';
+                                            const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
+                                            const commentVal = isDate ? '' : rawComment;
+                                            if (commentVal) {
+                                              const commentStr = String(commentVal).trim();
+                                              const words = commentStr ? commentStr.split(/\s+/) : [];
+                                              const preview = words.length > 4 ? words.slice(0, 4).join(' ') + '...' : commentStr;
+                                              return (
+                                                <span className="text-white text-xs" title={String(commentVal)}>
+                                                  {preview}
+                                                </span>
+                                              );
+                                            }
+                                            return (
+                                              <span className="text-slate-500 italic text-[10px] flex items-center gap-1">
+                                                <Plus className="w-3 h-3" /> Add
+                                              </span>
+                                            );
+                                          })()}
+                                          {!/^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(t.values[27] || "").trim()) && t.values[27] && <Edit className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                                        </div>
+                                      ) : idx === 'repair_meter' ? (
+                                        <span className="text-white">
+                                          {t.repairMeter || t.values[35] || (t.values[5] === 'Repair' ? (t.values[6] || t.values[8] || '-') : '-')}
+                                        </span>
+                                      ) : idx === 'fuel_meter' || idx === 'fuel_liters' ? (
+                                        <span className="text-white" title={getFuelLiterTooltip(idx)}>
+                                          {(() => {
+                                            const rawComments = t.values[10] || '';
+                                            const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                            if (fuelMatches.length > 0) {
+                                              const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+                                              if (idx === 'fuel_meter') {
+                                                const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                                return m ? m[1] : '-';
+                                              } else {
+                                                const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                                return m ? m[1] : '-';
+                                              }
+                                            } else {
+                                              const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                                              const oldFuelMatch = rawComments.match(oldFuelRegex);
+                                              if (oldFuelMatch && idx === 'fuel_meter') return oldFuelMatch[1];
+                                              return '-';
+                                            }
+                                          })()}
+                                        </span>
+                                      ) : idx === 0 ? (
+                                        <div className="relative inline-flex items-center justify-center">
+                                          <select
+                                            value={t.values[idx as number] || 'Pending'}
+                                            onChange={async (e) => {
+                                              const newStatus = e.target.value;
+                                              const newValues = [...t.values];
+                                              newValues[0] = newStatus;
+                                              setAlert({ type: 'warning', message: 'Updating status...' });
+                                              try {
+                                                const res = await fetch('/api/admin/edit-trip', {
+                                                  method: 'PUT',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ reference: t.rf, rawValues: newValues })
+                                                });
+                                                const data = await safeJson(res);
+                                                if (data.error) throw new Error(data.error);
+                                                setAlert({ type: 'success', message: 'Status updated!' });
+
+                                                // Update local state optimistically
+                                                const newFleetData = [...adminData.tables.fleetData];
+                                                const rowIdx = newFleetData.findIndex((r: any) => r.rf === t.rf);
+                                                if (rowIdx > -1) {
+                                                  newFleetData[rowIdx].values[0] = newStatus;
+                                                  newFleetData[rowIdx].status = newStatus;
+                                                  setAdminData({
+                                                    ...adminData,
+                                                    tables: {
+                                                      ...adminData.tables,
+                                                      fleetData: newFleetData
+                                                    }
+                                                  });
+                                                }
+                                              } catch (err: any) {
+                                                setAlert({ type: 'error', message: err.message || 'Failed to update status' });
+                                              }
+                                            }}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                          >
+                                            <option value="Pending" className="bg-slate-800 text-white font-bold">Pending</option>
+                                            <option value="Approved" className="bg-slate-800 text-white font-bold">Approved</option>
+                                            <option value="Cancelled" className="bg-slate-800 text-white font-bold">Cancelled</option>
+                                          </select>
+                                          <div
+                                            className={cn(
+                                              "pointer-events-none flex items-center justify-center font-black leading-none text-center",
+                                              "w-5 h-5 rounded-full text-[10px] sm:w-auto sm:h-auto sm:px-2 sm:py-1 sm:text-[8px] sm:uppercase sm:tracking-widest",
+                                              (t.values[idx as number] || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
+                                                (t.values[idx as number] || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
+                                                  "bg-yellow-200 text-yellow-900"
+                                            )}
+                                          >
+                                            <span className="sm:hidden">
+                                              {(() => {
+                                                const st = String(t.values[idx as number] || 'Pending').toLowerCase();
+                                                if (st.includes('approved')) return 'A';
+                                                if (st.includes('cancel')) return 'C';
+                                                return 'P';
+                                              })()}
+                                            </span>
+                                            <span className="hidden sm:inline">
+                                              {t.values[idx as number] || 'Pending'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ) : idx === 5 ? (
+                                        <span className={cn(
+                                          "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                          t.values[idx as number] === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
+                                        )}>
+                                          {t.values[idx as number]}
+                                        </span>
+                                      ) : idx === 10 ? (
+                                        <span className="font-sans font-normal text-white">
+                                          {(() => {
+                                            let val = (t.values[10] || '').toString();
+                                            val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+                                            return val || '-';
+                                          })()}
+                                        </span>
+                                      ) : idx === 1 ? (
+                                        <div className="flex items-center gap-2">
+                                          {(() => {
+                                            const sLossRaw = t.values[18];
+                                            const eLossRaw = t.values[19];
+                                            if (sLossRaw !== undefined && sLossRaw !== null && String(sLossRaw).trim() !== '' &&
+                                              eLossRaw !== undefined && eLossRaw !== null && String(eLossRaw).trim() !== '') {
+                                              const sLoss = Number(String(sLossRaw).replace(/[^\d.-]/g, ''));
+                                              const eLoss = Number(String(eLossRaw).replace(/[^\d.-]/g, ''));
+                                              if (!isNaN(sLoss) && !isNaN(eLoss) && sLoss !== eLoss) {
+                                                const currentStatusStr = String(t.values[0] || '').toLowerCase();
+                                                if (!currentStatusStr.includes('cancel') && !currentStatusStr.includes('approved')) {
+                                                  return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Start and End Loss mismatch"></span>;
+                                                }
+                                              }
+                                            }
+                                            return null;
+                                          })()}
+                                          <span className="text-white">{t.values[idx as number] !== undefined && t.values[idx as number] !== null ? t.values[idx as number].toString() : '-'}</span>
+                                        </div>
+                                      ) : idx === 32 ? (
+                                        <span className="font-sans font-normal text-white">
+                                          {(() => {
+                                            const hasFuel = Boolean(
+                                              (t.values[9] !== undefined && t.values[9] !== null && String(t.values[9]).trim() !== '' && t.values[9] !== '0' && t.values[9] !== 0) ||
+                                              (t.values[24] !== undefined && t.values[24] !== null && String(t.values[24]).trim() !== '' && t.values[24] !== '0' && t.values[24] !== 0) ||
+                                              (t.values[25] !== undefined && t.values[25] !== null && String(t.values[25]).trim() !== '') ||
+                                              (t.values[26] !== undefined && t.values[26] !== null && String(t.values[26]).trim() !== '') ||
+                                              (t.values[28] !== undefined && t.values[28] !== null && String(t.values[28]).trim() !== '') ||
+                                              (t.values[10] && String(t.values[10]).includes('(Fuel'))
+                                            );
+                                            if (!hasFuel) return '-';
+                                            return t.values[32] || 'Office card';
+                                          })()}
+                                        </span>
+                                      ) : (
+                                        <span className={cn(
+                                          "font-sans font-normal flex items-center gap-1.5",
+                                          (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
+                                            (idx === 9 || idx === 11 || idx === 24) ? "text-rose-400" : "text-white"
+                                        )} title={getFuelLiterTooltip(idx)}>
+                                          {hasMismatch && idx === 6 && (
+                                            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0"></span>
+                                          )}
+                                          {(() => {
+                                            const isFinished = t.values[8] !== undefined && t.values[8] !== null && String(t.values[8]).trim() !== '';
+                                            if (!isFinished && (idx === 18 || idx === 19 || idx === 22)) {
+                                              return '0';
+                                            }
+                                            if (idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || String(t.values[idx as number]).trim() === '')) {
+                                              return '0';
+                                            }
+                                            return (t.values[idx as number] !== undefined && t.values[idx as number] !== null) ? t.values[idx as number].toString() : '-';
+                                          })()}
+                                        </span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                                <td className={cn(
+                                  "px-6 py-2 text-xs whitespace-nowrap sticky right-0 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors",
+                                  activeActionRowRef === t.rf ? "z-50" : "z-10"
+                                )}>
+                                  <div className="relative group/action">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveActionRowRef(activeActionRowRef === t.rf ? null : t.rf);
+                                      }}
+                                      className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer outline-none active:scale-95"
+                                      title="Actions"
+                                    >
+                                      <MoreVertical className="w-4 h-4 text-slate-400 hover:text-white transition-colors" />
+                                    </button>
+
+                                    {activeActionRowRef === t.rf && (
+                                      <div
+                                        className="fixed inset-0 z-[40]"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveActionRowRef(null);
+                                        }}
+                                      />
+                                    )}
+
+                                    <div
+                                      className={cn(
+                                        "absolute right-full top-0 mr-2 w-36 bg-slate-800 border border-slate-700/80 rounded-xl shadow-2xl transition-all flex flex-col gap-1 p-1.5 z-[60]",
+                                        activeActionRowRef === t.rf ? "opacity-100 visible" : "opacity-0 invisible group-hover/action:opacity-100 group-hover/action:visible"
+                                      )}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveActionRowRef(null);
+                                          setViewingTrip(t);
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sky-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" /> View Trip
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          setActiveActionRowRef(null);
+                                          setViewingImages({ rf: t.rf, images: null, loading: true });
+                                          try {
+                                            const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
+                                            const data = await safeJson(res);
+                                            setViewingImages({ rf: t.rf, images: data.images || [], loading: false });
+                                          } catch (err) {
+                                            setViewingImages({ rf: t.rf, images: [], loading: false });
+                                          }
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
+                                      >
+                                        <ImageIcon className="w-3.5 h-3.5" /> Proofs
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveActionRowRef(null);
+                                          let fMeter = '';
+                                          let fLiters = '';
+                                          let cleanComments = t.values[10] || '';
+                                          const fuelMatches: any[] = Array.from(cleanComments.toString().matchAll(/\(Fuel - (.*?)\)/g));
+                                          if (fuelMatches.length > 0) {
+                                            const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+                                            const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                            if (m1) fMeter = m1[1];
+                                            const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                            if (m2) fLiters = m2[1];
+                                          } else {
+                                            const oldMatch = cleanComments.toString().match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
+                                            if (oldMatch) fMeter = oldMatch[1];
+                                          }
+                                          cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+                                          setEditingTrip({ ...t, fMeter, fLiters, cleanComments });
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
+                                      >
+                                        <Edit className="w-3.5 h-3.5" /> Edit Trip
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveActionRowRef(null);
+                                          handleDeleteFleetRow(t.rf);
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-red-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" /> Delete Trip
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination Controls moved to top */}
+                  </motion.div>
+                )}
+              </div>
+            ) : null}
+
+
+
+            {adminTab === 'driver-manage' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="glass-card p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <Users className="w-5 h-5 text-emerald-500" />
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Driver Management</h3>
+                    </div>
+                    <button
+                      onClick={() => setAddingDriver({ username: '', password: '', name: '', phone: '', role: 'driver', status: 'Active', vehicle: 'Unassigned' })}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-black transition-colors uppercase tracking-wider shadow-lg shadow-emerald-500/20"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Driver
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col md:flex-row gap-4 mb-6">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search drivers..."
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                        value={driverManageFilters.search}
+                        onChange={(e) => setDriverManageFilters({ ...driverManageFilters, search: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-4">
+                      <select
+                        className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        value={driverManageFilters.driver}
+                        onChange={(e) => setDriverManageFilters({ ...driverManageFilters, driver: e.target.value })}
+                      >
+                        <option value="All">All Drivers</option>
+                        {adminData?.filterOptions?.drivers?.map((d: string) => (
+                          <option key={d} value={d}>{adminData.driverNames?.[d] || d}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        value={driverManageFilters.status}
+                        onChange={(e) => setDriverManageFilters({ ...driverManageFilters, status: e.target.value })}
+                      >
+                        <option value="All">All Statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                      <select
+                        className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        value={driverManageFilters.vehicle}
+                        onChange={(e) => setDriverManageFilters({ ...driverManageFilters, vehicle: e.target.value })}
+                      >
+                        <option value="All">All Vehicles</option>
+                        <option value="Unassigned">Unassigned</option>
+                        {adminData?.filterOptions?.vehicles?.map((v: string) => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {adminData?.tables?.driversList?.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-white/[0.02]">
+                            {['User Name', 'Password', 'Role', 'Name', 'Phone Number', 'Assigned Vehicle', 'Status', 'Actions'].map(h => (
+                              <th key={h} className={cn(
+                                "px-10 py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                                h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 w-[1%]" : "",
+                                h === 'Name' ? "w-full" : ""
+                              )}>
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {adminData.tables.driversList.filter((driver: any) => {
+                            const searchTerm = driverManageFilters.search.toLowerCase();
+                            if (searchTerm && !driver.username.toLowerCase().includes(searchTerm) && !(driver.name || '').toLowerCase().includes(searchTerm)) {
+                              return false;
+                            }
+                            if (driverManageFilters.driver !== 'All' && driver.username !== driverManageFilters.driver) {
+                              return false;
+                            }
+                            if (driverManageFilters.status !== 'All' && driver.status !== driverManageFilters.status) {
+                              return false;
+                            }
+                            let assignedVehicle = "Unassigned";
+                            Object.keys(vehicleDrivers).forEach(v => {
+                              if (vehicleDrivers[v] === driver.username) assignedVehicle = v;
+                            });
+                            if (driverManageFilters.vehicle !== 'All' && driverManageFilters.vehicle !== assignedVehicle) {
+                              return false;
+                            }
+                            return true;
+                          }).map((driver: any, i: number) => {
+                            // Find assigned vehicle
+                            let assignedVehicle = "Unassigned";
+                            Object.keys(vehicleDrivers).forEach(v => {
+                              if (vehicleDrivers[v] === driver.username) {
+                                assignedVehicle = v;
+                              }
+                            });
+
+                            return (
+                              <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                <td className="px-10 py-2 text-xs font-bold text-emerald-500 whitespace-nowrap">{driver.username}</td>
+                                <td className="px-10 py-2 text-xs font-mono text-slate-400 whitespace-nowrap">{driver.password}</td>
+                                <td className="px-10 py-2 text-xs font-bold text-indigo-400 whitespace-nowrap">{driver.role}</td>
+                                <td className="px-10 py-2 text-xs font-bold text-white whitespace-nowrap">{driver.name || '-'}</td>
+                                <td className="px-10 py-2 text-xs text-slate-400 whitespace-nowrap">{driver.phone || '-'}</td>
+                                <td className="px-10 py-2 text-xs whitespace-nowrap">
+                                  <span className={cn(
+                                    "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
+                                    assignedVehicle === 'Unassigned' ? "bg-white/5 text-slate-500" : "bg-sky-500/10 text-sky-500 border border-sky-500/20"
+                                  )}>
+                                    {assignedVehicle}
+                                  </span>
+                                </td>
+                                <td className="px-10 py-2 text-xs whitespace-nowrap">
+                                  <span className={cn(
+                                    "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
+                                    driver.status === 'Active' ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+                                  )}>
+                                    {driver.status}
+                                  </span>
+                                </td>
+                                <td className="px-10 py-2 text-xs w-[1%] whitespace-nowrap flex items-center gap-2 sticky right-0 z-10 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors">
+                                  <button
+                                    onClick={() => setViewingDriver(driver)}
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500 text-sky-500 hover:text-black border border-sky-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    View
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingDriver({ ...driver, originalUsername: driver.username, vehicle: assignedVehicle })}
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteDriver(driver.username)}
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-slate-400 text-xs">No driver data available. Please refresh the dashboard.</p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {adminTab === 'accounts' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="glass-card overflow-hidden">
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-3">
+                      <IdCard className="w-5 h-5 text-emerald-500" />
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Sheet Data</h3>
+                    </div>
+                    <div className="flex items-center gap-2 flex-1 max-w-md ml-auto">
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search records..."
+                          className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                          value={accountSearch}
+                          onChange={(e) => setAccountSearch(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleSyncAccountSheet}
+                        disabled={isSyncingAccounts}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                      >
+                        {isSyncingAccounts ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        SYNC NOW
+                      </button>
+                      <button
+                        onClick={() => fetchAccountSheetData()}
+                        className="p-2 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white"
+                        title="Refresh Data"
+                      >
+                        <RefreshCw className={cn("w-4 h-4", fetchingAccountData && "animate-spin")} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {fetchingAccountData ? (
+                    <div className="p-20 flex flex-col items-center justify-center space-y-4">
+                      <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+                      <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Account Data...</p>
+                    </div>
+                  ) : accountSheetData?.data?.length > 0 ? (
+                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
+                      <table className="w-full text-left relative">
+                        <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
+                          <tr className="border-b border-white/5 bg-white/[0.02]">
+                            {(accountSheetData?.headers || [
+                              'Booking Ref', 'Start Date', 'end date', 'end date', 'End Time',
+                              'Vehicle Type', 'No of pax', 'Pick up Street', 'Drop off Str / Pick up City',
+                              'Journey Type', 'Start Meter', 'End Meter', 'No. of KMs', 'Distance', 'Final Price',
+                              'Trip Status', 'Driver Code'
+                            ]).map((h: string, idx: number) => (
+                              <th key={`${h}-${idx}`} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {accountSheetData.data
+                            .map((row: any, i: number) => (
+                              <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                {(row.rawValues || []).map((val: any, idx: number) => {
+                                  const headerName = accountSheetData?.headers?.[idx];
+                                  const isStatus = headerName === 'Status' || headerName === 'Trip Status';
+                                  return (
+                                    <td key={idx} className="px-6 py-4 text-[10px] whitespace-nowrap">
+                                      {isStatus ? (
+                                        <span className={cn(
+                                          "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                          (val || 'Pending') === 'Approved' || (val || '').toLowerCase().includes('complete') ? "bg-green-300 text-green-900" :
+                                            (val || 'Pending') === 'Cancelled' || (val || '').toLowerCase().includes('cancel') ? "bg-red-500 text-white" :
+                                              "bg-yellow-200 text-yellow-900"
+                                        )}>
+                                          {val || 'Pending'}
+                                        </span>
+                                      ) : (
+                                        <span className={cn(
+                                          "font-sans font-normal",
+                                          idx === 0 ? "text-emerald-400 font-mono font-bold" : "text-white"
+                                        )}>
+                                          {val !== undefined && val !== null && val !== '' ? val.toString() : '-'}
+                                        </span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-20 text-center">
+                      <p className="text-slate-500 font-bold">No account data found.</p>
+                    </div>
+                  )}
+
+                  {/* Pagination for account sheet */}
+                  {accountSheetData?.pagination && accountSheetData.pagination.totalPages > 1 && (
+                    <div className="p-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        Showing <span className="text-white font-bold">{((accountSheetData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(accountSheetData.pagination.page * 50, accountSheetData.pagination.totalItems)}</span> of <span className="text-white font-bold">{accountSheetData.pagination.totalItems}</span> records
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setAdminPage(prev => Math.max(1, prev - 1))}
+                          disabled={accountSheetData.pagination.page === 1}
+                          className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setAdminPage(prev => Math.min(accountSheetData.pagination.totalPages, prev + 1))}
+                          disabled={accountSheetData.pagination.page === accountSheetData.pagination.totalPages}
+                          className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {adminTab === 'lak-mobile' && (
+              <LakMobileTable />
+            )}
+
+            {adminTab === 'messages' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="flex gap-2 p-1 bg-slate-900 border border-white/5 rounded-xl w-full max-w-md mb-6">
+                  <button
+                    onClick={() => setAdminMessageTab('sent')}
+                    className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", adminMessageTab === 'sent' ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
+                  >
+                    Sent Box
+                  </button>
+                  <button
+                    onClick={() => setAdminMessageTab('inbox')}
+                    className={cn("flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all", adminMessageTab === 'inbox' ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white")}
+                  >
+                    Inbox
+                  </button>
+                </div>
+
+                {adminMessageTab === 'sent' && (
+                  <div className="glass-card overflow-hidden">
+                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sent Messages</h3>
+                      <button
+                        onClick={() => setShowAdminMessageModal(true)}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+                      >
+                        <Plus className="w-3 h-3" />
+                        NEW MESSAGE
+                      </button>
+                    </div>
+                    {fetchingMessages ? (
+                      <div className="p-20 flex flex-col items-center justify-center space-y-4">
+                        <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+                        <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Messages...</p>
+                      </div>
+                    ) : (() => {
+                      const isAdminMsg = (m: any) => m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber);
+                      const adminSent = (messagesData?.messages || []).filter(isAdminMsg);
+                      if (adminSent.length === 0) {
+                        return (
+                          <div className="p-10 flex flex-col items-center justify-center text-center gap-3">
+                            <MessageSquare className="w-8 h-8 text-slate-600" />
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No sent messages</p>
+                          </div>
+                        );
+                      }
+
+                      const groupedAdminSent = Object.values(adminSent.reduce((acc: any, curr: any) => {
+                        const key = `${curr.message}_${curr.timestamp}`;
+                        if (!acc[key]) {
+                          acc[key] = { ...curr, recipients: [curr.driverId] };
+                        } else {
+                          if (!acc[key].recipients.includes(curr.driverId)) {
+                            acc[key].recipients.push(curr.driverId);
+                          }
+                        }
+                        return acc;
+                      }, {})) as any[];
+
+                      return (
+                        <div className="space-y-3 p-4">
+                          {groupedAdminSent.map((msg: any, i: number) => (
+                            <div key={i} className="bg-slate-900/50 border border-white/5 p-4 rounded-xl flex flex-col md:flex-row justify-between gap-4 group hover:bg-white/5 transition-colors">
+                              <div className="space-y-2">
+                                <p className="text-xs font-medium text-slate-200 whitespace-pre-wrap">"{msg.message}"</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-[10px] font-bold text-emerald-400 mb-2 uppercase tracking-widest">{msg.timestamp}</span>
+                                  <span className="text-slate-600 text-[10px]">â€¢</span>
+                                  <span className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">Sent to {msg.recipients.length} driver(s)</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {adminMessageTab === 'inbox' && (
+                  <div className="glass-card overflow-hidden">
+                    <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Messages</h3>
+                      <MessageSquare className="w-4 h-4 text-emerald-500" />
+                    </div>
+
+                    {fetchingMessages ? (
+                      <div className="p-20 flex flex-col items-center justify-center space-y-4">
+                        <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+                        <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Loading Messages...</p>
+                      </div>
+                    ) : (messagesData?.messages || []).filter((m: any) => !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))).length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="border-b border-white/5 bg-white/[0.02]">
+                              {['Status', 'Driver ID', 'Driver Name', 'Message Preview', 'Actions'].map(h => (
+                                <th key={h} className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {(messagesData?.messages || []).filter((m: any) => !(m.sender === 'Admin' || (!m.sender && !m.driverName && !m.phoneNumber))).map((msg: any, i: number) => (
+                              <tr key={i} className={cn("hover:bg-white/5 transition-colors group", !msg.isRead && "bg-blue-500/[0.02]")}>
+                                <td className="px-6 py-4">
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                    msg.isRead ? "bg-slate-500/10 text-slate-500" : "bg-blue-500 text-white shadow-lg shadow-blue-500/20"
+                                  )}>
+                                    {msg.isRead ? 'READ' : 'NEW'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-[10px] font-bold text-white">{msg.driverId}</td>
+                                <td className="px-6 py-4 text-[10px] font-bold text-slate-300">{msg.driverName || '-'}</td>
+                                <td className="px-6 py-4 text-[10px] text-slate-500 max-w-[200px] truncate italic">"{msg.message}"</td>
+                                <td className="px-6 py-4">
+                                  <button
+                                    onClick={async () => {
+                                      setSelectedMessage(msg);
+                                      if (!msg.isRead) {
+                                        await fetch('/api/admin/messages', {
+                                          method: 'PATCH',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ id: msg._id }),
+                                        });
+                                        fetchAdminMessages(); // Refresh status
+                                      }
+                                    }}
+                                    className="px-4 py-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all border border-blue-500/20"
+                                  >
+                                    VIEW
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="p-20 text-center">
+                        <p className="text-slate-500 font-bold">No messages found.</p>
                       </div>
                     )}
                   </div>
+                )}
 
-                  <div className="flex gap-2 mt-4 md:mt-0">
+                {/* New Message Popup */}
+                <AnimatePresence>
+                  {showAdminMessageModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                      <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative"
+                      >
+                        <button
+                          onClick={() => setShowAdminMessageModal(false)}
+                          className="absolute top-4 right-4 text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        <h3 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2 mb-6">
+                          <MessageSquare className="w-5 h-5 text-emerald-500" />
+                          Send Message to Drivers
+                        </h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Select Driver(s)</label>
+                            <div className="relative" ref={driverDropdownRef}>
+                              <div
+                                onClick={() => setShowDriverDropdown(!showDriverDropdown)}
+                                className="w-full bg-slate-950 border border-emerald-500/20 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-all cursor-pointer flex justify-between items-center hover:border-emerald-500/50"
+                              >
+                                <span className="truncate text-slate-200">
+                                  {adminMessageDriver.includes('All')
+                                    ? 'All Drivers'
+                                    : adminMessageDriver.length > 0
+                                      ? `${adminMessageDriver.length} Driver(s) Selected`
+                                      : 'Select Drivers'}
+                                </span>
+                                <div className="text-emerald-500/50 text-[10px]">â–¼</div>
+                              </div>
+
+                              <AnimatePresence>
+                                {showDriverDropdown && (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: -5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -5 }}
+                                    className="absolute top-full mt-2 w-full bg-slate-950 border border-emerald-500/30 rounded-xl overflow-hidden z-[110] shadow-[0_10px_40px_-10px_rgba(16,185,129,0.2)] max-h-[220px] overflow-y-auto custom-scrollbar"
+                                  >
+                                    <div
+                                      onClick={() => setAdminMessageDriver(['All'])}
+                                      className="p-3 border-b border-white/5 cursor-pointer hover:bg-emerald-500/10 flex items-center gap-3 transition-colors"
+                                    >
+                                      <div className={cn("w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all", adminMessageDriver.includes('All') ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-900")}>
+                                        {adminMessageDriver.includes('All') && <CheckCircle2 className="w-3 h-3 text-black" />}
+                                      </div>
+                                      <span className={cn("text-xs font-bold", adminMessageDriver.includes('All') ? "text-emerald-400" : "text-white")}>All Drivers</span>
+                                    </div>
+
+                                    {(adminData?.tables?.driversList || [])
+                                      .filter((driver: any) => driver.status === 'Active' && driver.username)
+                                      .map((driver: any, idx: number) => {
+                                        const d = driver.username;
+                                        const isSelected = adminMessageDriver.includes(d);
+                                        return (
+                                          <div
+                                            key={d || `driver-${idx}`}
+                                            onClick={() => {
+                                              if (adminMessageDriver.includes('All')) {
+                                                setAdminMessageDriver([d]);
+                                              } else {
+                                                if (isSelected) {
+                                                  const newSelection = adminMessageDriver.filter(val => val !== d);
+                                                  setAdminMessageDriver(newSelection.length === 0 ? ['All'] : newSelection);
+                                                } else {
+                                                  setAdminMessageDriver([...adminMessageDriver, d]);
+                                                }
+                                              }
+                                            }}
+                                            className={cn("p-3 border-b border-white/5 cursor-pointer hover:bg-white/5 flex items-center gap-3 transition-colors", isSelected && "bg-emerald-500/5")}
+                                          >
+                                            <div className={cn("w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all", isSelected ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-900")}>
+                                              {isSelected && <CheckCircle2 className="w-3 h-3 text-black" />}
+                                            </div>
+                                            <span className={cn("text-xs", isSelected ? "font-medium text-emerald-400" : "font-normal text-slate-400")}>
+                                              {driver.name || d} ({d})
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Message</label>
+                            <textarea
+                              className="w-full bg-slate-950 border border-white/5 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-emerald-500 transition-all resize-none"
+                              rows={5}
+                              placeholder="Type your message here..."
+                              value={adminMessageText}
+                              onChange={(e) => setAdminMessageText(e.target.value)}
+                            />
+                          </div>
+                          <button
+                            onClick={async () => {
+                              try {
+                                let driverIds = adminMessageDriver;
+                                if (driverIds.includes('All')) {
+                                  driverIds = (adminData?.tables?.driversList || [])
+                                    .filter((d: any) => d.status === 'Active' && d.username)
+                                    .map((d: any) => d.username);
+                                }
+
+                                driverIds = driverIds.filter(Boolean);
+
+                                if (driverIds.length === 0) {
+                                  window.alert("No drivers selected or available.");
+                                  return;
+                                }
+
+                                const res = await fetch('/api/admin/send-message', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    driverIds,
+                                    message: adminMessageText
+                                  }),
+                                });
+
+                                const data = await res.json();
+                                if (data.error) throw new Error(data.error);
+
+                                setAlert({ type: 'success', message: `Message sent to ${data.count} driver(s)!` });
+                                setShowAdminMessageModal(false);
+                                setAdminMessageText('');
+                                setAdminMessageDriver(['All']);
+                                fetchAdminMessages();
+                              } catch (err: any) {
+                                setAlert({ type: 'error', message: err.message || 'Failed to send message' });
+                              }
+                            }}
+                            disabled={!adminMessageText.trim() || adminMessageDriver.length === 0}
+                            className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
+                          >
+                            SEND MESSAGE
+                          </button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+
+                {/* Message View Modal */}
+                <AnimatePresence>
+                  {selectedMessage && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        className="w-full max-w-lg glass-card p-8 space-y-6 relative border-blue-500/30 bg-slate-900/90 shadow-2xl shadow-blue-500/10"
+                      >
+                        <button
+                          onClick={() => setSelectedMessage(null)}
+                          className="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex items-center gap-4 mb-2">
+                          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                            <MessageSquare className="w-6 h-6 text-blue-500" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-black text-white uppercase tracking-tight">Driver Message</h3>
+                            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{selectedMessage.timestamp}</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Driver</p>
+                            <p className="text-sm font-bold text-white">{selectedMessage.driverName} ({selectedMessage.driverId})</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Message Content</p>
+                          <div className="bg-white/5 p-6 rounded-2xl border border-white/5 min-h-[150px]">
+                            <p className="text-slate-200 text-sm leading-relaxed italic">
+                              "{selectedMessage.message}"
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setSelectedMessage(null)}
+                          className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition-all shadow-lg shadow-blue-600/20 uppercase tracking-widest text-xs"
+                        >
+                          CLOSE MESSAGE
+                        </button>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+
+                {/* Pagination for messages */}
+                {messagesData?.pagination && messagesData.pagination.totalPages > 1 && (
+                  <div className="p-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between">
+                    <p className="text-[10px] text-slate-500 font-medium">
+                      Showing <span className="text-white font-bold">{((messagesData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(messagesData.pagination.page * 50, messagesData.pagination.totalItems)}</span> of <span className="text-white font-bold">{messagesData.pagination.totalItems}</span> messages
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setAdminPage(prev => Math.max(1, prev - 1))}
+                        disabled={messagesData.pagination.page === 1}
+                        className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setAdminPage(prev => Math.min(messagesData.pagination.totalPages, prev + 1))}
+                        disabled={messagesData.pagination.page === messagesData.pagination.totalPages}
+                        className="p-2 rounded-lg border border-white/5 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* DRIVER COMMISSION TAB */}
+            {adminTab === 'commission' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                {/* Add Vehicle Section */}
+                <div className="glass-card p-4 border border-white/5 bg-white/5 mb-6 flex flex-col sm:flex-row items-center gap-4">
+                  <div className="flex-1 space-y-1 w-full text-left">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <Plus className="w-3 h-3 text-emerald-500" />
+                      Add New Vehicle
+                    </h3>
+                    <p className="text-[9px] text-slate-500">Add a vehicle number to make it available system-wide</p>
+                  </div>
+                  <div className="flex w-full sm:w-auto items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. CBK-0647"
+                      className="w-full sm:w-48 input-field h-9 text-xs"
+                      value={newVehicleNumber}
+                      onChange={(e) => setNewVehicleNumber(e.target.value.toUpperCase())}
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!newVehicleNumber.trim()) return;
+                        setAddingVehicle(true);
+                        try {
+                          const res = await fetch('/api/admin/add-vehicle', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ vehicleNumber: newVehicleNumber.trim() })
+                          });
+                          const data = await safeJson(res);
+                          if (!res.ok) throw new Error(data.error || 'Failed to add vehicle');
+                          setAlert({ type: 'success', message: `${newVehicleNumber} added successfully!` });
+                          setNewVehicleNumber('');
+                          fetchAdminSales(true);
+                        } catch (err: any) {
+                          setAlert({ type: 'error', message: err.message });
+                        } finally {
+                          setAddingVehicle(false);
+                        }
+                      }}
+                      disabled={addingVehicle || !newVehicleNumber.trim()}
+                      className="h-9 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shadow-lg shadow-emerald-500/20"
+                    >
+                      {addingVehicle ? 'ADDING...' : 'ADD VEHICLE'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="glass-card overflow-hidden">
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Driver Commission Rates</h3>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/admin/commissions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ commissions: vehicleCommissions })
+                          });
+                          if (!res.ok) throw new Error('Failed to save');
+                          setAlert({ type: 'success', message: 'Commission rates saved to database successfully!' });
+                        } catch (err) {
+                          setAlert({ type: 'error', message: 'Error saving commission rates' });
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
+                    >
+                      SAVE ALL
+                    </button>
+                  </div>
+
+                  {adminData?.filterOptions?.vehicles && adminData.filterOptions.vehicles.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-white/[0.02]">
+                            <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest w-1/2">Vehicle Number</th>
+                            <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest w-1/4">Commission Rate (%)</th>
+                            <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest w-1/4">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {adminData.filterOptions.vehicles.map((vehicle: string) => (
+                            <tr key={vehicle} className="hover:bg-white/5 transition-colors group">
+                              <td className="px-6 py-4 text-sm font-bold text-white">
+                                {vehicle}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="relative w-32">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    placeholder="e.g. 10"
+                                    value={vehicleCommissions[vehicle] !== undefined ? vehicleCommissions[vehicle] : ''}
+                                    onChange={(e) => setVehicleCommissions(prev => ({ ...prev, [vehicle]: parseFloat(e.target.value) || 0 }))}
+                                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors pr-8"
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch('/api/admin/commissions', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ commissions: vehicleCommissions })
+                                      });
+                                      if (!res.ok) throw new Error('Failed to save');
+                                      setAlert({ type: 'success', message: `Commission rate for ${vehicle} updated to ${vehicleCommissions[vehicle] || 0}% in database` });
+                                    } catch (err) {
+                                      setAlert({ type: 'error', message: 'Error updating commission rate' });
+                                    }
+                                  }}
+                                  className="px-4 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black text-[10px] font-black uppercase tracking-widest transition-all border border-emerald-500/20"
+                                >
+                                  Update
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-20 text-center">
+                      <p className="text-slate-500 font-bold">No vehicles found. Please refresh the dashboard.</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* REPORT TAB */}
+            {adminTab === 'report' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="glass-card p-4 border border-white/5 bg-white/5">
+                  <div className="flex flex-col md:flex-row md:items-end gap-4">
+                    <div className="flex items-center gap-3 md:mr-2 mb-2 md:mb-0">
+                      <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hidden md:block">
+                        <ClipboardCheck className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-white uppercase tracking-widest whitespace-nowrap">
+                          Report
+                        </h3>
+                        <p className="text-[10px] text-slate-400">Settings</p>
+                      </div>
+                    </div>
+
+                    <div className={cn("flex-1 grid grid-cols-1 gap-3", reportCategory === 'Tank wise fuel analyzing' ? "md:grid-cols-3" : "md:grid-cols-2")}>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Category</label>
+                        <select
+                          className="w-full input-field py-0 px-3 text-xs text-white h-9"
+                          value={reportCategory}
+                          onChange={(e) => setReportCategory(e.target.value as 'Credit' | 'Invoice' | 'Recent Trips' | 'Tank wise fuel analyzing')}
+                        >
+                          <option value="Credit">Credit Report</option>
+                          <option value="Invoice">Invoice Report</option>
+                          <option value="Recent Trips">Recent Trips</option>
+                          <option value="Tank wise fuel analyzing">Tank wise fuel analyzing</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Date Range</label>
+                        <div className="flex items-center gap-2 h-9">
+                          <select
+                            className="bg-slate-800 text-white text-[11px] font-bold px-2 h-full rounded shadow-sm border border-slate-700 outline-none cursor-pointer"
+                            value={(() => {
+                              const today = new Date();
+                              const y = today.getFullYear();
+                              const m = String(today.getMonth() + 1).padStart(2, '0');
+                              const d = String(today.getDate()).padStart(2, '0');
+                              const todayStr = `${y}-${m}-${d}`;
+
+                              const lastWeek = new Date(today);
+                              lastWeek.setDate(today.getDate() - 7);
+                              const wy = lastWeek.getFullYear();
+                              const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
+                              const wd = String(lastWeek.getDate()).padStart(2, '0');
+                              const lastWeekStr = `${wy}-${wm}-${wd}`;
+
+                              if (reportEndDate === todayStr) {
+                                if (reportStartDate === todayStr) return 'Daily';
+                                if (reportStartDate === lastWeekStr) return 'Weekly';
+                                if (reportStartDate === `${y}-${m}-01`) return 'Monthly';
+                                if (reportStartDate === `${y}-01-01`) return 'Yearly';
+                              }
+                              return 'Custom';
+                            })()}
+                            onChange={(e) => {
+                              const preset = e.target.value;
+                              const today = new Date();
+                              const y = today.getFullYear();
+                              const m = String(today.getMonth() + 1).padStart(2, '0');
+                              const d = String(today.getDate()).padStart(2, '0');
+                              const todayStr = `${y}-${m}-${d}`;
+
+                              if (preset === 'Daily') {
+                                setReportStartDate(todayStr);
+                                setReportEndDate(todayStr);
+                              } else if (preset === 'Weekly') {
+                                const lastWeek = new Date(today);
+                                lastWeek.setDate(today.getDate() - 7);
+                                const wy = lastWeek.getFullYear();
+                                const wm = String(lastWeek.getMonth() + 1).padStart(2, '0');
+                                const wd = String(lastWeek.getDate()).padStart(2, '0');
+                                setReportStartDate(`${wy}-${wm}-${wd}`);
+                                setReportEndDate(todayStr);
+                              } else if (preset === 'Monthly') {
+                                setReportStartDate(`${y}-${m}-01`);
+                                setReportEndDate(todayStr);
+                              } else if (preset === 'Yearly') {
+                                setReportStartDate(`${y}-01-01`);
+                                setReportEndDate(todayStr);
+                              }
+                            }}
+                          >
+                            <option value="Daily">Daily</option>
+                            <option value="Weekly">Weekly</option>
+                            <option value="Monthly">Monthly</option>
+                            <option value="Yearly">Yearly</option>
+                            <option value="Custom" hidden>Custom</option>
+                          </select>
+
+                          <div className="flex-1 flex items-center justify-between gap-1 bg-slate-800 px-2 h-full rounded shadow-sm border border-slate-700">
+                            <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
+                            <input
+                              type="date"
+                              className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[90px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                              value={reportStartDate}
+                              onChange={(e) => setReportStartDate(e.target.value)}
+                            />
+                            <span className="text-slate-400 text-[10px] font-bold shrink-0">—</span>
+                            <input
+                              type="date"
+                              className="bg-transparent text-[11px] font-bold text-white outline-none border-none w-[90px] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert"
+                              value={reportEndDate}
+                              onChange={(e) => setReportEndDate(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      {reportCategory === 'Tank wise fuel analyzing' && (
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vehicle</label>
+                          <select
+                            className="w-full input-field py-0 px-3 text-xs text-white h-9"
+                            value={reportVehicleFilter}
+                            onChange={(e) => setReportVehicleFilter(e.target.value)}
+                          >
+                            <option value="All">All Vehicles</option>
+                            {options.vehicles.map(v => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 mt-4 md:mt-0">
                       <button
                         onClick={() => {
                           if (reportCategory === 'Credit') {
@@ -5808,418 +5861,288 @@ export default function FleetApp() {
                           } else if (reportCategory === 'Recent Trips') {
                             generateRecentTripsCSV();
                           } else {
-                          setAlert({ type: 'warning', message: `Generating ${reportCategory} Report... Please wait.` });
-                          setTimeout(() => setAlert(null), 3000);
-                        }
-                      }}
-                      className="px-4 h-9 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest text-[10px] transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Download className="w-3 h-3" />
-                      Generate
-                    </button>
-
-                  </div>
-                </div>
-              </div>
-
-              {/* Credit Report Table */}
-              {reportCategory === 'Credit' && reportFleetData?.tables?.fleetData && (
-                fetchingReportData ? (
-                  <div className="flex flex-col items-center justify-center p-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
-                    <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
-                  </div>
-                ) : (
-                <div className="glass-card overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-max">
-                      <thead>
-                        <tr className="border-b border-white/10 text-[11px] font-bold text-white uppercase bg-white/5">
-                          <th className="p-2 border-r border-white/10"></th>
-                          <th className="p-2 border-r border-white/10">*CreditMemoNo</th>
-                          <th className="p-2 border-r border-white/10">*Customer</th>
-                          <th className="p-2 border-r border-white/10">*CreditMemoDate</th>
-                          <th className="p-2 border-r border-white/10">Location</th>
-                          <th className="p-2 border-r border-white/10">Memo</th>
-                          <th className="p-2 border-r border-white/10">Item(Product/Service)</th>
-                          <th className="p-2 border-r border-white/10 min-w-[300px]">ItemDescription</th>
-                          <th className="p-2 border-r border-white/10">ItemQuantity</th>
-                          <th className="p-2 border-r border-white/10">ItemRate</th>
-                          <th className="p-2 border-r border-white/10">*ItemAmount</th>
-                          <th className="p-2">Service Date</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-[12px] text-slate-300">
-                        {reportFleetData.tables.fleetData
-                          .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
-                          .filter((t: any) => {
-                            const parseDateToLocalMs = (dateStr: string | undefined): number => {
-                              if (!dateStr) return 0;
-                              const raw = String(dateStr).split(' ')[0].trim();
-                              if (!raw) return 0;
-                              if (raw.includes('-')) {
-                                const parts = raw.split('-');
-                                if (parts.length === 3) {
-                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
-                                }
-                              }
-                              if (raw.includes('/')) {
-                                const parts = raw.split('/');
-                                if (parts.length === 3) {
-                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1])).getTime();
-                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                                }
-                              }
-                              const d = new Date(raw);
-                              if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-                              return 0;
-                            };
-                            const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
-                            const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
-                            if (!startMs && endMs === Infinity) return true;
-                            
-                            const tripRef = t.values[12] || '';
-                            let recordMs = 0;
-                            if (tripRef && reportAccountData?.data) {
-                              const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
-                              if (accMatch) {
-                                const rawEndDate = accMatch.rawValues[15] || '';
-                                recordMs = parseDateToLocalMs(rawEndDate);
-                              }
-                            }
-                            if (!recordMs) return false;
-                            return recordMs >= startMs && recordMs <= endMs;
-                          })
-                          .map((t: any, i: number) => {
-                            const tripRef = t.values[12] || '';
-                            let formattedDate = '';
-                            let pickUp = '';
-                            let dropOff = '';
-                            let scComm = '';
-
-                            if (tripRef && reportAccountData?.data) {
-                              const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
-                              if (accMatch) {
-                                const rawEndDate = accMatch.rawValues[15] || '';
-                                if (rawEndDate) {
-                                  const raw = String(rawEndDate).split(' ')[0];
-                                  const d = new Date(raw);
-                                  if (!isNaN(d.getTime())) {
-                                    formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-                                  } else {
-                                    formattedDate = raw.replace(/\//g, '-');
-                                  }
-                                }
-                                pickUp = accMatch.rawValues[24] || '';
-                                dropOff = accMatch.rawValues[27] || '';
-                                scComm = String(accMatch.rawValues[3] || '').replace(/Rs\.?\s*/gi, '');
-                              }
-                            }
-                            
-                            const description = pickUp && dropOff ? `${pickUp} to ${dropOff}` : pickUp || dropOff || '';
-                            const shortDescription = description.split(' ').length > 6 ? description.split(' ').slice(0, 6).join(' ') + '...' : description;
-                            
-                            return (
-                              <tr key={i} className="hover:bg-white/5 transition-colors border-b border-white/5">
-                                <td className="p-2 border-r border-white/5 text-slate-400">{tripRef}</td>
-                                <td className="p-2 border-r border-white/5 text-white">{tripRef ? `C${tripRef}` : ''}</td>
-                                <td className="p-2 border-r border-white/5 text-white">Senu Cabs and Tours</td>
-                                <td className="p-2 border-r border-white/5 text-center text-white">{formattedDate}</td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5 text-emerald-400">CAB COMMISSION</td>
-                                <td className="p-2 border-r border-white/5 whitespace-normal text-xs text-white" title={description}>{shortDescription}</td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5 text-right font-bold text-white">{scComm}</td>
-                                <td className="p-2"></td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                )
-              )}
-
-              {/* Invoice Report Table */}
-              {reportCategory === 'Invoice' && reportFleetData?.tables?.fleetData && (
-                fetchingReportData ? (
-                  <div className="flex flex-col items-center justify-center p-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
-                    <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
-                  </div>
-                ) : (
-                <div className="glass-card overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-max">
-                      <thead>
-                        <tr className="border-b border-white/10 text-[11px] font-bold text-white uppercase bg-white/5">
-                          <th className="p-2 border-r border-white/10">*InvoiceNo</th>
-                          <th className="p-2 border-r border-white/10">*Customer</th>
-                          <th className="p-2 border-r border-white/10">*InvoiceDate</th>
-                          <th className="p-2 border-r border-white/10">*DueDate</th>
-                          <th className="p-2 border-r border-white/10">Terms</th>
-                          <th className="p-2 border-r border-white/10">Location</th>
-                          <th className="p-2 border-r border-white/10">Memo</th>
-                          <th className="p-2 border-r border-white/10">Item(Product/Service)</th>
-                          <th className="p-2 border-r border-white/10">ItemDescription</th>
-                          <th className="p-2 border-r border-white/10">ItemQuantity</th>
-                          <th className="p-2 border-r border-white/10">ItemRate</th>
-                          <th className="p-2 border-r border-white/10">*ItemAmount</th>
-                          <th className="p-2">DRIVER COMM</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-[12px] text-slate-300">
-                        {reportFleetData.tables.fleetData
-                          .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
-                          .filter((t: any) => {
-                            const parseDateToLocalMs = (dateStr: string | undefined): number => {
-                              if (!dateStr) return 0;
-                              const raw = String(dateStr).split(' ')[0].trim();
-                              if (!raw) return 0;
-                              if (raw.includes('-')) {
-                                const parts = raw.split('-');
-                                if (parts.length === 3) {
-                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
-                                }
-                              }
-                              if (raw.includes('/')) {
-                                const parts = raw.split('/');
-                                if (parts.length === 3) {
-                                  if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1])).getTime();
-                                  if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                                }
-                              }
-                              const d = new Date(raw);
-                              if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-                              return 0;
-                            };
-                            const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
-                            const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
-                            if (!startMs && endMs === Infinity) return true;
-                            
-                            const tripRef = t.values[12] || '';
-                            let recordMs = 0;
-                            if (tripRef && reportAccountData?.data) {
-                              const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
-                              if (accMatch) {
-                                const rawEndDate = accMatch.rawValues[15] || '';
-                                recordMs = parseDateToLocalMs(rawEndDate);
-                              }
-                            }
-                            if (!recordMs) return false;
-                            return recordMs >= startMs && recordMs <= endMs;
-                          })
-                          .map((t: any, i: number) => {
-                            const tripRef = t.values[12] || '';
-                            const vehicleNum = t.values[4] || '';
-                            let formattedDate = '';
-                            let hireAmount = '';
-                            
-                            const driverCode = t.values[3] || '';
-                            const driverName = adminData.driverNames?.[driverCode] || driverCode;
-                            let customerName = driverName ? `${driverName} - Cash` : '- Cash';
-                            const driverComm = String(t.values[14] || '').replace(/Rs\.?\s*/gi, '');
-
-                            if (tripRef && reportAccountData?.data) {
-                              const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
-                              if (accMatch) {
-                                const rawEndDate = accMatch.rawValues[15] || '';
-                                if (rawEndDate) {
-                                  const raw = String(rawEndDate).split(' ')[0];
-                                  const d = new Date(raw);
-                                  if (!isNaN(d.getTime())) {
-                                    formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-                                  } else {
-                                    formattedDate = raw.replace(/\//g, '-');
-                                  }
-                                }
-                                hireAmount = String(accMatch.rawValues[4] || '').replace(/Rs\.?\s*/gi, '');
-                                
-                                const hireType = String(accMatch.rawValues[31] || '').trim().toLowerCase();
-                                if (hireType === 'credit') {
-                                  customerName = 'Senu Cabs and Tours';
-                                } else if (hireType === 'cash') {
-                                  customerName = driverName ? `${driverName} - Cash` : '- Cash';
-                                }
-                              }
-                            }
-                            
-                            return (
-                              <tr key={i} className="hover:bg-white/5 transition-colors border-b border-white/5">
-                                <td className="p-2 border-r border-white/5 text-slate-400">{tripRef}</td>
-                                <td className="p-2 border-r border-white/5 text-emerald-400">{customerName}</td>
-                                <td className="p-2 border-r border-white/5 text-center text-white">{formattedDate}</td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5 text-white">{vehicleNum}</td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5"></td>
-                                <td className="p-2 border-r border-white/5 text-right font-bold text-white">{hireAmount}</td>
-                                <td className="p-2 text-right font-bold text-rose-400">{driverComm}</td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                )
-              )}
-
-              {reportCategory === 'Recent Trips' && (
-                <div className="glass-card overflow-hidden">
-                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
-                      <select
-                        className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none cursor-pointer uppercase tracking-wider"
-                        value={recentTripsFilter}
-                        onChange={(e) => setRecentTripsFilter(e.target.value)}
+                            setAlert({ type: 'warning', message: `Generating ${reportCategory} Report... Please wait.` });
+                            setTimeout(() => setAlert(null), 3000);
+                          }
+                        }}
+                        className="px-4 h-9 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest text-[10px] transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5 whitespace-nowrap"
                       >
-                        <option value="All">All Payments</option>
-                        <option value="cash">Cash Trips</option>
-                        <option value="credit">Credit Trips</option>
-                      </select>
+                        <Download className="w-3 h-3" />
+                        Generate
+                      </button>
+
                     </div>
-                    <History className="w-4 h-4 text-emerald-500" />
-                  </div>
-                  <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 300px)' }}>
-                    <table className="w-full text-left border-collapse min-w-max">
-                      <thead className="sticky top-0 bg-slate-900 shadow-md z-10">
-                        <tr className="border-b border-white/10 text-[9px] font-bold text-slate-400 uppercase tracking-widest bg-white/5">
-                          <th className="p-2 border-r border-white/10">FR</th>
-                          <th className="p-2 border-r border-white/10">Date</th>
-                          <th className="p-2 border-r border-white/10">Vehicle</th>
-                          <th className="p-2 border-r border-white/10">Driver Code</th>
-                          <th className="p-2 border-r border-white/10">Trip Ref</th>
-                          <th className="p-2 border-r border-white/10">Payment Type</th>
-                          <th className="p-2 border-r border-white/10 text-right">SC Due Amount</th>
-                          <th className="p-2 text-right">Hire Income</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {(() => {
-                          const parseDateToLocalMs = (dateStr: string | undefined): number => {
-                            if (!dateStr) return 0;
-                            const raw = String(dateStr).split(' ')[0].trim();
-                            if (!raw) return 0;
-                            if (raw.includes('-')) {
-                              const parts = raw.split('-');
-                              if (parts.length === 3) {
-                                if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                                if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
-                              }
-                            }
-                            if (raw.includes('/')) {
-                              const parts = raw.split('/');
-                              if (parts.length === 3) {
-                                if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                                if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
-                              }
-                            }
-                            const d = new Date(raw);
-                            if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-                            return 0;
-                          };
-                          
-                          const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
-                          const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
-
-                          const filteredRecords = (reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || []).filter((t: any) => {
-                            const statusStr = String(t.values[0] || '').toLowerCase();
-                            if (statusStr.includes('cancel')) return false; // Hide cancelled trips
-                            
-                            const purposeStr = String(t.purpose || t.values[5] || '');
-                            if (purposeStr !== 'Hire') return false; // Only Hire purposes
-                            
-                            const paymentTypeStr = String(t.paymentType || 'cash').toLowerCase();
-                            if (recentTripsFilter !== 'All' && paymentTypeStr !== recentTripsFilter.toLowerCase()) return false; // Filter by payment
-                            
-                            if (startMs || endMs !== Infinity) {
-                              const recordMs = t.date ? parseDateToLocalMs(t.date) : 0;
-                              if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
-                            }
-                            
-                            return true;
-                          });
-                          
-                          let totalScDue = 0;
-                          let totalHireIncome = 0;
-
-                          const rows = filteredRecords.map((t: any, i: number) => {
-                            const scDueStr = String(t.values[13] || '0').replace(/[^\d.-]/g, '');
-                            const scDue = Number(scDueStr) || 0;
-                            totalScDue += scDue;
-
-                            const hireIncomeStr = String(t.values[23] || t.finalPrice || '0').replace(/[^\d.-]/g, '');
-                            const hireIncome = Number(hireIncomeStr) || 0;
-                            totalHireIncome += hireIncome;
-
-                            return (
-                            <tr key={i} className="hover:bg-white/5 transition-colors group">
-                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-white whitespace-nowrap">{t.values[1]}</td>
-                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-slate-300 whitespace-nowrap">{t.date ? String(t.date).split(',')[0] : 'N/A'}</td>
-                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-emerald-500 whitespace-nowrap">{t.values[4]}</td>
-                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-blue-400 whitespace-nowrap">{t.values[3]}</td>
-                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-amber-400 whitespace-nowrap">{t.values[12]}</td>
-                              <td className="p-2 border-r border-white/5 text-[10px] font-medium whitespace-nowrap capitalize">
-                                <span className={t.paymentType === 'credit' ? 'text-blue-400' : 'text-emerald-400'}>
-                                  {t.paymentType || 'Cash'}
-                                </span>
-                              </td>
-                              <td className="p-2 border-r border-white/5 text-[10px] font-medium text-purple-400 whitespace-nowrap text-right">Rs. {scDue.toLocaleString()}</td>
-                              <td className="p-2 text-[10px] font-medium text-emerald-400 whitespace-nowrap text-right">Rs. {hireIncome.toLocaleString()}</td>
-                            </tr>
-                          );
-                        });
-                        
-                        return (
-                          <>
-                            {rows}
-                            {rows.length > 0 && (
-                              <tr className="bg-white/10 border-t border-white/20">
-                                <td colSpan={6} className="p-2 border-r border-white/5 text-[11px] font-black text-white text-right tracking-widest uppercase">
-                                  Total
-                                </td>
-                                <td className="p-2 border-r border-white/5 text-[11px] font-black text-amber-400 whitespace-nowrap text-right">
-                                  Rs. {totalScDue.toLocaleString()}
-                                </td>
-                                <td className="p-2 text-[11px] font-black text-emerald-400 whitespace-nowrap text-right">
-                                  Rs. {totalHireIncome.toLocaleString()}
-                                </td>
-                              </tr>
-                            )}
-                          </>
-                        );
-                        })()}
-                      </tbody>
-                    </table>
                   </div>
                 </div>
-              )}
 
-              {/* Tank wise fuel analyzing Report Table */}
-              {reportCategory === 'Tank wise fuel analyzing' && reportFleetData?.tables?.fleetData && (
-                fetchingReportData ? (
-                  <div className="flex flex-col items-center justify-center p-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
-                    <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
-                  </div>
-                ) : (
+                {/* Credit Report Table */}
+                {reportCategory === 'Credit' && reportFleetData?.tables?.fleetData && (
+                  fetchingReportData ? (
+                    <div className="flex flex-col items-center justify-center p-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
+                      <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
+                    </div>
+                  ) : (
+                    <div className="glass-card overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-max">
+                          <thead>
+                            <tr className="border-b border-white/10 text-[11px] font-bold text-white uppercase bg-white/5">
+                              <th className="p-2 border-r border-white/10"></th>
+                              <th className="p-2 border-r border-white/10">*CreditMemoNo</th>
+                              <th className="p-2 border-r border-white/10">*Customer</th>
+                              <th className="p-2 border-r border-white/10">*CreditMemoDate</th>
+                              <th className="p-2 border-r border-white/10">Location</th>
+                              <th className="p-2 border-r border-white/10">Memo</th>
+                              <th className="p-2 border-r border-white/10">Item(Product/Service)</th>
+                              <th className="p-2 border-r border-white/10 min-w-[300px]">ItemDescription</th>
+                              <th className="p-2 border-r border-white/10">ItemQuantity</th>
+                              <th className="p-2 border-r border-white/10">ItemRate</th>
+                              <th className="p-2 border-r border-white/10">*ItemAmount</th>
+                              <th className="p-2">Service Date</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-[12px] text-slate-300">
+                            {reportFleetData.tables.fleetData
+                              .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
+                              .filter((t: any) => {
+                                const parseDateToLocalMs = (dateStr: string | undefined): number => {
+                                  if (!dateStr) return 0;
+                                  const raw = String(dateStr).split(' ')[0].trim();
+                                  if (!raw) return 0;
+                                  if (raw.includes('-')) {
+                                    const parts = raw.split('-');
+                                    if (parts.length === 3) {
+                                      if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                      if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                                    }
+                                  }
+                                  if (raw.includes('/')) {
+                                    const parts = raw.split('/');
+                                    if (parts.length === 3) {
+                                      if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1])).getTime();
+                                      if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                    }
+                                  }
+                                  const d = new Date(raw);
+                                  if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+                                  return 0;
+                                };
+                                const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+                                const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+                                if (!startMs && endMs === Infinity) return true;
+
+                                const tripRef = t.values[12] || '';
+                                let recordMs = 0;
+                                if (tripRef && reportAccountData?.data) {
+                                  const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+                                  if (accMatch) {
+                                    const rawEndDate = accMatch.rawValues[15] || '';
+                                    recordMs = parseDateToLocalMs(rawEndDate);
+                                  }
+                                }
+                                if (!recordMs) return false;
+                                return recordMs >= startMs && recordMs <= endMs;
+                              })
+                              .map((t: any, i: number) => {
+                                const tripRef = t.values[12] || '';
+                                let formattedDate = '';
+                                let pickUp = '';
+                                let dropOff = '';
+                                let scComm = '';
+
+                                if (tripRef && reportAccountData?.data) {
+                                  const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+                                  if (accMatch) {
+                                    const rawEndDate = accMatch.rawValues[15] || '';
+                                    if (rawEndDate) {
+                                      const raw = String(rawEndDate).split(' ')[0];
+                                      const d = new Date(raw);
+                                      if (!isNaN(d.getTime())) {
+                                        formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+                                      } else {
+                                        formattedDate = raw.replace(/\//g, '-');
+                                      }
+                                    }
+                                    pickUp = accMatch.rawValues[24] || '';
+                                    dropOff = accMatch.rawValues[27] || '';
+                                    scComm = String(accMatch.rawValues[3] || '').replace(/Rs\.?\s*/gi, '');
+                                  }
+                                }
+
+                                const description = pickUp && dropOff ? `${pickUp} to ${dropOff}` : pickUp || dropOff || '';
+                                const shortDescription = description.split(' ').length > 6 ? description.split(' ').slice(0, 6).join(' ') + '...' : description;
+
+                                return (
+                                  <tr key={i} className="hover:bg-white/5 transition-colors border-b border-white/5">
+                                    <td className="p-2 border-r border-white/5 text-slate-400">{tripRef}</td>
+                                    <td className="p-2 border-r border-white/5 text-white">{tripRef ? `C${tripRef}` : ''}</td>
+                                    <td className="p-2 border-r border-white/5 text-white">Senu Cabs and Tours</td>
+                                    <td className="p-2 border-r border-white/5 text-center text-white">{formattedDate}</td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5 text-emerald-400">CAB COMMISSION</td>
+                                    <td className="p-2 border-r border-white/5 whitespace-normal text-xs text-white" title={description}>{shortDescription}</td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5 text-right font-bold text-white">{scComm}</td>
+                                    <td className="p-2"></td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )
+                )}
+
+                {/* Invoice Report Table */}
+                {reportCategory === 'Invoice' && reportFleetData?.tables?.fleetData && (
+                  fetchingReportData ? (
+                    <div className="flex flex-col items-center justify-center p-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
+                      <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
+                    </div>
+                  ) : (
+                    <div className="glass-card overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-max">
+                          <thead>
+                            <tr className="border-b border-white/10 text-[11px] font-bold text-white uppercase bg-white/5">
+                              <th className="p-2 border-r border-white/10">*InvoiceNo</th>
+                              <th className="p-2 border-r border-white/10">*Customer</th>
+                              <th className="p-2 border-r border-white/10">*InvoiceDate</th>
+                              <th className="p-2 border-r border-white/10">*DueDate</th>
+                              <th className="p-2 border-r border-white/10">Terms</th>
+                              <th className="p-2 border-r border-white/10">Location</th>
+                              <th className="p-2 border-r border-white/10">Memo</th>
+                              <th className="p-2 border-r border-white/10">Item(Product/Service)</th>
+                              <th className="p-2 border-r border-white/10">ItemDescription</th>
+                              <th className="p-2 border-r border-white/10">ItemQuantity</th>
+                              <th className="p-2 border-r border-white/10">ItemRate</th>
+                              <th className="p-2 border-r border-white/10">*ItemAmount</th>
+                              <th className="p-2">DRIVER COMM</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-[12px] text-slate-300">
+                            {reportFleetData.tables.fleetData
+                              .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
+                              .filter((t: any) => {
+                                const parseDateToLocalMs = (dateStr: string | undefined): number => {
+                                  if (!dateStr) return 0;
+                                  const raw = String(dateStr).split(' ')[0].trim();
+                                  if (!raw) return 0;
+                                  if (raw.includes('-')) {
+                                    const parts = raw.split('-');
+                                    if (parts.length === 3) {
+                                      if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                      if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                                    }
+                                  }
+                                  if (raw.includes('/')) {
+                                    const parts = raw.split('/');
+                                    if (parts.length === 3) {
+                                      if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1])).getTime();
+                                      if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                    }
+                                  }
+                                  const d = new Date(raw);
+                                  if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+                                  return 0;
+                                };
+                                const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+                                const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+                                if (!startMs && endMs === Infinity) return true;
+
+                                const tripRef = t.values[12] || '';
+                                let recordMs = 0;
+                                if (tripRef && reportAccountData?.data) {
+                                  const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+                                  if (accMatch) {
+                                    const rawEndDate = accMatch.rawValues[15] || '';
+                                    recordMs = parseDateToLocalMs(rawEndDate);
+                                  }
+                                }
+                                if (!recordMs) return false;
+                                return recordMs >= startMs && recordMs <= endMs;
+                              })
+                              .map((t: any, i: number) => {
+                                const tripRef = t.values[12] || '';
+                                const vehicleNum = t.values[4] || '';
+                                let formattedDate = '';
+                                let hireAmount = '';
+
+                                const driverCode = t.values[3] || '';
+                                const driverName = adminData.driverNames?.[driverCode] || driverCode;
+                                let customerName = driverName ? `${driverName} - Cash` : '- Cash';
+                                const driverComm = String(t.values[14] || '').replace(/Rs\.?\s*/gi, '');
+
+                                if (tripRef && reportAccountData?.data) {
+                                  const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+                                  if (accMatch) {
+                                    const rawEndDate = accMatch.rawValues[15] || '';
+                                    if (rawEndDate) {
+                                      const raw = String(rawEndDate).split(' ')[0];
+                                      const d = new Date(raw);
+                                      if (!isNaN(d.getTime())) {
+                                        formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+                                      } else {
+                                        formattedDate = raw.replace(/\//g, '-');
+                                      }
+                                    }
+                                    hireAmount = String(accMatch.rawValues[4] || '').replace(/Rs\.?\s*/gi, '');
+
+                                    const hireType = String(accMatch.rawValues[31] || '').trim().toLowerCase();
+                                    if (hireType === 'credit') {
+                                      customerName = 'Senu Cabs and Tours';
+                                    } else if (hireType === 'cash') {
+                                      customerName = driverName ? `${driverName} - Cash` : '- Cash';
+                                    }
+                                  }
+                                }
+
+                                return (
+                                  <tr key={i} className="hover:bg-white/5 transition-colors border-b border-white/5">
+                                    <td className="p-2 border-r border-white/5 text-slate-400">{tripRef}</td>
+                                    <td className="p-2 border-r border-white/5 text-emerald-400">{customerName}</td>
+                                    <td className="p-2 border-r border-white/5 text-center text-white">{formattedDate}</td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5 text-white">{vehicleNum}</td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5"></td>
+                                    <td className="p-2 border-r border-white/5 text-right font-bold text-white">{hireAmount}</td>
+                                    <td className="p-2 text-right font-bold text-rose-400">{driverComm}</td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )
+                )}
+
+                {reportCategory === 'Recent Trips' && (
                   <div className="glass-card overflow-hidden">
                     <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tank wise fuel analyzing</h3>
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Trips</h3>
+                        <select
+                          className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-slate-700 outline-none cursor-pointer uppercase tracking-wider"
+                          value={recentTripsFilter}
+                          onChange={(e) => setRecentTripsFilter(e.target.value)}
+                        >
+                          <option value="All">All Payments</option>
+                          <option value="cash">Cash Trips</option>
+                          <option value="credit">Credit Trips</option>
+                        </select>
                       </div>
-                      <Fuel className="w-4 h-4 text-emerald-500" />
+                      <History className="w-4 h-4 text-emerald-500" />
                     </div>
                     <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 300px)' }}>
                       <table className="w-full text-left border-collapse min-w-max">
@@ -6228,11 +6151,11 @@ export default function FleetApp() {
                             <th className="p-2 border-r border-white/10">FR</th>
                             <th className="p-2 border-r border-white/10">Date</th>
                             <th className="p-2 border-r border-white/10">Vehicle</th>
-                            <th className="p-2 border-r border-white/10 text-right">Fuel Meter</th>
-                            <th className="p-2 border-r border-white/10 text-right">Last Fuel Meter</th>
-                            <th className="p-2 border-r border-white/10 text-right">Fuel Liters</th>
-                            <th className="p-2 border-r border-white/10 text-right">km count</th>
-                            <th className="p-2 text-right">KM/L</th>
+                            <th className="p-2 border-r border-white/10">Driver Code</th>
+                            <th className="p-2 border-r border-white/10">Trip Ref</th>
+                            <th className="p-2 border-r border-white/10">Payment Type</th>
+                            <th className="p-2 border-r border-white/10 text-right">SC Due Amount</th>
+                            <th className="p-2 text-right">Hire Income</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -6259,1724 +6182,1782 @@ export default function FleetApp() {
                               if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
                               return 0;
                             };
-                            
+
                             const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
                             const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
 
-                            const filteredRecords = reportFleetData.tables.fleetData.filter((t: any) => {
+                            const filteredRecords = (reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || []).filter((t: any) => {
                               const statusStr = String(t.values[0] || '').toLowerCase();
-                              if (statusStr.includes('cancel')) return false;
+                              if (statusStr.includes('cancel')) return false; // Hide cancelled trips
 
-                              if (reportVehicleFilter !== 'All' && t.values[4] !== reportVehicleFilter) return false;
+                              const purposeStr = String(t.purpose || t.values[5] || '');
+                              if (purposeStr !== 'Hire') return false; // Only Hire purposes
+
+                              const paymentTypeStr = String(t.paymentType || 'cash').toLowerCase();
+                              if (recentTripsFilter !== 'All' && paymentTypeStr !== recentTripsFilter.toLowerCase()) return false; // Filter by payment
 
                               if (startMs || endMs !== Infinity) {
-                                const endDateVal = t.values?.[7] || t.tripEndDate || t.date;
-                                const recordMs = endDateVal ? parseDateToLocalMs(endDateVal) : 0;
+                                const recordMs = t.date ? parseDateToLocalMs(t.date) : 0;
                                 if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
                               }
-                              
-                              const rawComments = String(t.values[10] || '');
-                              let tempMeter = 0;
-                              const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
-                              if (fuelMatches.length > 0) {
-                                const meterMatch = fuelMatches[fuelMatches.length - 1][1].match(/Meter:\s*([\d.]+)\s*KM/i);
-                                if (meterMatch) tempMeter = Number(meterMatch[1]);
-                              } else {
-                                const oldFuelMatch = rawComments.match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
-                                if (oldFuelMatch) tempMeter = Number(oldFuelMatch[1]);
-                              }
-
-                              if (tempMeter <= 0) return false;
 
                               return true;
                             });
 
-                            return filteredRecords.map((t: any, i: number) => {
-                              const fr = t.values[1] || 'N/A';
-                              const date = t.date ? String(t.date).split(',')[0] : 'N/A';
-                              const vehicle = t.values[4] || 'N/A';
+                            let totalScDue = 0;
+                            let totalHireIncome = 0;
 
-                              let rawComments = String(t.values[10] || '');
-                              let firstFuelMeter = '';
-                              let firstFuelLiters = 0;
+                            const rows = filteredRecords.map((t: any, i: number) => {
+                              const scDueStr = String(t.values[13] || '0').replace(/[^\d.-]/g, '');
+                              const scDue = Number(scDueStr) || 0;
+                              totalScDue += scDue;
 
-                              const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
-                              if (fuelMatches.length > 0) {
-                                const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                                const meterMatch = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                if (meterMatch) firstFuelMeter = meterMatch[1];
-                                const literMatch = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                if (literMatch) firstFuelLiters = Number(literMatch[1]);
-                              } else {
-                                const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-                                const oldFuelMatch = rawComments.match(oldFuelRegex);
-                                if (oldFuelMatch) {
-                                  firstFuelMeter = oldFuelMatch[1];
-                                }
-                              }
-
-                              const secondFuelLiters = Number(String(t.values[26] || '0').replace(/[^\d.-]/g, '')) || 0;
-                              const totalFuelLiters = firstFuelLiters + secondFuelLiters;
-                              
-                              const displayFuelMeter = firstFuelMeter || '0';
-                              const currentMeter = Number(String(displayFuelMeter).replace(/[^\d.-]/g, '')) || 0;
-
-                              let prevFuelMeter = 0;
-                              const fullData = reportFleetData.tables.fleetData;
-                              const currentOriginalIndex = fullData.indexOf(t);
-                              
-                              if (currentOriginalIndex !== -1) {
-                                for (let j = currentOriginalIndex + 1; j < fullData.length; j++) {
-                                  const prevRecord = fullData[j];
-                                  const prevStatus = String(prevRecord.values[0] || '').toLowerCase();
-                                  if (prevStatus.includes('cancel')) continue;
-                                  
-                                  const prevVehicle = prevRecord.values[4] || 'N/A';
-                                  if (prevVehicle === vehicle) {
-                                    let pRawComments = String(prevRecord.values[10] || '');
-                                    let pMeter = 0;
-                                    
-                                    const pFuelMatches: any[] = Array.from(pRawComments.matchAll(/\(Fuel - (.*?)\)/g));
-                                    if (pFuelMatches.length > 0) {
-                                      const pMeterMatch = pFuelMatches[pFuelMatches.length - 1][1].match(/Meter:\s*([\d.]+)\s*KM/i);
-                                      if (pMeterMatch) pMeter = Number(pMeterMatch[1]);
-                                    } else {
-                                      const pOldFuelMatch = pRawComments.match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
-                                      if (pOldFuelMatch) pMeter = Number(pOldFuelMatch[1]);
-                                    }
-                                    
-                                    if (pMeter > 0) {
-                                      prevFuelMeter = pMeter;
-                                      break;
-                                    }
-                                  }
-                                }
-                              }
-
-                              let kmCount = 0;
-                              let kmPerLiter = 0;
-                              
-                              if (currentMeter > 0 && prevFuelMeter > 0 && currentMeter >= prevFuelMeter) {
-                                kmCount = currentMeter - prevFuelMeter;
-                              }
-                              
-                              if (kmCount > 0 && totalFuelLiters > 0) {
-                                kmPerLiter = kmCount / totalFuelLiters;
-                              }
-                              
-                              const displayKmCount = kmCount > 0 ? kmCount.toString() : 'N/A';
-                              const displayKmPerLiter = kmPerLiter > 0 ? kmPerLiter.toFixed(2) : 'N/A';
-                              const displayPrevFuelMeter = prevFuelMeter > 0 ? prevFuelMeter.toString() : 'N/A';
+                              const hireIncomeStr = String(t.values[23] || t.finalPrice || '0').replace(/[^\d.-]/g, '');
+                              const hireIncome = Number(hireIncomeStr) || 0;
+                              totalHireIncome += hireIncome;
 
                               return (
-                                <tr key={i} className="hover:bg-white/5 transition-colors">
-                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-white whitespace-nowrap">{fr}</td>
-                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-slate-300 whitespace-nowrap">{date}</td>
-                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-emerald-500 whitespace-nowrap">{vehicle}</td>
-                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-amber-400 whitespace-nowrap text-right">{displayFuelMeter}</td>
-                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-amber-400/70 whitespace-nowrap text-right">{displayPrevFuelMeter}</td>
-                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-blue-400 whitespace-nowrap text-right">{totalFuelLiters > 0 ? totalFuelLiters.toFixed(2) : '0'}</td>
-                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-blue-400 whitespace-nowrap text-right">{displayKmCount}</td>
-                                  <td className="p-2 text-[10px] font-medium text-emerald-400 whitespace-nowrap text-right">{displayKmPerLiter}</td>
+                                <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-white whitespace-nowrap">{t.values[1]}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-slate-300 whitespace-nowrap">{t.date ? String(t.date).split(',')[0] : 'N/A'}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-emerald-500 whitespace-nowrap">{t.values[4]}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-blue-400 whitespace-nowrap">{t.values[3]}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-amber-400 whitespace-nowrap">{t.values[12]}</td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium whitespace-nowrap capitalize">
+                                    <span className={t.paymentType === 'credit' ? 'text-blue-400' : 'text-emerald-400'}>
+                                      {t.paymentType || 'Cash'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 border-r border-white/5 text-[10px] font-medium text-purple-400 whitespace-nowrap text-right">Rs. {scDue.toLocaleString()}</td>
+                                  <td className="p-2 text-[10px] font-medium text-emerald-400 whitespace-nowrap text-right">Rs. {hireIncome.toLocaleString()}</td>
                                 </tr>
                               );
                             });
+
+                            return (
+                              <>
+                                {rows}
+                                {rows.length > 0 && (
+                                  <tr className="bg-white/10 border-t border-white/20">
+                                    <td colSpan={6} className="p-2 border-r border-white/5 text-[11px] font-black text-white text-right tracking-widest uppercase">
+                                      Total
+                                    </td>
+                                    <td className="p-2 border-r border-white/5 text-[11px] font-black text-amber-400 whitespace-nowrap text-right">
+                                      Rs. {totalScDue.toLocaleString()}
+                                    </td>
+                                    <td className="p-2 text-[11px] font-black text-emerald-400 whitespace-nowrap text-right">
+                                      Rs. {totalHireIncome.toLocaleString()}
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
+                            );
                           })()}
                         </tbody>
                       </table>
                     </div>
                   </div>
-                )
-              )}
-            </motion.div>
-          )}
+                )}
 
-          {adminTab === 'salary' && (
-            <>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-4"
-            >
-              {(() => {
-                const salaryList = adminData?.tables?.salaryData || [];
-                
-                return (
-                  <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
-                      <h3 className="text-white font-semibold flex items-center gap-2">
-                        <Wallet className="w-4 h-4 text-emerald-400" />
-                        Driver Salary
-                      </h3>
-                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{salaryList.length} Records</span>
+                {/* Tank wise fuel analyzing Report Table */}
+                {reportCategory === 'Tank wise fuel analyzing' && reportFleetData?.tables?.fleetData && (
+                  fetchingReportData ? (
+                    <div className="flex flex-col items-center justify-center p-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
+                      <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
                     </div>
-                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-wider">
-                            <th className="p-3 border-r border-white/5 font-medium">Driver Code</th>
-                            <th className="p-3 border-r border-white/5 font-medium">Driver Name</th>
-                            <th className="p-3 border-r border-white/5 font-medium">Month</th>
-                            <th className="p-3 border-r border-white/5 font-medium text-right">Salary Advance</th>
-                            <th className="p-3 border-r border-white/5 font-medium text-right">Shorts</th>
-                            <th className="p-3 border-r border-white/5 font-medium text-right">Excess</th>
-                            <th className="p-3 border-r border-white/5 font-medium text-right">Inclusions</th>
-                            <th className="p-3 border-r border-white/5 font-medium text-right">Exclusions</th>
-                            <th className="p-3 border-r border-white/5 font-medium text-right">Total Driver Comm</th>
-                            <th className="p-3 font-medium text-center w-24">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {salaryList.length === 0 ? (
-                            <tr>
-                              <td colSpan={10} className="p-8 text-center text-slate-500 text-sm">
-                                No salary data available
-                              </td>
-                            </tr>
-                          ) : (
-                            salaryList.map((item: any, idx: number) => (
-                              <React.Fragment key={idx}>
-                                <tr className="hover:bg-white/5 transition-colors">
-                                  <td className="p-3 border-r border-white/5 text-sm font-mono text-slate-400">{item.driverCode}</td>
-                                  <td className="p-3 border-r border-white/5 text-sm text-white font-medium">{item.driverName}</td>
-                                  <td className="p-3 border-r border-white/5 text-sm text-slate-300">{item.month}</td>
-                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-amber-400 text-right">
-                                    {(item.salaryAdvance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-rose-400 text-right">
-                                    {(item.shorts || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-teal-400 text-right">
-                                    {(item.excess || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-blue-400 text-right">
-                                    {(item.inclusions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="p-3 border-r border-white/5 text-sm font-medium text-purple-400 text-right">
-                                    {(item.exclusions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="p-3 border-r border-white/5 text-sm font-bold text-emerald-400 text-right">{item.totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                  <td className="p-3 text-center">
-                                    <div className="flex items-center justify-center gap-2">
-                                      <button 
-                                        onClick={() => handleOpenAdjustmentModal(item)}
-                                        className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-slate-950 rounded text-xs font-medium transition-colors border border-amber-500/20 flex items-center gap-1"
-                                        title="Edit Advance & Shorts"
-                                      >
-                                        <Edit className="w-3 h-3" />
-                                        Edit
-                                      </button>
-                                      <button 
-                                        onClick={() => setExpandedSalaryGroup(expandedSalaryGroup === item.key ? null : item.key)}
-                                        className="px-3 py-1 bg-white/5 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 rounded text-xs font-medium transition-colors border border-white/10 hover:border-emerald-500/30"
-                                      >
-                                        View
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              </React.Fragment>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-              })()}
-            </motion.div>
-
-            <AnimatePresence>
-              {expandedSalaryGroup && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-                >
-                  <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.95, opacity: 0 }}
-                    className="bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] ring-1 ring-emerald-500/20"
-                  >
-                    <div className="p-6 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-slate-800/80 to-slate-900/80 relative overflow-hidden">
-                      <div className="absolute inset-0 bg-emerald-500/5 blur-3xl rounded-full translate-x-[-20%] translate-y-[-50%] w-full h-full opacity-50"></div>
-                      <div className="relative z-10 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                          <Wallet className="w-6 h-6 text-emerald-400" />
+                  ) : (
+                    <div className="glass-card overflow-hidden">
+                      <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tank wise fuel analyzing</h3>
                         </div>
-                        <div>
-                          <h3 className="text-white font-black text-xl tracking-wide flex items-center gap-3">
-                            <span className="text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-lg text-sm">
-                              {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.driverCode}
-                            </span>
-                            {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.driverName}
-                          </h3>
-                          <p className="text-slate-400 text-sm font-medium mt-1 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            Salary Month: <span className="text-white font-bold">
-                              {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.month}
-                            </span>
-                          </p>
-                        </div>
+                        <Fuel className="w-4 h-4 text-emerald-500" />
                       </div>
-                      <div className="relative z-10 flex items-center gap-3">
-                        <button
-                          onClick={() => {
-                            const currentItem = (adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup);
-                            if (currentItem) handleExportPaysheetPDF(currentItem);
-                          }}
-                          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
-                          title="Download Driver Paysheet A4 PDF"
-                        >
-                          <Download className="w-4 h-4" />
-                          DOWNLOAD PDF
-                        </button>
-                        <button 
-                          onClick={() => setExpandedSalaryGroup(null)}
-                          className="p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition-all border border-white/5 hover:border-rose-500/30"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="overflow-y-auto p-6 flex-1 bg-slate-900/40">
-                      <div className="border border-white/10 rounded-xl overflow-hidden bg-slate-800/20 shadow-inner">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-slate-800/50 text-[11px] text-slate-400 uppercase tracking-widest border-b border-white/10">
-                              <th className="p-4 border-r border-white/5 font-black">Hire Ref</th>
-                              <th className="p-4 border-r border-white/5 font-black">Trip End Date</th>
-                              <th className="p-4 text-right font-black text-emerald-500">Driver Comm</th>
+                      <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+                        <table className="w-full text-left border-collapse min-w-max">
+                          <thead className="sticky top-0 bg-slate-900 shadow-md z-10">
+                            <tr className="border-b border-white/10 text-[9px] font-bold text-slate-400 uppercase tracking-widest bg-white/5">
+                              <th className="p-2 border-r border-white/10">FR</th>
+                              <th className="p-2 border-r border-white/10">Date</th>
+                              <th className="p-2 border-r border-white/10">Vehicle</th>
+                              <th className="p-2 border-r border-white/10 text-right">Fuel Meter</th>
+                              <th className="p-2 border-r border-white/10 text-right">Last Fuel Meter</th>
+                              <th className="p-2 border-r border-white/10 text-right">Fuel Liters</th>
+                              <th className="p-2 border-r border-white/10 text-right">km count</th>
+                              <th className="p-2 text-right">KM/L</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-white/5 text-sm">
-                            {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.trips.map((trip: any, tIdx: number) => (
-                              <tr key={tIdx} className="hover:bg-white/5 transition-colors group">
-                                <td className="p-4 border-r border-white/5 font-mono text-emerald-400/80 group-hover:text-emerald-300 transition-colors">{trip.tripRef || '-'}</td>
-                                <td className="p-4 border-r border-white/5 text-slate-300 font-medium">{trip.tripEndDate || '-'}</td>
-                                <td className="p-4 text-right font-bold text-emerald-400 bg-emerald-500/5">{trip.comm || '0'}</td>
-                              </tr>
-                            ))}
+                          <tbody className="divide-y divide-white/5">
+                            {(() => {
+                              const parseDateToLocalMs = (dateStr: string | undefined): number => {
+                                if (!dateStr) return 0;
+                                const raw = String(dateStr).split(' ')[0].trim();
+                                if (!raw) return 0;
+                                if (raw.includes('-')) {
+                                  const parts = raw.split('-');
+                                  if (parts.length === 3) {
+                                    if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                    if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                                  }
+                                }
+                                if (raw.includes('/')) {
+                                  const parts = raw.split('/');
+                                  if (parts.length === 3) {
+                                    if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                                    if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+                                  }
+                                }
+                                const d = new Date(raw);
+                                if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+                                return 0;
+                              };
+
+                              const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
+                              const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
+
+                              const filteredRecords = reportFleetData.tables.fleetData.filter((t: any) => {
+                                const statusStr = String(t.values[0] || '').toLowerCase();
+                                if (statusStr.includes('cancel')) return false;
+
+                                if (reportVehicleFilter !== 'All' && t.values[4] !== reportVehicleFilter) return false;
+
+                                if (startMs || endMs !== Infinity) {
+                                  const endDateVal = t.values?.[7] || t.tripEndDate || t.date;
+                                  const recordMs = endDateVal ? parseDateToLocalMs(endDateVal) : 0;
+                                  if (!recordMs || recordMs < startMs || recordMs > endMs) return false;
+                                }
+
+                                const rawComments = String(t.values[10] || '');
+                                let tempMeter = 0;
+                                const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                if (fuelMatches.length > 0) {
+                                  const meterMatch = fuelMatches[fuelMatches.length - 1][1].match(/Meter:\s*([\d.]+)\s*KM/i);
+                                  if (meterMatch) tempMeter = Number(meterMatch[1]);
+                                } else {
+                                  const oldFuelMatch = rawComments.match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
+                                  if (oldFuelMatch) tempMeter = Number(oldFuelMatch[1]);
+                                }
+
+                                if (tempMeter <= 0) return false;
+
+                                return true;
+                              });
+
+                              return filteredRecords.map((t: any, i: number) => {
+                                const fr = t.values[1] || 'N/A';
+                                const date = t.date ? String(t.date).split(',')[0] : 'N/A';
+                                const vehicle = t.values[4] || 'N/A';
+
+                                let rawComments = String(t.values[10] || '');
+                                let firstFuelMeter = '';
+                                let firstFuelLiters = 0;
+
+                                const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                if (fuelMatches.length > 0) {
+                                  const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+                                  const meterMatch = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                  if (meterMatch) firstFuelMeter = meterMatch[1];
+                                  const literMatch = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                  if (literMatch) firstFuelLiters = Number(literMatch[1]);
+                                } else {
+                                  const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                                  const oldFuelMatch = rawComments.match(oldFuelRegex);
+                                  if (oldFuelMatch) {
+                                    firstFuelMeter = oldFuelMatch[1];
+                                  }
+                                }
+
+                                const secondFuelLiters = Number(String(t.values[26] || '0').replace(/[^\d.-]/g, '')) || 0;
+                                const totalFuelLiters = firstFuelLiters + secondFuelLiters;
+
+                                const displayFuelMeter = firstFuelMeter || '0';
+                                const currentMeter = Number(String(displayFuelMeter).replace(/[^\d.-]/g, '')) || 0;
+
+                                let prevFuelMeter = 0;
+                                const fullData = reportFleetData.tables.fleetData;
+                                const currentOriginalIndex = fullData.indexOf(t);
+
+                                if (currentOriginalIndex !== -1) {
+                                  for (let j = currentOriginalIndex + 1; j < fullData.length; j++) {
+                                    const prevRecord = fullData[j];
+                                    const prevStatus = String(prevRecord.values[0] || '').toLowerCase();
+                                    if (prevStatus.includes('cancel')) continue;
+
+                                    const prevVehicle = prevRecord.values[4] || 'N/A';
+                                    if (prevVehicle === vehicle) {
+                                      let pRawComments = String(prevRecord.values[10] || '');
+                                      let pMeter = 0;
+
+                                      const pFuelMatches: any[] = Array.from(pRawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                      if (pFuelMatches.length > 0) {
+                                        const pMeterMatch = pFuelMatches[pFuelMatches.length - 1][1].match(/Meter:\s*([\d.]+)\s*KM/i);
+                                        if (pMeterMatch) pMeter = Number(pMeterMatch[1]);
+                                      } else {
+                                        const pOldFuelMatch = pRawComments.match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
+                                        if (pOldFuelMatch) pMeter = Number(pOldFuelMatch[1]);
+                                      }
+
+                                      if (pMeter > 0) {
+                                        prevFuelMeter = pMeter;
+                                        break;
+                                      }
+                                    }
+                                  }
+                                }
+
+                                let kmCount = 0;
+                                let kmPerLiter = 0;
+
+                                if (currentMeter > 0 && prevFuelMeter > 0 && currentMeter >= prevFuelMeter) {
+                                  kmCount = currentMeter - prevFuelMeter;
+                                }
+
+                                if (kmCount > 0 && totalFuelLiters > 0) {
+                                  kmPerLiter = kmCount / totalFuelLiters;
+                                }
+
+                                const displayKmCount = kmCount > 0 ? kmCount.toString() : 'N/A';
+                                const displayKmPerLiter = kmPerLiter > 0 ? kmPerLiter.toFixed(2) : 'N/A';
+                                const displayPrevFuelMeter = prevFuelMeter > 0 ? prevFuelMeter.toString() : 'N/A';
+
+                                return (
+                                  <tr key={i} className="hover:bg-white/5 transition-colors">
+                                    <td className="p-2 border-r border-white/5 text-[10px] font-medium text-white whitespace-nowrap">{fr}</td>
+                                    <td className="p-2 border-r border-white/5 text-[10px] font-medium text-slate-300 whitespace-nowrap">{date}</td>
+                                    <td className="p-2 border-r border-white/5 text-[10px] font-medium text-emerald-500 whitespace-nowrap">{vehicle}</td>
+                                    <td className="p-2 border-r border-white/5 text-[10px] font-medium text-amber-400 whitespace-nowrap text-right">{displayFuelMeter}</td>
+                                    <td className="p-2 border-r border-white/5 text-[10px] font-medium text-amber-400/70 whitespace-nowrap text-right">{displayPrevFuelMeter}</td>
+                                    <td className="p-2 border-r border-white/5 text-[10px] font-medium text-blue-400 whitespace-nowrap text-right">{totalFuelLiters > 0 ? totalFuelLiters.toFixed(2) : '0'}</td>
+                                    <td className="p-2 border-r border-white/5 text-[10px] font-medium text-blue-400 whitespace-nowrap text-right">{displayKmCount}</td>
+                                    <td className="p-2 text-[10px] font-medium text-emerald-400 whitespace-nowrap text-right">{displayKmPerLiter}</td>
+                                  </tr>
+                                );
+                              });
+                            })()}
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                  )
+                )}
+              </motion.div>
+            )}
 
-                      {/* Salary Calculation Breakdown */}
-                      {(() => {
-                        const currentItem = (adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup);
-                        if (!currentItem) return null;
+            {adminTab === 'salary' && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4"
+                >
+                  {(() => {
+                    const salaryList = adminData?.tables?.salaryData || [];
 
-                        const baseComm = currentItem.baseComm !== undefined ? currentItem.baseComm : (currentItem.trips || []).reduce((sum: number, t: any) => sum + (parseFloat(String(t.comm).replace(/[^\d.-]/g, '')) || 0), 0);
-                        const salaryAdvance = currentItem.salaryAdvance || 0;
-                        const shorts = currentItem.shorts || 0;
-                        const excess = currentItem.excess || 0;
-                        const inclusions = currentItem.inclusions || 0;
-                        const exclusions = currentItem.exclusions || 0;
-                        const totalComm = currentItem.totalComm !== undefined ? currentItem.totalComm : (baseComm - salaryAdvance - shorts + excess + inclusions - exclusions);
+                    return (
+                      <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+                        <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
+                          <h3 className="text-white font-semibold flex items-center gap-2">
+                            <Wallet className="w-4 h-4 text-emerald-400" />
+                            Driver Salary
+                          </h3>
+                          <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">{salaryList.length} Records</span>
+                        </div>
+                        <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-wider">
+                                <th className="p-3 border-r border-white/5 font-medium">Driver Code</th>
+                                <th className="p-3 border-r border-white/5 font-medium">Driver Name</th>
+                                <th className="p-3 border-r border-white/5 font-medium">Month</th>
+                                <th className="p-3 border-r border-white/5 font-medium text-right">Salary Advance</th>
+                                <th className="p-3 border-r border-white/5 font-medium text-right">Shorts</th>
+                                <th className="p-3 border-r border-white/5 font-medium text-right">Excess</th>
+                                <th className="p-3 border-r border-white/5 font-medium text-right">Inclusions</th>
+                                <th className="p-3 border-r border-white/5 font-medium text-right">Exclusions</th>
+                                <th className="p-3 border-r border-white/5 font-medium text-right">Total Driver Comm</th>
+                                <th className="p-3 font-medium text-center w-24">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {salaryList.length === 0 ? (
+                                <tr>
+                                  <td colSpan={10} className="p-8 text-center text-slate-500 text-sm">
+                                    No salary data available
+                                  </td>
+                                </tr>
+                              ) : (
+                                salaryList.map((item: any, idx: number) => (
+                                  <React.Fragment key={idx}>
+                                    <tr className="hover:bg-white/5 transition-colors">
+                                      <td className="p-3 border-r border-white/5 text-sm font-mono text-slate-400">{item.driverCode}</td>
+                                      <td className="p-3 border-r border-white/5 text-sm text-white font-medium">{item.driverName}</td>
+                                      <td className="p-3 border-r border-white/5 text-sm text-slate-300">{item.month}</td>
+                                      <td className="p-3 border-r border-white/5 text-sm font-medium text-amber-400 text-right">
+                                        {(item.salaryAdvance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="p-3 border-r border-white/5 text-sm font-medium text-rose-400 text-right">
+                                        {(item.shorts || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="p-3 border-r border-white/5 text-sm font-medium text-teal-400 text-right">
+                                        {(item.excess || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="p-3 border-r border-white/5 text-sm font-medium text-blue-400 text-right">
+                                        {(item.inclusions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="p-3 border-r border-white/5 text-sm font-medium text-purple-400 text-right">
+                                        {(item.exclusions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="p-3 border-r border-white/5 text-sm font-bold text-emerald-400 text-right">{item.totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                      <td className="p-3 text-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                          <button
+                                            onClick={() => handleOpenAdjustmentModal(item)}
+                                            className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-slate-950 rounded text-xs font-medium transition-colors border border-amber-500/20 flex items-center gap-1"
+                                            title="Edit Advance & Shorts"
+                                          >
+                                            <Edit className="w-3 h-3" />
+                                            Edit
+                                          </button>
+                                          <button
+                                            onClick={() => setExpandedSalaryGroup(expandedSalaryGroup === item.key ? null : item.key)}
+                                            className="px-3 py-1 bg-white/5 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 rounded text-xs font-medium transition-colors border border-white/10 hover:border-emerald-500/30"
+                                          >
+                                            View
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  </React.Fragment>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </motion.div>
 
-                        return (
-                          <div className="mt-6 p-4 rounded-xl bg-slate-800/40 border border-white/10 space-y-3">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-white/5 pb-2">
-                              Salary Calculation Breakdown
-                            </h4>
-                            <div className="space-y-2 text-sm font-sans">
-                              <div className="flex justify-between items-center text-slate-300">
-                                <span>Sum of Trip Commissions</span>
-                                <span className="font-mono font-bold text-emerald-400">Rs. {baseComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-slate-300">
-                                <span className="text-slate-400 font-medium">(-) Salary Advance</span>
-                                <span className="font-mono font-bold text-amber-400">- Rs. {salaryAdvance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-slate-300">
-                                <span className="text-slate-400 font-medium">(-) Shorts</span>
-                                <span className="font-mono font-bold text-rose-400">- Rs. {shorts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-slate-300">
-                                <span className="text-slate-400 font-medium">(+) Excess</span>
-                                <span className="font-mono font-bold text-teal-400">+ Rs. {excess.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-slate-300">
-                                <span className="text-slate-400 font-medium flex items-center gap-1.5">
-                                  (+) Inclusions
-                                  {currentItem.comment && (
-                                    <span className="text-xs text-blue-300/80 italic font-normal">({currentItem.comment})</span>
-                                  )}
+                <AnimatePresence>
+                  {expandedSalaryGroup && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    >
+                      <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        className="bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] ring-1 ring-emerald-500/20"
+                      >
+                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-slate-800/80 to-slate-900/80 relative overflow-hidden">
+                          <div className="absolute inset-0 bg-emerald-500/5 blur-3xl rounded-full translate-x-[-20%] translate-y-[-50%] w-full h-full opacity-50"></div>
+                          <div className="relative z-10 flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                              <Wallet className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            <div>
+                              <h3 className="text-white font-black text-xl tracking-wide flex items-center gap-3">
+                                <span className="text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-lg text-sm">
+                                  {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.driverCode}
                                 </span>
-                                <span className="font-mono font-bold text-blue-400">+ Rs. {inclusions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-slate-300">
-                                <span className="text-slate-400 font-medium flex items-center gap-1.5">
-                                  (-) Exclusions
-                                  {currentItem.exclusionsComment && (
-                                    <span className="text-xs text-purple-300/80 italic font-normal">({currentItem.exclusionsComment})</span>
-                                  )}
+                                {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.driverName}
+                              </h3>
+                              <p className="text-slate-400 text-sm font-medium mt-1 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                Salary Month: <span className="text-white font-bold">
+                                  {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.month}
                                 </span>
-                                <span className="font-mono font-bold text-purple-400">- Rs. {exclusions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                              </div>
-                              <div className="pt-2 border-t border-white/10 flex justify-between items-center text-base font-black">
-                                <span className="text-white uppercase tracking-wider">Total Driver Commission</span>
-                                <span className="font-mono font-bold text-emerald-400 text-lg">Rs. {totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                              </div>
+                              </p>
                             </div>
                           </div>
-                        );
-                      })()}
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-             </AnimatePresence>
-
-            {/* Driver Salary Advance & Shorts Edit Modal */}
-            <AnimatePresence>
-              {showAdjustmentModal && selectedAdjustmentItem && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                    className="glass-card p-6 w-full max-w-md space-y-6 border-amber-500/20 bg-slate-900/95 shadow-2xl rounded-2xl relative overflow-hidden"
-                  >
-                    <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                          <Wallet className="w-5 h-5 text-amber-400" />
+                          <div className="relative z-10 flex items-center gap-3">
+                            <button
+                              onClick={() => {
+                                const currentItem = (adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup);
+                                if (currentItem) handleExportPaysheetPDF(currentItem);
+                              }}
+                              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                              title="Download Driver Paysheet A4 PDF"
+                            >
+                              <Download className="w-4 h-4" />
+                              DOWNLOAD PDF
+                            </button>
+                            <button
+                              onClick={() => setExpandedSalaryGroup(null)}
+                              className="p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition-all border border-white/5 hover:border-rose-500/30"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-base font-black text-white flex items-center gap-2">
-                            Update Salary Adjustments
-                          </h3>
-                          <p className="text-xs text-slate-400 font-medium mt-0.5">
-                            {selectedAdjustmentItem.driverName} ({selectedAdjustmentItem.driverCode}) • {selectedAdjustmentItem.month}
-                          </p>
+                        <div className="overflow-y-auto p-6 flex-1 bg-slate-900/40">
+                          <div className="border border-white/10 rounded-xl overflow-hidden bg-slate-800/20 shadow-inner">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-800/50 text-[11px] text-slate-400 uppercase tracking-widest border-b border-white/10">
+                                  <th className="p-4 border-r border-white/5 font-black">Hire Ref</th>
+                                  <th className="p-4 border-r border-white/5 font-black">Trip End Date</th>
+                                  <th className="p-4 text-right font-black text-emerald-500">Driver Comm</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5 text-sm">
+                                {(adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup)?.trips.map((trip: any, tIdx: number) => (
+                                  <tr key={tIdx} className="hover:bg-white/5 transition-colors group">
+                                    <td className="p-4 border-r border-white/5 font-mono text-emerald-400/80 group-hover:text-emerald-300 transition-colors">{trip.tripRef || '-'}</td>
+                                    <td className="p-4 border-r border-white/5 text-slate-300 font-medium">{trip.tripEndDate || '-'}</td>
+                                    <td className="p-4 text-right font-bold text-emerald-400 bg-emerald-500/5">{trip.comm || '0'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Salary Calculation Breakdown */}
+                          {(() => {
+                            const currentItem = (adminData?.tables?.salaryData || []).find((i: any) => i.key === expandedSalaryGroup);
+                            if (!currentItem) return null;
+
+                            const baseComm = currentItem.baseComm !== undefined ? currentItem.baseComm : (currentItem.trips || []).reduce((sum: number, t: any) => sum + (parseFloat(String(t.comm).replace(/[^\d.-]/g, '')) || 0), 0);
+                            const salaryAdvance = currentItem.salaryAdvance || 0;
+                            const shorts = currentItem.shorts || 0;
+                            const excess = currentItem.excess || 0;
+                            const inclusions = currentItem.inclusions || 0;
+                            const exclusions = currentItem.exclusions || 0;
+                            const totalComm = currentItem.totalComm !== undefined ? currentItem.totalComm : (baseComm - salaryAdvance - shorts + excess + inclusions - exclusions);
+
+                            return (
+                              <div className="mt-6 p-4 rounded-xl bg-slate-800/40 border border-white/10 space-y-3">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-white/5 pb-2">
+                                  Salary Calculation Breakdown
+                                </h4>
+                                <div className="space-y-2 text-sm font-sans">
+                                  <div className="flex justify-between items-center text-slate-300">
+                                    <span>Sum of Trip Commissions</span>
+                                    <span className="font-mono font-bold text-emerald-400">Rs. {baseComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-slate-300">
+                                    <span className="text-slate-400 font-medium">(-) Salary Advance</span>
+                                    <span className="font-mono font-bold text-amber-400">- Rs. {salaryAdvance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-slate-300">
+                                    <span className="text-slate-400 font-medium">(-) Shorts</span>
+                                    <span className="font-mono font-bold text-rose-400">- Rs. {shorts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-slate-300">
+                                    <span className="text-slate-400 font-medium">(+) Excess</span>
+                                    <span className="font-mono font-bold text-teal-400">+ Rs. {excess.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-slate-300">
+                                    <span className="text-slate-400 font-medium flex items-center gap-1.5">
+                                      (+) Inclusions
+                                      {currentItem.comment && (
+                                        <span className="text-xs text-blue-300/80 italic font-normal">({currentItem.comment})</span>
+                                      )}
+                                    </span>
+                                    <span className="font-mono font-bold text-blue-400">+ Rs. {inclusions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-slate-300">
+                                    <span className="text-slate-400 font-medium flex items-center gap-1.5">
+                                      (-) Exclusions
+                                      {currentItem.exclusionsComment && (
+                                        <span className="text-xs text-purple-300/80 italic font-normal">({currentItem.exclusionsComment})</span>
+                                      )}
+                                    </span>
+                                    <span className="font-mono font-bold text-purple-400">- Rs. {exclusions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="pt-2 border-t border-white/10 flex justify-between items-center text-base font-black">
+                                    <span className="text-white uppercase tracking-wider">Total Driver Commission</span>
+                                    <span className="font-mono font-bold text-emerald-400 text-lg">Rs. {totalComm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
-                      </div>
-                      <button
-                        onClick={() => setShowAdjustmentModal(false)}
-                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/5"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
-                          Salary Advance (Rs.)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-amber-500 focus:outline-none rounded-xl font-mono"
-                          placeholder="Enter advance amount..."
-                          value={adjAdvance}
-                          onChange={(e) => setAdjAdvance(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-2">
-                          Shorts (Rs.)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-rose-500 focus:outline-none rounded-xl font-mono"
-                          placeholder="Enter shorts amount..."
-                          value={adjShorts}
-                          onChange={(e) => setAdjShorts(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                          Excess (Rs.)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-teal-500 focus:outline-none rounded-xl font-mono"
-                          placeholder="Enter excess amount..."
-                          value={adjExcess}
-                          onChange={(e) => setAdjExcess(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                          Inclusions (Rs.)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-blue-500 focus:outline-none rounded-xl font-mono"
-                          placeholder="Enter inclusions amount..."
-                          value={adjInclusions}
-                          onChange={(e) => setAdjInclusions(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                          Inclusions Comment / Reason
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-emerald-500 focus:outline-none rounded-xl"
-                          placeholder="e.g. Festival Bonus, Special Allowance..."
-                          value={adjComment}
-                          onChange={(e) => setAdjComment(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
-                          Exclusions (Rs.)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-purple-500 focus:outline-none rounded-xl font-mono"
-                          placeholder="Enter exclusions amount..."
-                          value={adjExclusions}
-                          onChange={(e) => setAdjExclusions(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                          Exclusions Comment / Reason
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-purple-500 focus:outline-none rounded-xl"
-                          placeholder="e.g. Damage Penalty, Loan Deduction..."
-                          value={adjExclusionsComment}
-                          onChange={(e) => setAdjExclusionsComment(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowAdjustmentModal(false)}
-                        disabled={savingAdjustment}
-                        className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all font-bold text-xs uppercase tracking-wider"
-                      >
-                        CANCEL
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveAdjustment}
-                        disabled={savingAdjustment}
-                        className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
-                      >
-                        {savingAdjustment ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            SAVING...
-                          </>
-                        ) : (
-                          'SAVE ADJUSTMENTS'
-                        )}
-                      </button>
-                    </div>
-                  </motion.div>
-                </div>
-              )}
-            </AnimatePresence>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Alert Component */}
-      <AnimatePresence>
-        {alert && stage !== 'dashboard' && stage !== 'new' && stage !== 'update' && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className={cn(
-              "p-4 rounded-2xl mb-6 flex items-center gap-3 border shadow-lg",
-              alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
-              alert.type === 'warning' && "bg-amber-500/10 border-amber-500/20 text-amber-400",
-              alert.type === 'error' && "bg-rose-500/10 border-rose-500/20 text-rose-400"
-            )}
-          >
-            {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-            <p className="text-sm font-medium">{alert.message}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Form Content */}
-      <AnimatePresence>
-        {stage !== 'dashboard' && stage !== 'admin' && (
-          <div className="max-w-md mx-auto">
-            <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
-              <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            {stage === 'last-trip' && (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-4">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center block">Select FR Number (Last 10)</label>
-                <select
-                  className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
-                  value={currentRef || ''}
-                  onChange={(e) => handleFrRefChange(e.target.value)}
-                >
-                  <option value="" disabled>Select FR Reference</option>
-                  {historyFrRefs?.map((ref, idx) => (
-                    <option key={`${ref}-${idx}`} value={ref}>{ref}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {stage === 'salary' && (
-              <div className="space-y-6">
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-4">
-                  <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
-                    <IdCard className="w-5 h-5 text-emerald-500" />
-                    Salary Period
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Year</label>
-                      <select
-                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 rounded-xl px-4 text-sm"
-                        value={salaryYear}
-                        onChange={(e) => setSalaryYear(e.target.value)}
-                      >
-                        {[2024, 2025, 2026, 2027].map(y => (
-                          <option key={y} value={y}>{y}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Month</label>
-                      <select
-                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 rounded-xl px-4 text-sm"
-                        value={salaryMonth}
-                        onChange={(e) => setSalaryMonth(e.target.value)}
-                      >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                          <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Summary Card */}
-                {salaryData.length > 0 && (
-                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 bg-emerald-500/10 border-emerald-500/20">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-8">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block">Salary</span>
-                          <span className="text-3xl font-black text-slate-900">Rs. {totalSalary.toLocaleString()}</span>
-                        </div>
-                        <div className="w-px h-10 bg-slate-200" />
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Hire Count</span>
-                          <span className="text-2xl font-bold text-slate-900">{salaryData.length} <span className="text-xs font-normal text-slate-500">Trips</span></span>
-                        </div>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter italic">
-                          {new Date(2000, parseInt(salaryMonth) - 1).toLocaleString('default', { month: 'short' })} {salaryYear}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Trip Table */}
-                {salaryData.length > 0 && (
-                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
-                    <div className="p-4 border-b border-slate-200 bg-white">
-                      <div className="grid grid-cols-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        <span>Trip Reference</span>
-                        <span>Date</span>
-                        <span className="text-right">Salary (Rs)</span>
-                      </div>
-                    </div>
-                    <div className="divide-y divide-white/5 max-h-[400px] overflow-y-auto">
-                      {salaryData.map((item, idx) => (
-                        <div key={idx} className="p-4 grid grid-cols-3 items-center border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold shadow-sm rounded-3xl cursor-pointer">
-                          <span className="text-xs font-bold text-slate-900">{item.tripRef}</span>
-                          <span className="text-[10px] text-slate-500">{item.date?.split(' ')[0]}</span>
-                          <span className="text-xs font-bold text-emerald-400 text-right">{item.salary.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {salaryData.length === 0 && !fetchingSalary && (
-                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-12 text-center border-dashed border-slate-200">
-                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mx-auto mb-4">
-                      <IdCard className="w-8 h-8 text-emerald-500/50" />
-                    </div>
-                    <p className="text-slate-500 text-sm font-medium">
-                      No hire commissions found for this period.
-                    </p>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => {
-                    setStage('dashboard');
-                    setSalaryData([]);
-                    setTotalSalary(0);
-                  }}
-                  className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer"
-                >
-                  Back to Dashboard
-                </button>
-              </div>
-            )}
-
-            {stage === 'last-trip' && !currentRef && (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-12 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border border-slate-200">
-                  <MapPin className="w-10 h-10 text-purple-500" />
-                </div>
-                <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wider">
-                  Last Trip Details
-                </h2>
-                <p className="text-slate-500 text-sm max-w-xs">
-                  Please select a reference number above to view trip details.
-                </p>
-                <button
-                  onClick={() => window.history.back()}
-                  className="mt-6 px-8 py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-sm font-extrabold shadow-sm cursor-pointer"
-                >
-                  GO BACK
-                </button>
-              </div>
-            )}
-            {stage === 'last-trip' && currentRef && (
-              <div className="space-y-6">
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 border-purple-500/30 bg-purple-500/5">
-                  <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-6">
-                    <ClipboardCheck className="w-6 h-6 text-purple-500" />
-                    Detailed Trip Report: {currentRef}
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    {[
-                      { label: 'Start Timestamp', value: formData.startTs },
-                      { label: 'End Timestamp', value: formData.endTs },
-                      { label: 'Vehicle Number', value: formData.vehicle },
-                      { label: 'Purpose', value: formData.purpose },
-                      { label: 'Trip Reference', value: formData.tripRef },
-                      { label: 'Garage Start', value: `${formData.garageStartMeter} KM` },
-                      { label: 'Garage End', value: `${formData.garageEndMeter} KM` },
-                      { label: 'Trip Start', value: `${formData.tripStartMeter} KM` },
-                      { label: 'Trip End', value: `${formData.tripEndMeter} KM` },
-                      { label: 'Pkg Balance', value: `${formData.pkgBalanceMileage} KM` },
-                      { label: 'Loss (Start)', value: `${formData.startLossMileage} KM` },
-                      { label: 'Loss (End)', value: `${formData.endLossMileage} KM` },
-                      { label: 'Total Mileage', value: `${formData.totalMileage} KM` },
-                      { label: 'Fuel Cost', value: `Rs. ${formData.fuelCost}` },
-                      { label: '2nd Fuel Cost', value: `Rs. ${formData.secondFuelCost}` },
-                      { label: 'Repair Cost', value: `Rs. ${formData.repairCost}` },
-                      { label: 'SC Due', value: `Rs. ${formData.scDueAmount}`, highlight: true },
-                      { label: 'Driver Comms', value: `Rs. ${formData.drvComms}`, highlight: true },
-                      { label: 'Final Price', value: `Rs. ${formData.finalPrice}`, highlight: true },
-                    ].map((item, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{item.label}</p>
-                        <p className={cn("text-sm font-bold", item.highlight ? "text-purple-400" : "text-slate-900")}>
-                          {item.value || 'N/A'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {formData.comments && (
-                    <div className="mt-8 pt-6 border-t border-slate-100">
-                      <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">Comments / Remarks</p>
-                      <p className="text-sm text-slate-600 italic leading-relaxed">"{formData.comments}"</p>
-                    </div>
-                  )}
-
-                  <div className="mt-8">
-                    <button
-                      onClick={() => {
-                        setCurrentRef(null);
-                        setFormData({
-                          vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '',
-                          tripRef: '', tripStartMeter: '', tripEndMeter: '', fuelCost: '', secondFuelCost: '',
-                          repairCost: '', comments: '', scDueAmount: '', drvComms: '',
-                          startLossMileage: '', endLossMileage: '', pkgBalanceMileage: '',
-                          tripPrice: '', totalMileage: '', finalPrice: '', startTs: '', endTs: ''
-                        });
-                      }}
-                      className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer"
-                    >
-                      Close Report
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* FR Reference Selection (Update Stage) */}
-            {stage === 'update' && (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-4">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Select Reference</label>
-                <select
-                  className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
-                  value={currentRef || ''}
-                  onChange={(e) => handleFrRefChange(e.target.value)}
-                >
-                  <option value="" disabled>Select FR Reference</option>
-                  {frRefs?.map((ref, idx) => (
-                    <option key={`${ref}-${idx}`} value={ref}>{ref}</option>
-                  ))}
-                </select>
-                {!currentRef && (
-                  <button
-                    onClick={() => setStage('dashboard')}
-                    className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer"
-                  >
-                    Back to Dashboard
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Core Details Card */}
-            {(currentRef || stage === 'new') && stage !== 'last-trip' && stage !== 'salary' && stage !== 'contact-office' && (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6">
-                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
-                  <Car className="w-5 h-5 text-emerald-500" />
-                  Vehicle & Purpose
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Vehicle</label>
-                    <select
-                      id="vehicle"
-                      disabled={stage === 'update'}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
-                      value={formData.vehicle}
-                      onChange={handleInputChange}
-                    >
-                      <option value="">Select</option>
-                      {options?.vehicles?.map((v, idx) => <option key={`${v}-${idx}`} value={v}>{v}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Purpose</label>
-                    <select
-                      id="purpose"
-                      disabled={stage === 'update'}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
-                      value={formData.purpose}
-                      onChange={handleInputChange}
-                    >
-                      <option value="">Select</option>
-                      {options?.purposes?.map((p, idx) => <option key={`${p}-${idx}`} value={p}>{p}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Garage Start (KM)</label>
-                    <input
-                      id="garageStartMeter"
-                      type="number"
-                      min="0"
-                      disabled={stage === 'update'}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
-                      value={formData.garageStartMeter}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  {stage === 'new' && (
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Start Image</label>
-                      <div className="relative">
-                        <Camera className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input
-                          id="garageStartImage"
-                          type="file"
-                          accept="image/*"
-                          className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 pr-10 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner"
-                          onChange={handleFileChange}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Stage Specific Cards */}
-            {formData.purpose === 'Hire' && (stage === 'new' || stage === 'update') && (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 relative overflow-hidden">
-                {fetchingDetails && (
-                  <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-20 flex flex-col items-center justify-center">
-                    <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-2" />
-                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Loading Trip Data...</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
-                  <MapPin className="w-5 h-5 text-blue-500" />
-                  Hire Details
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Trip Reference</label>
-                  <select
-                    id="tripRef"
-                    disabled={stage === 'update'}
-                    className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
-                    value={formData.tripRef}
-                    onChange={(e) => handleTripRefChange(e.target.value)}
-                  >
-                    <option value="">Select</option>
-                    {(() => {
-                      // Filter by vehicle if selected
-                      let filtered = (tripRefs || []).map(t => t.ref);
-                      // Ensure the current value is in the list (especially for the Update stage)
-                      if (formData.tripRef && !filtered.includes(formData.tripRef)) {
-                        filtered = [formData.tripRef, ...filtered];
-                      }
-                      return filtered.map((t, idx) => <option key={`${t}-${idx}`} value={t}>{t}</option>);
-                    })()}
-                  </select>
-                </div>
-
-                {formData.tripRef && (formData.accStartDate || formData.accVehicleType || formData.accPickupStreet || fetchingDetails) && (
-                  <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5" /> Account Sheet Trip Details
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-500 font-mono">Ref: {formData.tripRef}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">Start Date</p>
-                        <p className="font-semibold text-slate-900">{formData.accStartDate || '-'}</p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">Start Time</p>
-                        <p className="font-semibold text-slate-900">{formData.accStartTime || '-'}</p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">End Date</p>
-                        <p className="font-semibold text-slate-900">{formData.accEndDate || '-'}</p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">End Time</p>
-                        <p className="font-semibold text-slate-900">{formData.accEndTime || '-'}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-xs pt-2 border-t border-slate-100">
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">Vehicle Type</p>
-                        <p className="font-semibold text-slate-900">{formData.accVehicleType || '-'}</p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">No of pax</p>
-                        <p className="font-semibold text-slate-900">{formData.accNoOfPax || '-'}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">Pick up Street</p>
-                        <p className="font-semibold text-slate-900 leading-tight">{formData.accPickupStreet || '-'}</p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">Drop off Str</p>
-                        <p className="font-semibold text-slate-900 leading-tight">{formData.accDropoffStreet || '-'}</p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase">Journey Type</p>
-                        <p className="font-bold text-emerald-400 leading-tight">{formData.accJourneyType || '-'}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {stage === 'update' ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-slate-500 uppercase">Trip Start</p>
-                      <p className="font-bold">{formData.tripStartMeter} KM</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-slate-500 uppercase">Trip End</p>
-                      <p className="font-bold">{formData.tripEndMeter} KM</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-slate-500 uppercase">Driver Salary</p>
-                      <p className="font-bold text-emerald-400">Rs. {formData.drvComms ? Number(formData.drvComms).toLocaleString() : ''}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-slate-500 uppercase">Pkg Balance</p>
-                      <p className="font-bold text-amber-400">{formData.pkgBalanceMileage ? `${Number(formData.pkgBalanceMileage).toLocaleString()} KM` : ''}</p>
-                    </div>
-                    <div className="space-y-1 col-span-2 border-t border-slate-100 pt-3 mt-1">
-                      <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Final Price</p>
-                      <p className="text-xl font-black text-slate-900">Rs. {formData.tripPrice ? Number(formData.tripPrice).toLocaleString() : '0'}</p>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            )}
-
-
-
-            {stage === 'update' && currentRef && (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 border-sky-500/20 bg-sky-500/5">
-                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
-                  <Fuel className="w-5 h-5 text-sky-500" />
-                  Details in the Fuel Station
-                </div>
-
-                {alert && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className={cn(
-                      "p-4 rounded-2xl flex items-center gap-3 border shadow-lg transition-all",
-                      alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
-                      alert.type === 'warning' && "bg-amber-500/10 border-amber-500/30 text-amber-400",
-                      alert.type === 'error' && "bg-rose-950/40 border-rose-800/60 text-rose-500"
-                    )}
-                  >
-                    {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />}
-                    <p className="text-sm font-medium">{alert.message}</p>
-                  </motion.div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Meter in the Fuel Station</label>
-                    <input
-                      id="fuelStationMeter"
-                      type="number"
-                      min="0"
-                      disabled={isFuelSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
-                      value={formData.fuelStationMeter || ''}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Meter Image Upload</label>
-                    <input
-                      id="fuelStationMeterImage"
-                      type="file"
-                      accept="image/*"
-                      disabled={isFuelSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
-                      onChange={handleFileChange}
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2 md:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Fuel Liter Count</label>
-                    <input
-                      id="fuelLiterCount"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      disabled={isFuelSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
-                      value={formData.fuelLiterCount || ''}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2 md:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Payment Type</label>
-                    <select
-                      id="paymentType"
-                      disabled={isFuelSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
-                      value={formData.paymentType || 'Office card'}
-                      onChange={handleInputChange}
-                    >
-                      <option value="Office card">Office card</option>
-                      <option value="Dialog card">Dialog card</option>
-                      <option value="Bank transfer">Bank transfer</option>
-                      <option value="Hire cash">Hire cash</option>
-                      <option value="Driver cash">Driver cash</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Fuel Cost (Rs.)</label>
-                    <input
-                      id="fuelCost"
-                      type="number"
-                      min="0"
-                      disabled={isFuelSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
-                      value={formData.fuelCost}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Fuel Receipt</label>
-                    <input
-                      id="fuelReceipt"
-                      type="file"
-                      accept="image/*"
-                      disabled={isFuelSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
-                      onChange={handleFileChange}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleFuelDetailsSubmit}
-                  disabled={isFuelSubmitted || loading}
-                  className={cn(
-                    "w-full py-4 font-black rounded-xl transition-all shadow-lg uppercase tracking-widest text-xs flex items-center justify-center gap-2",
-                    (isFuelSubmitted || loading) 
-                      ? "bg-slate-500/50 text-slate-500 cursor-not-allowed" 
-                      : "bg-sky-500 hover:bg-sky-400 text-black shadow-sky-500/20"
-                  )}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : isFuelSubmitted ? (
-                    'Details Submitted'
-                  ) : (
-                    'Submit Fuel Details'
-                  )}
-                </button>
-                {isFuelSubmitted && (
-                   <p className="text-center text-[10px] text-emerald-400 font-bold uppercase mt-2">
-                     Submitted details displayed above.
-                   </p>
-                )}
-                {isFuelSubmitted && fuelSubmitCount === 1 && formData.purpose === 'Hire' && (
-                  <button
-                    onClick={handleAddMoreFuel}
-                    className="w-full py-3 mt-4 font-black rounded-xl border border-sky-500/50 text-sky-400 hover:bg-sky-500 hover:text-black transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
-                  >
-                    + Add More Details
-                  </button>
-                )}
-              </div>
-            )}
-
-            {!showRepairDetails && stage === 'update' && currentRef && (
-              <button
-                onClick={() => setShowRepairDetails(true)}
-                className="w-full py-3 mt-4 font-black rounded-xl border border-rose-500/50 text-rose-400 hover:bg-rose-500 hover:text-black transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
-              >
-                <Wrench className="w-4 h-4" />
-                Add Repair Details
-              </button>
-            )}
-
-            {showRepairDetails && stage === 'update' && currentRef && (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 border-rose-500/20 bg-rose-500/5 mt-4 mb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
-                    <Wrench className="w-5 h-5 text-rose-500" />
-                    Details in the Repair Station
-                  </div>
-                  <button onClick={() => setShowRepairDetails(false)} className="text-slate-500 hover:text-slate-900">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Meter in the Repair Station</label>
-                    <input
-                      id="repairStationMeter"
-                      type="number"
-                      min="0"
-                      disabled={isRepairSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
-                      value={formData.repairStationMeter || ''}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Meter Image Upload</label>
-                    <input
-                      id="repairStationMeterImage"
-                      type="file"
-                      accept="image/*"
-                      disabled={isRepairSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
-                      onChange={handleFileChange}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Cost (Rs.)</label>
-                    <input
-                      id="repairCost"
-                      type="number"
-                      min="0"
-                      disabled={isRepairSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
-                      value={formData.repairCost || ''}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Receipt</label>
-                    <input
-                      id="repairReceipt"
-                      type="file"
-                      accept="image/*"
-                      disabled={isRepairSubmitted}
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
-                      onChange={handleFileChange}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleRepairDetailsSubmit}
-                  disabled={isRepairSubmitted || loading}
-                  className={cn(
-                    "w-full py-4 font-black rounded-xl transition-all shadow-lg uppercase tracking-widest text-xs flex items-center justify-center gap-2",
-                    (isRepairSubmitted || loading) 
-                      ? "bg-slate-500/50 text-slate-500 cursor-not-allowed" 
-                      : "bg-rose-500 hover:bg-rose-400 text-black shadow-rose-500/20"
-                  )}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : isRepairSubmitted ? (
-                    'Details Submitted'
-                  ) : (
-                    'Submit Repair Details'
-                  )}
-                </button>
-                {isRepairSubmitted && (
-                   <p className="text-center text-[10px] text-emerald-400 font-bold uppercase mt-2">
-                     Submitted details displayed above.
-                   </p>
-                )}
-              </div>
-            )}
-
-            {stage === 'update' && currentRef && (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6">
-                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
-                  <ClipboardCheck className="w-5 h-5 text-emerald-500" />
-                  End Trip Details
-                </div>
-
-
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Garage End (KM)</label>
-                    <input
-                      id="garageEndMeter"
-                      type="number"
-                      min="0"
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
-                      value={formData.garageEndMeter}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">End Image</label>
-                    <input
-                      id="garageEndImage"
-                      type="file"
-                      className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner"
-                      onChange={handleFileChange}
-                    />
-                  </div>
-                </div>
-
-                {formData.purpose === 'Repair' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Cost (Rs.)</label>
-                      <input
-                        id="repairCost"
-                        type="number"
-                        min="0"
-                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
-                        value={formData.repairCost}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Receipt</label>
-                      <input
-                        id="repairReceipt"
-                        type="file"
-                        multiple
-                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner"
-                        onChange={handleFileChange}
-                      />
-                      {files.repairReceipt && Array.isArray(files.repairReceipt) && files.repairReceipt.length > 0 && (
-                        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                          {files.repairReceipt.map((f, i) => (
-                            <div key={i} className="flex items-center justify-between text-[10px] text-slate-500 bg-white p-2 rounded-lg border border-slate-100">
-                              <span className="truncate flex-1 mr-2">{f.name}</span>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  removeFile('repairReceipt', i);
-                                }}
-                                className="text-rose-500 hover:text-rose-400 font-bold px-1"
-                              >
-                                âœ•
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Comments</label>
-                  <textarea
-                    id="comments"
-                    rows={3}
-                    className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
-                    value={formData.comments}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-
-              </div>
-            )}
-
-            {formData.purpose === 'Hire' && stage === 'update' && currentRef && (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 border-rose-500/30 bg-rose-500/5">
-                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-4">
-                  <AlertCircle className="w-5 h-5 text-rose-500" />
-                  Mileage Loss Summary
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-slate-500 uppercase">Start Loss</p>
-                    <p className="font-bold text-slate-900">
-                      {(Number(formData.tripStartMeter) - Number(formData.garageStartMeter))} KM
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-slate-500 uppercase">End Loss</p>
-                    <p className="font-bold text-slate-900">
-                      {formData.garageEndMeter ? (Number(formData.garageEndMeter) - Number(formData.tripEndMeter)) : 0} KM
-                    </p>
-                  </div>
-                  <div className="space-y-1 border-l border-slate-200 pl-4">
-                    <p className="text-[10px] text-emerald-400 font-bold uppercase">SC Due Amount</p>
-                    <p className="text-2xl font-black text-emerald-500">
-                      Rs. {formData.scDueAmount}
-                    </p>
-                  </div>
-                  <div className="space-y-1 border-l border-slate-200 pl-4">
-                    <p className="text-[10px] text-rose-400 font-bold uppercase">Total Loss</p>
-                    <p className="text-2xl font-black text-rose-500">
-                      {formData.garageEndMeter ? ((Number(formData.tripStartMeter) - Number(formData.garageStartMeter)) + (Number(formData.garageEndMeter) - Number(formData.tripEndMeter))) : 0} KM
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Footer Buttons */}
-            {(stage === 'new' || (stage === 'update' && currentRef)) && (
-              <div className="flex flex-col gap-4">
-                <AnimatePresence>
-                  {alert && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      className={cn(
-                        "p-4 rounded-2xl flex items-center gap-3 border shadow-lg",
-                        alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
-                        alert.type === 'warning' && "bg-amber-500/10 border-amber-500/20 text-amber-400",
-                        alert.type === 'error' && "bg-rose-500/10 border-rose-500/20 text-rose-400"
-                      )}
-                    >
-                      {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                      <p className="text-sm font-medium">{alert.message}</p>
+                      </motion.div>
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => window.history.back()}
-                    className="flex-1 py-4 bg-white rounded-3xl shadow-sm border border-slate-200/80 font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold shadow-sm rounded-3xl cursor-pointer"
-                  >
-                    CANCEL
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={loading || isSubmittingRef.current || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef) || (formData.purpose === 'Fuel' && stage === 'update' && !isFuelSubmitted)}
-                    className="flex-[2] py-4 bg-[#18859c] hover:bg-[#157489] text-slate-900 font-extrabold rounded-3xl shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
-                    SUBMIT RECORD
-                  </button>
-                </div>
-              </div>
+
+                {/* Driver Salary Advance & Shorts Edit Modal */}
+                <AnimatePresence>
+                  {showAdjustmentModal && selectedAdjustmentItem && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        className="glass-card p-6 w-full max-w-md space-y-6 border-amber-500/20 bg-slate-900/95 shadow-2xl rounded-2xl relative overflow-hidden"
+                      >
+                        <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                              <Wallet className="w-5 h-5 text-amber-400" />
+                            </div>
+                            <div>
+                              <h3 className="text-base font-black text-white flex items-center gap-2">
+                                Update Salary Adjustments
+                              </h3>
+                              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                                {selectedAdjustmentItem.driverName} ({selectedAdjustmentItem.driverCode}) • {selectedAdjustmentItem.month}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setShowAdjustmentModal(false)}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/5"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                              Salary Advance (Rs.)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-amber-500 focus:outline-none rounded-xl font-mono"
+                              placeholder="Enter advance amount..."
+                              value={adjAdvance}
+                              onChange={(e) => setAdjAdvance(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-2">
+                              Shorts (Rs.)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-rose-500 focus:outline-none rounded-xl font-mono"
+                              placeholder="Enter shorts amount..."
+                              value={adjShorts}
+                              onChange={(e) => setAdjShorts(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                              Excess (Rs.)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-teal-500 focus:outline-none rounded-xl font-mono"
+                              placeholder="Enter excess amount..."
+                              value={adjExcess}
+                              onChange={(e) => setAdjExcess(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                              Inclusions (Rs.)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-blue-500 focus:outline-none rounded-xl font-mono"
+                              placeholder="Enter inclusions amount..."
+                              value={adjInclusions}
+                              onChange={(e) => setAdjInclusions(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                              Inclusions Comment / Reason
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-emerald-500 focus:outline-none rounded-xl"
+                              placeholder="e.g. Festival Bonus, Special Allowance..."
+                              value={adjComment}
+                              onChange={(e) => setAdjComment(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                              Exclusions (Rs.)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-purple-500 focus:outline-none rounded-xl font-mono"
+                              placeholder="Enter exclusions amount..."
+                              value={adjExclusions}
+                              onChange={(e) => setAdjExclusions(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                              Exclusions Comment / Reason
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full input-field py-3 px-4 text-sm text-white bg-slate-950/60 border border-white/10 focus:border-purple-500 focus:outline-none rounded-xl"
+                              placeholder="e.g. Damage Penalty, Loan Deduction..."
+                              value={adjExclusionsComment}
+                              onChange={(e) => setAdjExclusionsComment(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowAdjustmentModal(false)}
+                            disabled={savingAdjustment}
+                            className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all font-bold text-xs uppercase tracking-wider"
+                          >
+                            CANCEL
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveAdjustment}
+                            disabled={savingAdjustment}
+                            className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+                          >
+                            {savingAdjustment ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                SAVING...
+                              </>
+                            ) : (
+                              'SAVE ADJUSTMENTS'
+                            )}
+                          </button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+              </>
             )}
-              </motion.div>
-            </div>
           </div>
         )}
-      </AnimatePresence>
-      {/* PWA Install Popup */}
-      <AnimatePresence>
-        {showInstallPopup && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-6 right-6 z-[100] md:max-w-md md:mx-auto"
-          >
-            <div className="glass-card p-5 border-blue-500/30 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-blue-500/20 relative">
-              <button
-                onClick={() => setShowInstallPopup(false)}
-                className="absolute top-3 right-3 text-slate-500 hover:text-white transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
 
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-                  <Download className="w-6 h-6 text-blue-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-white font-bold text-base leading-tight">Install Fleet App</h3>
-                  <p className="text-slate-400 text-xs mt-1">Add to your home screen for quick access and better experience.</p>
-                </div>
-              </div>
-
-              <div className="mt-5 flex gap-3">
-                <button
-                  onClick={handleInstall}
-                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-600/20"
-                >
-                  <Download className="w-4 h-4" />
-                  Install Now
-                </button>
-                <button
-                  onClick={() => setShowInstallPopup(false)}
-                  className="px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
-                >
-                  Later
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Edit Trip Modal */}
-      <AnimatePresence>
-        {editingTrip && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
+        {/* Alert Component */}
+        <AnimatePresence>
+          {alert && stage !== 'dashboard' && stage !== 'new' && stage !== 'update' && (
             <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className={cn(
+                "p-4 rounded-2xl mb-6 flex items-center gap-3 border shadow-lg",
+                alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
+                alert.type === 'warning' && "bg-amber-500/10 border-amber-500/20 text-amber-400",
+                alert.type === 'error' && "bg-rose-500/10 border-rose-500/20 text-rose-400"
+              )}
             >
-              <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Edit className="w-5 h-5 text-emerald-500" />
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Edit Fleet Record ({editingTrip.rf})</h3>
-                </div>
-                <button
-                  onClick={() => setEditingTrip(null)}
-                  className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+              <p className="text-sm font-medium">{alert.message}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              <div className="p-6 overflow-y-auto space-y-6 flex-1">
-                {[
-                  {
-                    title: 'Start Details',
-                    fields: [
-                      { label: 'Status', idx: 0, type: 'select', options: ['Pending', 'Approved', 'Cancelled'] },
-                      { label: 'Staff Comment', idx: 27, type: 'text' },
-                      { label: 'FR Ref', idx: 1, type: 'text', readOnly: true },
-                      { label: 'Start TS', idx: 2, type: 'text', readOnly: true },
-                      { label: 'Start Loc', idx: 29, type: 'text', readOnly: true },
-                      { label: 'Driver', idx: 3, type: 'text' },
-                      { label: 'Vehicle Num', idx: 4, type: 'select', options: adminData?.filterOptions?.vehicles || [] },
-                      { label: 'Purpose', idx: 5, type: 'select', options: ['Hire', 'Repair', 'Personal', 'Fuel', 'Office Use'] },
-                      { label: 'Garage Start', idx: 6, type: 'number' },
-                    ]
-                  },
-                  {
-                    title: 'Fuel / Repair Details',
-                    fields: [
-                      { label: 'Fuel Update TS', idx: 28, type: 'text', readOnly: true },
-                      { label: 'Fuel Loc', idx: 31, type: 'text', readOnly: true },
-                      { label: 'Fuel Cost', idx: 9, type: 'number' },
-                      { label: 'Fuel Meter', idx: 'fuel_meter', type: 'number' },
-                      { label: 'Fuel Liters', idx: 'fuel_liters', type: 'number' },
-                      { label: 'Payment Type', idx: 32, type: 'select', options: ['Office card', 'Dialog card', 'Bank transfer', 'Hire cash', 'Driver cash'] },
-                      { label: '2nd Fuel Cost', idx: 24, type: 'number' },
-                      { label: '2nd Fuel Meter', idx: 25, type: 'number' },
-                      { label: '2nd Fuel Liters', idx: 26, type: 'number' },
-                      { label: '2nd Fuel Loc', idx: 33, type: 'text', readOnly: true },
-                      { label: '2nd Payment Type', idx: 34, type: 'select', options: ['Office card', 'Dialog card', 'Bank transfer', 'Hire cash', 'Driver cash'] },
-                      { label: 'Comments', idx: 10, type: 'text' },
-                      { label: 'Repair Cost', idx: 11, type: 'number' },
-                      { label: 'Folder URL', idx: 20, type: 'text' },
-                      { label: 'Folder ID', idx: 21, type: 'text' },
-                    ]
-                  },
-                  {
-                    title: 'End Details',
-                    fields: [
-                      { label: 'Garage End', idx: 8, type: 'number' },
-                      { label: 'End TS', idx: 7, type: 'text', readOnly: true },
-                      { label: 'End Loc', idx: 30, type: 'text', readOnly: true },
-                      { label: 'Trip Ref', idx: 12, type: 'text' },
-                      { label: 'SC Due Amount', idx: 13, type: 'number', readOnly: true },
-                      { label: 'Drv Comms', idx: 14, type: 'number' },
-                      { label: 'Trip Start Meter', idx: 15, type: 'number' },
-                      { label: 'Trip End Meter', idx: 16, type: 'number' },
-                      { label: 'Pkg Balance Mileage', idx: 17, type: 'number' },
-                      { label: 'Loss (Start)', idx: 18, type: 'number', readOnly: true },
-                      { label: 'Loss (End)', idx: 19, type: 'number', readOnly: true },
-                      { label: 'Total Mileage', idx: 22, type: 'number', readOnly: true },
-                      { label: 'Final Price', idx: 23, type: 'number' },
-                    ]
-                  }
-                ].map((section, sIdx) => (
-                  <div key={sIdx} className="bg-white/5 p-5 rounded-2xl border border-white/5">
-                    <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">{section.title}</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
-                      {section.fields.map((field: any, i) => (
-                        <div key={i} className="space-y-1">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{field.label}</label>
-                      {field.type === 'select' ? (
-                        <select
-                          disabled={field.readOnly}
-                          value={editingTrip.values[field.idx as number] || (field.idx === 32 ? 'Office card' : '')}
-                          onChange={(e) => {
-                            const newValues = [...editingTrip.values];
-                            newValues[field.idx as number] = e.target.value;
-                            setEditingTrip({ ...editingTrip, values: newValues });
-                          }}
-                          className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+        {/* Form Content */}
+        <AnimatePresence>
+          {stage !== 'dashboard' && stage !== 'admin' && (
+            <div className="max-w-md mx-auto">
+              <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-6"
+                >
+                  {stage === 'last-trip' && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-4">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center block">Select FR Number (Last 10)</label>
+                      <select
+                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
+                        value={currentRef || ''}
+                        onChange={(e) => handleFrRefChange(e.target.value)}
+                      >
+                        <option value="" disabled>Select FR Reference</option>
+                        {historyFrRefs?.map((ref, idx) => (
+                          <option key={`${ref}-${idx}`} value={ref}>{ref}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {stage === 'salary' && (
+                    <div className="space-y-6">
+                      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-4">
+                        <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
+                          <IdCard className="w-5 h-5 text-emerald-500" />
+                          Salary Period
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Year</label>
+                            <select
+                              className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 rounded-xl px-4 text-sm"
+                              value={salaryYear}
+                              onChange={(e) => setSalaryYear(e.target.value)}
+                            >
+                              {[2024, 2025, 2026, 2027].map(y => (
+                                <option key={y} value={y}>{y}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Month</label>
+                            <select
+                              className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 rounded-xl px-4 text-sm"
+                              value={salaryMonth}
+                              onChange={(e) => setSalaryMonth(e.target.value)}
+                            >
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Summary Card */}
+                      {salaryData.length > 0 && (
+                        <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 bg-emerald-500/10 border-emerald-500/20">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-8">
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block">Salary</span>
+                                <span className="text-3xl font-black text-slate-900">Rs. {totalSalary.toLocaleString()}</span>
+                              </div>
+                              <div className="w-px h-10 bg-slate-200" />
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Hire Count</span>
+                                <span className="text-2xl font-bold text-slate-900">{salaryData.length} <span className="text-xs font-normal text-slate-500">Trips</span></span>
+                              </div>
+                            </div>
+                            <div className="text-right hidden sm:block">
+                              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter italic">
+                                {new Date(2000, parseInt(salaryMonth) - 1).toLocaleString('default', { month: 'short' })} {salaryYear}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Trip Table */}
+                      {salaryData.length > 0 && (
+                        <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
+                          <div className="p-4 border-b border-slate-200 bg-white">
+                            <div className="grid grid-cols-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                              <span>Trip Reference</span>
+                              <span>Date</span>
+                              <span className="text-right">Salary (Rs)</span>
+                            </div>
+                          </div>
+                          <div className="divide-y divide-white/5 max-h-[400px] overflow-y-auto">
+                            {salaryData.map((item, idx) => (
+                              <div key={idx} className="p-4 grid grid-cols-3 items-center border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold shadow-sm rounded-3xl cursor-pointer">
+                                <span className="text-xs font-bold text-slate-900">{item.tripRef}</span>
+                                <span className="text-[10px] text-slate-500">{item.date?.split(' ')[0]}</span>
+                                <span className="text-xs font-bold text-emerald-400 text-right">{item.salary.toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {salaryData.length === 0 && !fetchingSalary && (
+                        <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-12 text-center border-dashed border-slate-200">
+                          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mx-auto mb-4">
+                            <IdCard className="w-8 h-8 text-emerald-500/50" />
+                          </div>
+                          <p className="text-slate-500 text-sm font-medium">
+                            No hire commissions found for this period.
+                          </p>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setStage('dashboard');
+                          setSalaryData([]);
+                          setTotalSalary(0);
+                        }}
+                        className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer"
+                      >
+                        Back to Dashboard
+                      </button>
+                    </div>
+                  )}
+
+                  {stage === 'last-trip' && !currentRef && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-12 flex flex-col items-center justify-center text-center space-y-4">
+                      <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border border-slate-200">
+                        <MapPin className="w-10 h-10 text-purple-500" />
+                      </div>
+                      <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wider">
+                        Last Trip Details
+                      </h2>
+                      <p className="text-slate-500 text-sm max-w-xs">
+                        Please select a reference number above to view trip details.
+                      </p>
+                      <button
+                        onClick={() => window.history.back()}
+                        className="mt-6 px-8 py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-sm font-extrabold shadow-sm cursor-pointer"
+                      >
+                        GO BACK
+                      </button>
+                    </div>
+                  )}
+                  {stage === 'last-trip' && currentRef && (
+                    <div className="space-y-6">
+                      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 border-purple-500/30 bg-purple-500/5">
+                        <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-6">
+                          <ClipboardCheck className="w-6 h-6 text-purple-500" />
+                          Detailed Trip Report: {currentRef}
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                          {[
+                            { label: 'Start Timestamp', value: formData.startTs },
+                            { label: 'End Timestamp', value: formData.endTs },
+                            { label: 'Vehicle Number', value: formData.vehicle },
+                            { label: 'Purpose', value: formData.purpose },
+                            { label: 'Trip Reference', value: formData.tripRef },
+                            { label: 'Garage Start', value: `${formData.garageStartMeter} KM` },
+                            { label: 'Garage End', value: `${formData.garageEndMeter} KM` },
+                            { label: 'Trip Start', value: `${formData.tripStartMeter} KM` },
+                            { label: 'Trip End', value: `${formData.tripEndMeter} KM` },
+                            { label: 'Pkg Balance', value: `${formData.pkgBalanceMileage} KM` },
+                            { label: 'Loss (Start)', value: `${formData.startLossMileage} KM` },
+                            { label: 'Loss (End)', value: `${formData.endLossMileage} KM` },
+                            { label: 'Total Mileage', value: `${formData.totalMileage} KM` },
+                            { label: 'Fuel Cost', value: `Rs. ${formData.fuelCost}` },
+                            { label: '2nd Fuel Cost', value: `Rs. ${formData.secondFuelCost}` },
+                            { label: 'Repair Cost', value: `Rs. ${formData.repairCost}` },
+                            { label: 'SC Due', value: `Rs. ${formData.scDueAmount}`, highlight: true },
+                            { label: 'Driver Comms', value: `Rs. ${formData.drvComms}`, highlight: true },
+                            { label: 'Final Price', value: `Rs. ${formData.finalPrice}`, highlight: true },
+                          ].map((item, idx) => (
+                            <div key={idx} className="space-y-1">
+                              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{item.label}</p>
+                              <p className={cn("text-sm font-bold", item.highlight ? "text-purple-400" : "text-slate-900")}>
+                                {item.value || 'N/A'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {formData.comments && (
+                          <div className="mt-8 pt-6 border-t border-slate-100">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">Comments / Remarks</p>
+                            <p className="text-sm text-slate-600 italic leading-relaxed">"{formData.comments}"</p>
+                          </div>
+                        )}
+
+                        <div className="mt-8">
+                          <button
+                            onClick={() => {
+                              setCurrentRef(null);
+                              setFormData({
+                                vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '',
+                                tripRef: '', tripStartMeter: '', tripEndMeter: '', fuelCost: '', secondFuelCost: '',
+                                repairCost: '', comments: '', scDueAmount: '', drvComms: '',
+                                startLossMileage: '', endLossMileage: '', pkgBalanceMileage: '',
+                                tripPrice: '', totalMileage: '', finalPrice: '', startTs: '', endTs: ''
+                              });
+                            }}
+                            className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer"
+                          >
+                            Close Report
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* FR Reference Selection (Update Stage) */}
+                  {stage === 'update' && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-4">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Select Reference</label>
+                      <select
+                        className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
+                        value={currentRef || ''}
+                        onChange={(e) => handleFrRefChange(e.target.value)}
+                      >
+                        <option value="" disabled>Select FR Reference</option>
+                        {frRefs?.map((ref, idx) => (
+                          <option key={`${ref}-${idx}`} value={ref}>{ref}</option>
+                        ))}
+                      </select>
+                      {!currentRef && (
+                        <button
+                          onClick={() => setStage('dashboard')}
+                          className="w-full py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer"
                         >
-                          <option value="">Select...</option>
-                          {field.options?.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                      ) : field.idx === 'fuel_meter' ? (
-                         <input
-                            type="number"
-                            disabled={field.readOnly}
-                            value={editingTrip.fMeter || ''}
-                            onChange={(e) => setEditingTrip({ ...editingTrip, fMeter: e.target.value })}
-                            className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                         />
-                      ) : field.idx === 'fuel_liters' ? (
-                         <input
-                            type="number"
-                            disabled={field.readOnly}
-                            value={editingTrip.fLiters || ''}
-                            onChange={(e) => setEditingTrip({ ...editingTrip, fLiters: e.target.value })}
-                            className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                         />
-                      ) : field.idx === 10 ? (
-                         <input
-                            type="text"
-                            disabled={field.readOnly}
-                            value={editingTrip.cleanComments || ''}
-                            onChange={(e) => setEditingTrip({ ...editingTrip, cleanComments: e.target.value })}
-                            className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                         />
-                      ) : (
-                        <input
-                          type={field.type}
-                          disabled={field.readOnly}
-                          value={editingTrip.values[field.idx as number] || ''}
-                          onChange={(e) => {
-                            const newValues = [...editingTrip.values];
-                            newValues[field.idx as number] = e.target.value;
-                            setEditingTrip({ ...editingTrip, values: newValues });
-                          }}
-                          className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                        />
+                          Back to Dashboard
+                        </button>
                       )}
                     </div>
-                  ))}
+                  )}
+
+                  {/* Core Details Card */}
+                  {(currentRef || stage === 'new') && stage !== 'last-trip' && stage !== 'salary' && stage !== 'contact-office' && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6">
+                      <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
+                        <Car className="w-5 h-5 text-emerald-500" />
+                        Vehicle & Purpose
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Vehicle</label>
+                          <select
+                            id="vehicle"
+                            disabled={stage === 'update'}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
+                            value={formData.vehicle}
+                            onChange={handleInputChange}
+                          >
+                            <option value="">Select</option>
+                            {options?.vehicles?.map((v, idx) => <option key={`${v}-${idx}`} value={v}>{v}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Purpose</label>
+                          <select
+                            id="purpose"
+                            disabled={stage === 'update'}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
+                            value={formData.purpose}
+                            onChange={handleInputChange}
+                          >
+                            <option value="">Select</option>
+                            {options?.purposes?.map((p, idx) => <option key={`${p}-${idx}`} value={p}>{p}</option>)}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Garage Start (KM)</label>
+                          <input
+                            id="garageStartMeter"
+                            type="number"
+                            min="0"
+                            disabled={stage === 'update'}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
+                            value={formData.garageStartMeter}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        {stage === 'new' && (
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Start Image</label>
+                            <div className="relative">
+                              <Camera className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                              <input
+                                id="garageStartImage"
+                                type="file"
+                                accept="image/*"
+                                className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 pr-10 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner"
+                                onChange={handleFileChange}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stage Specific Cards */}
+                  {formData.purpose === 'Hire' && (stage === 'new' || stage === 'update') && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 relative overflow-hidden">
+                      {fetchingDetails && (
+                        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-20 flex flex-col items-center justify-center">
+                          <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-2" />
+                          <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Loading Trip Data...</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
+                        <MapPin className="w-5 h-5 text-blue-500" />
+                        Hire Details
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Trip Reference</label>
+                        <select
+                          id="tripRef"
+                          disabled={stage === 'update'}
+                          className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
+                          value={formData.tripRef}
+                          onChange={(e) => handleTripRefChange(e.target.value)}
+                        >
+                          <option value="">Select</option>
+                          {(() => {
+                            // Filter by vehicle if selected
+                            let filtered = (tripRefs || []).map(t => t.ref);
+                            // Ensure the current value is in the list (especially for the Update stage)
+                            if (formData.tripRef && !filtered.includes(formData.tripRef)) {
+                              filtered = [formData.tripRef, ...filtered];
+                            }
+                            return filtered.map((t, idx) => <option key={`${t}-${idx}`} value={t}>{t}</option>);
+                          })()}
+                        </select>
+                      </div>
+
+                      {formData.tripRef && (formData.accStartDate || formData.accVehicleType || formData.accPickupStreet || fetchingDetails) && (
+                        <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5" /> Account Sheet Trip Details
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500 font-mono">Ref: {formData.tripRef}</span>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div className="space-y-0.5">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase">Start Date</p>
+                              <p className="font-semibold text-slate-900">{formData.accStartDate || '-'}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase">Start Time</p>
+                              <p className="font-semibold text-slate-900">{formData.accStartTime || '-'}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase">End Date</p>
+                              <p className="font-semibold text-slate-900">{formData.accEndDate || '-'}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase">End Time</p>
+                              <p className="font-semibold text-slate-900">{formData.accEndTime || '-'}</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 text-xs pt-2 border-t border-slate-100">
+                            <div className="space-y-0.5">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase">Vehicle Type</p>
+                              <p className="font-semibold text-slate-900">{formData.accVehicleType || '-'}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase">No of pax</p>
+                              <p className="font-semibold text-slate-900">{formData.accNoOfPax || '-'}</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                            <div className="space-y-0.5">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase">Pick up Street</p>
+                              <p className="font-semibold text-slate-900 leading-tight">{formData.accPickupStreet || '-'}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase">Drop off Str</p>
+                              <p className="font-semibold text-slate-900 leading-tight">{formData.accDropoffStreet || '-'}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-[9px] font-bold text-slate-500 uppercase">Journey Type</p>
+                              <p className="font-bold text-emerald-400 leading-tight">{formData.accJourneyType || '-'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {stage === 'update' ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-slate-500 uppercase">Trip Start</p>
+                            <p className="font-bold">{formData.tripStartMeter} KM</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-slate-500 uppercase">Trip End</p>
+                            <p className="font-bold">{formData.tripEndMeter} KM</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-slate-500 uppercase">Driver Salary</p>
+                            <p className="font-bold text-emerald-400">Rs. {formData.drvComms ? Number(formData.drvComms).toLocaleString() : ''}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-slate-500 uppercase">Pkg Balance</p>
+                            <p className="font-bold text-amber-400">{formData.pkgBalanceMileage !== undefined && formData.pkgBalanceMileage !== '' && formData.pkgBalanceMileage !== null ? `${Number(formData.pkgBalanceMileage).toLocaleString(undefined, { maximumFractionDigits: 2 })} KM` : '0 KM'}</p>
+                          </div>
+                          <div className="space-y-1 col-span-2 border-t border-slate-100 pt-3 mt-1">
+                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Final Price</p>
+                            <p className="text-xl font-black text-slate-900">Rs. {formData.tripPrice ? Number(formData.tripPrice).toLocaleString() : '0'}</p>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+
+
+                  {stage === 'update' && currentRef && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 border-sky-500/20 bg-sky-500/5">
+                      <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
+                        <Fuel className="w-5 h-5 text-sky-500" />
+                        Details in the Fuel Station
+                      </div>
+
+                      {alert && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className={cn(
+                            "p-4 rounded-2xl flex items-center gap-3 border shadow-lg transition-all",
+                            alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
+                            alert.type === 'warning' && "bg-amber-500/10 border-amber-500/30 text-amber-400",
+                            alert.type === 'error' && "bg-rose-950/40 border-rose-800/60 text-rose-500"
+                          )}
+                        >
+                          {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />}
+                          <p className="text-sm font-medium">{alert.message}</p>
+                        </motion.div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Meter in the Fuel Station</label>
+                          <input
+                            id="fuelStationMeter"
+                            type="number"
+                            min="0"
+                            disabled={isFuelSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
+                            value={formData.fuelStationMeter || ''}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Meter Image Upload</label>
+                          <input
+                            id="fuelStationMeterImage"
+                            type="file"
+                            accept="image/*"
+                            disabled={isFuelSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                        <div className="space-y-2 col-span-2 md:col-span-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Fuel Liter Count</label>
+                          <input
+                            id="fuelLiterCount"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            disabled={isFuelSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
+                            value={formData.fuelLiterCount || ''}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <div className="space-y-2 col-span-2 md:col-span-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Payment Type</label>
+                          <select
+                            id="paymentType"
+                            disabled={isFuelSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
+                            value={formData.paymentType || 'Office card'}
+                            onChange={handleInputChange}
+                          >
+                            <option value="Office card">Office card</option>
+                            <option value="Dialog card">Dialog card</option>
+                            <option value="Bank transfer">Bank transfer</option>
+                            <option value="Hire cash">Hire cash</option>
+                            <option value="Driver cash">Driver cash</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Fuel Cost (Rs.)</label>
+                          <input
+                            id="fuelCost"
+                            type="number"
+                            min="0"
+                            disabled={isFuelSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
+                            value={formData.fuelCost}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Fuel Receipt</label>
+                          <input
+                            id="fuelReceipt"
+                            type="file"
+                            accept="image/*"
+                            disabled={isFuelSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleFuelDetailsSubmit}
+                        disabled={isFuelSubmitted || loading}
+                        className={cn(
+                          "w-full py-4 font-black rounded-xl transition-all shadow-lg uppercase tracking-widest text-xs flex items-center justify-center gap-2",
+                          (isFuelSubmitted || loading)
+                            ? "bg-slate-500/50 text-slate-500 cursor-not-allowed"
+                            : "bg-sky-500 hover:bg-sky-400 text-black shadow-sky-500/20"
+                        )}
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : isFuelSubmitted ? (
+                          'Details Submitted'
+                        ) : (
+                          'Submit Fuel Details'
+                        )}
+                      </button>
+                      {isFuelSubmitted && (
+                        <p className="text-center text-[10px] text-emerald-400 font-bold uppercase mt-2">
+                          Submitted details displayed above.
+                        </p>
+                      )}
+                      {isFuelSubmitted && fuelSubmitCount === 1 && formData.purpose === 'Hire' && (
+                        <button
+                          onClick={handleAddMoreFuel}
+                          className="w-full py-3 mt-4 font-black rounded-xl border border-sky-500/50 text-sky-400 hover:bg-sky-500 hover:text-black transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                        >
+                          + Add More Details
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {!showRepairDetails && stage === 'update' && currentRef && (
+                    <button
+                      onClick={() => setShowRepairDetails(true)}
+                      className="w-full py-3 mt-4 font-black rounded-xl border border-rose-500/50 text-rose-400 hover:bg-rose-500 hover:text-black transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                    >
+                      <Wrench className="w-4 h-4" />
+                      Add Repair Details
+                    </button>
+                  )}
+
+                  {showRepairDetails && stage === 'update' && currentRef && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 border-rose-500/20 bg-rose-500/5 mt-4 mb-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
+                          <Wrench className="w-5 h-5 text-rose-500" />
+                          Details in the Repair Station
+                        </div>
+                        <button onClick={() => setShowRepairDetails(false)} className="text-slate-500 hover:text-slate-900">
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Meter in the Repair Station</label>
+                          <input
+                            id="repairStationMeter"
+                            type="number"
+                            min="0"
+                            disabled={isRepairSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
+                            value={formData.repairStationMeter || ''}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Meter Image Upload</label>
+                          <input
+                            id="repairStationMeterImage"
+                            type="file"
+                            accept="image/*"
+                            disabled={isRepairSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Cost (Rs.)</label>
+                          <input
+                            id="repairCost"
+                            type="number"
+                            min="0"
+                            disabled={isRepairSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-50"
+                            value={formData.repairCost || ''}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Receipt</label>
+                          <input
+                            id="repairReceipt"
+                            type="file"
+                            accept="image/*"
+                            disabled={isRepairSubmitted}
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-50"
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleRepairDetailsSubmit}
+                        disabled={isRepairSubmitted || loading}
+                        className={cn(
+                          "w-full py-4 font-black rounded-xl transition-all shadow-lg uppercase tracking-widest text-xs flex items-center justify-center gap-2",
+                          (isRepairSubmitted || loading)
+                            ? "bg-slate-500/50 text-slate-500 cursor-not-allowed"
+                            : "bg-rose-500 hover:bg-rose-400 text-black shadow-rose-500/20"
+                        )}
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : isRepairSubmitted ? (
+                          'Details Submitted'
+                        ) : (
+                          'Submit Repair Details'
+                        )}
+                      </button>
+                      {isRepairSubmitted && (
+                        <p className="text-center text-[10px] text-emerald-400 font-bold uppercase mt-2">
+                          Submitted details displayed above.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {stage === 'update' && currentRef && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6">
+                      <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-2">
+                        <ClipboardCheck className="w-5 h-5 text-emerald-500" />
+                        End Trip Details
+                      </div>
+
+
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Garage End (KM)</label>
+                          <input
+                            id="garageEndMeter"
+                            type="number"
+                            min="0"
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
+                            value={formData.garageEndMeter}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">End Image</label>
+                          <input
+                            id="garageEndImage"
+                            type="file"
+                            className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner"
+                            onChange={handleFileChange}
+                          />
+                        </div>
+                      </div>
+
+                      {formData.purpose === 'Repair' && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Cost (Rs.)</label>
+                            <input
+                              id="repairCost"
+                              type="number"
+                              min="0"
+                              className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
+                              value={formData.repairCost}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Repair Receipt</label>
+                            <input
+                              id="repairReceipt"
+                              type="file"
+                              multiple
+                              className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner"
+                              onChange={handleFileChange}
+                            />
+                            {files.repairReceipt && Array.isArray(files.repairReceipt) && files.repairReceipt.length > 0 && (
+                              <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                {files.repairReceipt.map((f, i) => (
+                                  <div key={i} className="flex items-center justify-between text-[10px] text-slate-500 bg-white p-2 rounded-lg border border-slate-100">
+                                    <span className="truncate flex-1 mr-2">{f.name}</span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        removeFile('repairReceipt', i);
+                                      }}
+                                      className="text-rose-500 hover:text-rose-400 font-bold px-1"
+                                    >
+                                      âœ•
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Comments</label>
+                        <textarea
+                          id="comments"
+                          rows={3}
+                          className="w-full w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3"
+                          value={formData.comments}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+
+
+                    </div>
+                  )}
+
+                  {formData.purpose === 'Hire' && stage === 'update' && currentRef && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 border-rose-500/30 bg-rose-500/5">
+                      <div className="flex items-center gap-3 text-slate-900 font-bold text-lg mb-4">
+                        <AlertCircle className="w-5 h-5 text-rose-500" />
+                        Mileage Loss Summary
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-slate-500 uppercase">Start Loss</p>
+                          <p className="font-bold text-slate-900">
+                            {(Number(formData.tripStartMeter) - Number(formData.garageStartMeter))} KM
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-slate-500 uppercase">End Loss</p>
+                          <p className="font-bold text-slate-900">
+                            {formData.garageEndMeter ? (Number(formData.garageEndMeter) - Number(formData.tripEndMeter)) : 0} KM
+                          </p>
+                        </div>
+                        <div className="space-y-1 border-l border-slate-200 pl-4">
+                          <p className="text-[10px] text-emerald-400 font-bold uppercase">SC Due Amount</p>
+                          <p className="text-2xl font-black text-emerald-500">
+                            Rs. {formData.scDueAmount}
+                          </p>
+                        </div>
+                        <div className="space-y-1 border-l border-slate-200 pl-4">
+                          <p className="text-[10px] text-rose-400 font-bold uppercase">Total Loss</p>
+                          <p className="text-2xl font-black text-rose-500">
+                            {formData.garageEndMeter ? ((Number(formData.tripStartMeter) - Number(formData.garageStartMeter)) + (Number(formData.garageEndMeter) - Number(formData.tripEndMeter))) : 0} KM
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Footer Buttons */}
+                  {(stage === 'new' || (stage === 'update' && currentRef)) && (
+                    <div className="flex flex-col gap-4">
+                      <AnimatePresence>
+                        {alert && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className={cn(
+                              "p-4 rounded-2xl flex items-center gap-3 border shadow-lg",
+                              alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
+                              alert.type === 'warning' && "bg-amber-500/10 border-amber-500/20 text-amber-400",
+                              alert.type === 'error' && "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                            )}
+                          >
+                            {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                            <p className="text-sm font-medium">{alert.message}</p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => window.history.back()}
+                          className="flex-1 py-4 bg-white rounded-3xl shadow-sm border border-slate-200/80 font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-extrabold shadow-sm rounded-3xl cursor-pointer"
+                        >
+                          CANCEL
+                        </button>
+                        <button
+                          onClick={handleSubmit}
+                          disabled={loading || isSubmittingRef.current || !formData.purpose || (stage === 'update' && !formData.garageEndMeter) || (formData.purpose === 'Hire' && !formData.tripRef) || (formData.purpose === 'Fuel' && stage === 'update' && !isFuelSubmitted)}
+                          className="flex-[2] py-4 bg-[#18859c] hover:bg-[#157489] text-slate-900 font-extrabold rounded-3xl shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCheck className="w-5 h-5" />}
+                          SUBMIT RECORD
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+            </div>
+          )}
+        </AnimatePresence>
+        {/* PWA Install Popup */}
+        <AnimatePresence>
+          {showInstallPopup && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-6 left-6 right-6 z-[100] md:max-w-md md:mx-auto"
+            >
+              <div className="glass-card p-5 border-blue-500/30 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-blue-500/20 relative">
+                <button
+                  onClick={() => setShowInstallPopup(false)}
+                  className="absolute top-3 right-3 text-slate-500 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                    <Download className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-white font-bold text-base leading-tight">Install Fleet App</h3>
+                    <p className="text-slate-400 text-xs mt-1">Add to your home screen for quick access and better experience.</p>
                   </div>
                 </div>
-                ))}
-              </div>
 
-              <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end gap-2">
-                <button
-                  onClick={() => setEditingTrip(null)}
-                  className="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5 text-xs text-slate-400 hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveEditedTrip}
-                  disabled={savingEdit}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-                >
-                  {savingEdit && <Loader2 className="w-3 h-3 animate-spin" />}
-                  Save Changes
-                </button>
+                <div className="mt-5 flex gap-3">
+                  <button
+                    onClick={handleInstall}
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-600/20"
+                  >
+                    <Download className="w-4 h-4" />
+                    Install Now
+                  </button>
+                  <button
+                    onClick={() => setShowInstallPopup(false)}
+                    className="px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                  >
+                    Later
+                  </button>
+                </div>
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
-      {/* View Images Modal */}
-      <AnimatePresence>
-        {viewingImages && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          >
+        {/* Edit Trip Modal */}
+        <AnimatePresence>
+          {editingTrip && (
             <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             >
-              <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Camera className="w-5 h-5 text-emerald-500" />
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Uploaded Images ({viewingImages.rf})</h3>
-                </div>
-                <div className="flex items-center gap-3">
-                  {user && user[2]?.toLowerCase() === 'admin' && (
-                    <label className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[10px] uppercase tracking-wider cursor-pointer transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50">
-                      {addingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                      <span>Add Image</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        disabled={addingImage}
-                        onChange={handleAddImageFileSelect}
-                      />
-                    </label>
-                  )}
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              >
+                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Edit className="w-5 h-5 text-emerald-500" />
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Edit Fleet Record ({editingTrip.rf})</h3>
+                  </div>
                   <button
-                    onClick={() => setViewingImages(null)}
+                    onClick={() => setEditingTrip(null)}
                     className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-              </div>
 
-              <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-950/40">
-                {viewingImages.loading ? (
-                  <div className="p-20 flex flex-col items-center justify-center text-center space-y-3">
-                    <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Fetching Images...</p>
-                  </div>
-                ) : viewingImages.images && viewingImages.images.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {viewingImages.images.map((img: any, idx: number) => (
-                      <div key={idx} className="glass-card overflow-hidden border border-white/5 flex flex-col">
-                        <div className="p-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{img.name}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[9px] text-slate-500 font-bold">{idx + 1} of {viewingImages.images.length}</span>
-                            {user && user[2]?.toLowerCase() === 'admin' && (
-                              <button
-                                onClick={() => handlePromptDeleteImage(idx, img.name)}
-                                disabled={deletingImageIdx === idx}
-                                className="p-1 rounded-md text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-colors cursor-pointer"
-                                title="Delete Image"
+                <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                  {[
+                    {
+                      title: 'Start Details',
+                      fields: [
+                        { label: 'Status', idx: 0, type: 'select', options: ['Pending', 'Approved', 'Cancelled'] },
+                        { label: 'Staff Comment', idx: 27, type: 'text' },
+                        { label: 'FR Ref', idx: 1, type: 'text', readOnly: true },
+                        { label: 'Start TS', idx: 2, type: 'text', readOnly: true },
+                        { label: 'Start Loc', idx: 29, type: 'text', readOnly: true },
+                        { label: 'Driver', idx: 3, type: 'text' },
+                        { label: 'Vehicle Num', idx: 4, type: 'select', options: adminData?.filterOptions?.vehicles || [] },
+                        { label: 'Purpose', idx: 5, type: 'select', options: ['Hire', 'Repair', 'Personal', 'Fuel', 'Office Use'] },
+                        { label: 'Garage Start', idx: 6, type: 'number' },
+                      ]
+                    },
+                    {
+                      title: 'Fuel / Repair Details',
+                      fields: [
+                        { label: 'Fuel Update TS', idx: 28, type: 'text', readOnly: true },
+                        { label: 'Fuel Loc', idx: 31, type: 'text', readOnly: true },
+                        { label: 'Fuel Cost', idx: 9, type: 'number' },
+                        { label: 'Fuel Meter', idx: 'fuel_meter', type: 'number' },
+                        { label: 'Fuel Liters', idx: 'fuel_liters', type: 'number' },
+                        { label: 'Payment Type', idx: 32, type: 'select', options: ['Office card', 'Dialog card', 'Bank transfer', 'Hire cash', 'Driver cash'] },
+                        { label: '2nd Fuel Cost', idx: 24, type: 'number' },
+                        { label: '2nd Fuel Meter', idx: 25, type: 'number' },
+                        { label: '2nd Fuel Liters', idx: 26, type: 'number' },
+                        { label: '2nd Fuel Loc', idx: 33, type: 'text', readOnly: true },
+                        { label: '2nd Payment Type', idx: 34, type: 'select', options: ['Office card', 'Dialog card', 'Bank transfer', 'Hire cash', 'Driver cash'] },
+                        { label: 'Comments', idx: 10, type: 'text' },
+                        { label: 'Repair Cost', idx: 11, type: 'number' },
+                        { label: 'Folder URL', idx: 20, type: 'text' },
+                        { label: 'Folder ID', idx: 21, type: 'text' },
+                      ]
+                    },
+                    {
+                      title: 'End Details',
+                      fields: [
+                        { label: 'Garage End', idx: 8, type: 'number' },
+                        { label: 'End TS', idx: 7, type: 'text', readOnly: true },
+                        { label: 'End Loc', idx: 30, type: 'text', readOnly: true },
+                        { label: 'Trip Ref', idx: 12, type: 'text' },
+                        { label: 'SC Due Amount', idx: 13, type: 'number', readOnly: true },
+                        { label: 'Drv Comms', idx: 14, type: 'number' },
+                        { label: 'Trip Start Meter', idx: 15, type: 'number' },
+                        { label: 'Trip End Meter', idx: 16, type: 'number' },
+                        { label: 'Pkg Balance Mileage', idx: 17, type: 'number' },
+                        { label: 'Loss (Start)', idx: 18, type: 'number', readOnly: true },
+                        { label: 'Loss (End)', idx: 19, type: 'number', readOnly: true },
+                        { label: 'Total Mileage', idx: 22, type: 'number', readOnly: true },
+                        { label: 'Final Price', idx: 23, type: 'number' },
+                      ]
+                    }
+                  ].map((section, sIdx) => (
+                    <div key={sIdx} className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                      <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">{section.title}</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
+                        {section.fields.map((field: any, i) => (
+                          <div key={i} className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">{field.label}</label>
+                            {field.type === 'select' ? (
+                              <select
+                                disabled={field.readOnly}
+                                value={editingTrip.values[field.idx as number] || (field.idx === 32 ? 'Office card' : '')}
+                                onChange={(e) => {
+                                  const newValues = [...editingTrip.values];
+                                  newValues[field.idx as number] = e.target.value;
+                                  setEditingTrip({ ...editingTrip, values: newValues });
+                                }}
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
                               >
-                                {deletingImageIdx === idx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                              </button>
+                                <option value="">Select...</option>
+                                {field.options?.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+                              </select>
+                            ) : field.idx === 'fuel_meter' ? (
+                              <input
+                                type="number"
+                                disabled={field.readOnly}
+                                value={editingTrip.fMeter || ''}
+                                onChange={(e) => setEditingTrip({ ...editingTrip, fMeter: e.target.value })}
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                              />
+                            ) : field.idx === 'fuel_liters' ? (
+                              <input
+                                type="number"
+                                disabled={field.readOnly}
+                                value={editingTrip.fLiters || ''}
+                                onChange={(e) => setEditingTrip({ ...editingTrip, fLiters: e.target.value })}
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                              />
+                            ) : field.idx === 10 ? (
+                              <input
+                                type="text"
+                                disabled={field.readOnly}
+                                value={editingTrip.cleanComments || ''}
+                                onChange={(e) => setEditingTrip({ ...editingTrip, cleanComments: e.target.value })}
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                              />
+                            ) : (
+                              <input
+                                type={field.type}
+                                disabled={field.readOnly}
+                                value={editingTrip.values[field.idx as number] || ''}
+                                onChange={(e) => {
+                                  const newValues = [...editingTrip.values];
+                                  newValues[field.idx as number] = e.target.value;
+                                  setEditingTrip({ ...editingTrip, values: newValues });
+                                }}
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                              />
                             )}
                           </div>
-                        </div>
-                        <div 
-                          className="relative flex-1 bg-black flex items-center justify-center min-h-[300px] p-2 cursor-pointer group select-none overflow-hidden rounded-b-xl"
-                          onClick={() => setFullscreenImage({ url: img.dataUrl, name: img.name })}
-                          title="Click to view full screen"
-                        >
-                          <img
-                            src={img.dataUrl}
-                            alt={img.name}
-                            className="max-h-[400px] w-auto object-contain rounded-lg shadow-lg group-hover:scale-105 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
-                            <span className="bg-slate-900/90 text-white border border-white/20 text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 backdrop-blur-sm">
-                              <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>View Full Screen</span>
-                            </span>
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setEditingTrip(null)}
+                    className="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/5 text-xs text-slate-400 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveEditedTrip}
+                    disabled={savingEdit}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  >
+                    {savingEdit && <Loader2 className="w-3 h-3 animate-spin" />}
+                    Save Changes
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* View Images Modal */}
+        <AnimatePresence>
+          {viewingImages && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              >
+                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-5 h-5 text-emerald-500" />
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Uploaded Images ({viewingImages.rf})</h3>
                   </div>
-                ) : (
-                  <div className="p-20 flex flex-col items-center justify-center text-center space-y-3">
-                    <Camera className="w-12 h-12 text-slate-600 animate-pulse" />
-                    <p className="text-slate-400 font-black tracking-widest text-xs uppercase">No images found in database</p>
-                    {user && user[2]?.toLowerCase() === 'admin' ? (
-                      <label className="mt-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20">
-                        {addingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                        <span>Upload First Image</span>
+                  <div className="flex items-center gap-3">
+                    {user && user[2]?.toLowerCase() === 'admin' && (
+                      <label className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[10px] uppercase tracking-wider cursor-pointer transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50">
+                        {addingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                        <span>Add Image</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -7985,744 +7966,819 @@ export default function FleetApp() {
                           onChange={handleAddImageFileSelect}
                         />
                       </label>
-                    ) : (
-                      <p className="text-slate-500 text-[10px]">Images are stored in MongoDB when new records are submitted or updated.</p>
                     )}
+                    <button
+                      onClick={() => setViewingImages(null)}
+                      className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
 
-              <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end">
+                <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-950/40">
+                  {viewingImages.loading ? (
+                    <div className="p-20 flex flex-col items-center justify-center text-center space-y-3">
+                      <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                      <p className="text-slate-400 font-black tracking-widest text-xs uppercase">Fetching Images...</p>
+                    </div>
+                  ) : viewingImages.images && viewingImages.images.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {viewingImages.images.map((img: any, idx: number) => (
+                        <div key={idx} className="glass-card overflow-hidden border border-white/5 flex flex-col">
+                          <div className="p-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{img.name}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[9px] text-slate-500 font-bold">{idx + 1} of {viewingImages.images.length}</span>
+                              {user && user[2]?.toLowerCase() === 'admin' && (
+                                <button
+                                  onClick={() => handlePromptDeleteImage(idx, img.name)}
+                                  disabled={deletingImageIdx === idx}
+                                  className="p-1 rounded-md text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                                  title="Delete Image"
+                                >
+                                  {deletingImageIdx === idx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div
+                            className="relative flex-1 bg-black flex items-center justify-center min-h-[300px] p-2 cursor-pointer group select-none overflow-hidden rounded-b-xl"
+                            onClick={() => setFullscreenImage({ url: img.dataUrl, name: img.name })}
+                            title="Click to view full screen"
+                          >
+                            <img
+                              src={img.dataUrl}
+                              alt={img.name}
+                              className="max-h-[400px] w-auto object-contain rounded-lg shadow-lg group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                              <span className="bg-slate-900/90 text-white border border-white/20 text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 backdrop-blur-sm">
+                                <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>View Full Screen</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-20 flex flex-col items-center justify-center text-center space-y-3">
+                      <Camera className="w-12 h-12 text-slate-600 animate-pulse" />
+                      <p className="text-slate-400 font-black tracking-widest text-xs uppercase">No images found in database</p>
+                      {user && user[2]?.toLowerCase() === 'admin' ? (
+                        <label className="mt-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider cursor-pointer transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20">
+                          {addingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                          <span>Upload First Image</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={addingImage}
+                            onChange={handleAddImageFileSelect}
+                          />
+                        </label>
+                      ) : (
+                        <p className="text-slate-500 text-[10px]">Images are stored in MongoDB when new records are submitted or updated.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end">
+                  <button
+                    onClick={() => setViewingImages(null)}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20"
+                  >
+                    Close Viewer
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+
+
+        {/* Fullscreen Image Modal */}
+        <AnimatePresence>
+          {fullscreenImage && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 select-none"
+              onClick={() => setFullscreenImage(null)}
+            >
+              {/* Top Bar with Title and Close Button */}
+              <div
+                className="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-auto max-w-7xl mx-auto w-[calc(100%-2rem)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="bg-slate-900/90 border border-white/10 px-4 py-2 rounded-xl backdrop-blur-sm shadow-xl flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-black uppercase text-slate-200 tracking-wider">
+                    {fullscreenImage.name || 'Full Screen View'}
+                  </span>
+                </div>
                 <button
-                  onClick={() => setViewingImages(null)}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20"
+                  onClick={() => setFullscreenImage(null)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 hover:text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
+                  title="Close Full Screen"
                 >
-                  Close Viewer
+                  <X className="w-4 h-4" />
+                  <span>Close</span>
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Fullscreen Image Modal */}
-      <AnimatePresence>
-        {fullscreenImage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 select-none"
-            onClick={() => setFullscreenImage(null)}
-          >
-            {/* Top Bar with Title and Close Button */}
-            <div
-              className="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-auto max-w-7xl mx-auto w-[calc(100%-2rem)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="bg-slate-900/90 border border-white/10 px-4 py-2 rounded-xl backdrop-blur-sm shadow-xl flex items-center gap-2">
-                <Camera className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-black uppercase text-slate-200 tracking-wider">
-                  {fullscreenImage.name || 'Full Screen View'}
-                </span>
-              </div>
-              <button
-                onClick={() => setFullscreenImage(null)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 hover:text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
-                title="Close Full Screen"
-              >
-                <X className="w-4 h-4" />
-                <span>Close</span>
-              </button>
-            </div>
 
-            {/* Fullscreen Image Display */}
-            <div
-              className="relative max-w-[95vw] max-h-[85vh] flex items-center justify-center p-2 mt-8"
-              onClick={(e) => e.stopPropagation()}
+              {/* Fullscreen Image Display */}
+              <div
+                className="relative max-w-[95vw] max-h-[85vh] flex items-center justify-center p-2 mt-8"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <motion.img
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  src={fullscreenImage.url}
+                  alt={fullscreenImage.name || 'Full Screen Image'}
+                  className="max-h-[85vh] max-w-[95vw] w-auto h-auto object-contain rounded-xl shadow-2xl border border-white/10"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* System Popup: Add Image Label Prompt */}
+        <AnimatePresence>
+          {imageLabelPrompt && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
             >
-              <motion.img
+              <motion.div
+                initial={{ scale: 0.9, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 15 }}
+                className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4"
+              >
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-5 h-5 text-emerald-400" />
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Add Image Proof</h3>
+                  </div>
+                  <button
+                    onClick={() => setImageLabelPrompt(null)}
+                    className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Image Thumbnail Preview */}
+                <div className="relative rounded-xl overflow-hidden bg-black/60 border border-white/10 h-36 flex items-center justify-center p-2">
+                  <img
+                    src={imageLabelPrompt.dataUrl}
+                    alt="Preview"
+                    className="max-h-full max-w-full object-contain rounded-lg shadow-md"
+                  />
+                </div>
+
+                {/* Image Name Input */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                    Image Label / Category
+                  </label>
+                  <input
+                    type="text"
+                    value={imageLabelPrompt.nameInput}
+                    onChange={(e) => setImageLabelPrompt({ ...imageLabelPrompt, nameInput: e.target.value })}
+                    placeholder="e.g. GARAGE_START, FUEL_RECEIPT"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-white font-bold text-xs focus:border-emerald-500 focus:outline-none transition-colors"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setImageLabelPrompt(null)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmAddImage}
+                    disabled={addingImage}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+                  >
+                    {addingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    <span>Confirm & Upload</span>
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* System Popup: Delete Image Confirmation */}
+        <AnimatePresence>
+          {deleteImageConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 15 }}
+                className="bg-slate-900 border border-rose-500/30 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 space-y-4"
+              >
+                <div className="flex items-center gap-3 border-b border-white/10 pb-3">
+                  <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Confirm Delete</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">Remove Image Proof</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                  Are you sure you want to delete <span className="font-extrabold text-rose-400">"{deleteImageConfirm.name}"</span>? This action will permanently remove this image from the database.
+                </p>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteImageConfirm(null)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteImage}
+                    disabled={deletingImageIdx !== null}
+                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-600/20 flex items-center gap-2"
+                  >
+                    {deletingImageIdx !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    <span>Yes, Delete</span>
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* View Trip Modal */}
+        <AnimatePresence>
+          {viewingTrip && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              >
+                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-5 h-5 text-sky-500" />
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">View Fleet Record ({viewingTrip.rf})</h3>
+                  </div>
+                  <button
+                    onClick={() => setViewingTrip(null)}
+                    className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                  {[
+                    {
+                      title: 'Start Details',
+                      fields: [
+                        { label: 'Status', idx: 0 },
+                        { label: 'Staff Comment', idx: 27 },
+                        { label: 'FR Ref', idx: 1 },
+                        { label: 'Start TS', idx: 2 },
+                        { label: 'Start Loc', idx: 29 },
+                        { label: 'Driver', idx: 3 },
+                        { label: 'Vehicle Num', idx: 4 },
+                        { label: 'Purpose', idx: 5 },
+                        { label: 'Garage Start', idx: 6 },
+                      ]
+                    },
+                    {
+                      title: 'Fuel / Repair Details',
+                      fields: [
+                        { label: 'Fuel Update TS', idx: 28 },
+                        { label: '1st Fuel Loc', idx: 31 },
+                        { label: 'Fuel Cost', idx: 9 },
+                        { label: 'Fuel Meter', idx: 'fuel_meter' },
+                        { label: 'Fuel Liters', idx: 'fuel_liters' },
+                        { label: 'Payment Type', idx: 32 },
+                        { label: '2nd Fuel Cost', idx: 24 },
+                        { label: '2nd Fuel Meter', idx: 25 },
+                        { label: '2nd Fuel Liters', idx: 26 },
+                        { label: '2nd Fuel Loc', idx: 33 },
+                        { label: '2nd Payment Type', idx: 34 },
+                        { label: 'Comments', idx: 10 },
+                        { label: 'Repair Cost', idx: 11 },
+                        { label: 'Repair Meter', idx: 35 },
+                        { label: 'Folder URL', idx: 20 },
+                        { label: 'Folder ID', idx: 21 },
+                      ]
+                    },
+                    {
+                      title: 'End Details',
+                      fields: [
+                        { label: 'Garage End', idx: 8 },
+                        { label: 'End TS', idx: 7 },
+                        { label: 'End Loc', idx: 30 },
+                        { label: 'Trip Ref', idx: 12 },
+                        { label: 'SC Due Amount', idx: 13 },
+                        { label: 'Drv Comms', idx: 14 },
+                        { label: 'Trip Start Meter', idx: 15 },
+                        { label: 'Trip End Meter', idx: 16 },
+                        { label: 'Pkg Balance Mileage', idx: 17 },
+                        { label: 'Loss (Start)', idx: 18 },
+                        { label: 'Loss (End)', idx: 19 },
+                        { label: 'Total Mileage', idx: 22 },
+                        { label: 'Final Price', idx: 23 },
+                      ]
+                    }
+                  ].map((section, sIdx) => (
+                    <div key={sIdx} className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                      <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">{section.title}</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
+                        {section.fields.map((field, i) => (
+                          <div key={i} className="space-y-1">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{field.label}</p>
+                            <p className="text-xs font-medium text-white truncate" title={String(field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
+                              (() => {
+                                const rawComments = viewingTrip.values[10] || '';
+                                const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                if (fuelMatches.length > 0) {
+                                  const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+                                  if (field.idx === 'fuel_meter') {
+                                    const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                    return m ? m[1] : '-';
+                                  } else {
+                                    const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                    return m ? m[1] : '-';
+                                  }
+                                } else {
+                                  const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                                  const oldFuelMatch = rawComments.match(oldFuelRegex);
+                                  if (oldFuelMatch && field.idx === 'fuel_meter') return oldFuelMatch[1];
+                                  return '-';
+                                }
+                              })()
+                            ) : (
+                              viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
+                                ? (field.idx === 10 ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() : viewingTrip.values[field.idx as number])
+                                : (field.idx === 18 ? '0' : '-')
+                            ))}>
+                              {field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
+                                (() => {
+                                  const rawComments = viewingTrip.values[10] || '';
+                                  const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                  if (fuelMatches.length > 0) {
+                                    const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+                                    if (field.idx === 'fuel_meter') {
+                                      const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                      return m ? m[1] : '-';
+                                    } else {
+                                      const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                      return m ? m[1] : '-';
+                                    }
+                                  } else {
+                                    const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                                    const oldFuelMatch = rawComments.match(oldFuelRegex);
+                                    if (oldFuelMatch && field.idx === 'fuel_meter') return oldFuelMatch[1];
+                                    return '-';
+                                  }
+                                })()
+                              ) : field.idx === 32 ? (
+                                (() => {
+                                  const hasFuel = Boolean(
+                                    (viewingTrip.values[9] !== undefined && viewingTrip.values[9] !== null && String(viewingTrip.values[9]).trim() !== '' && viewingTrip.values[9] !== '0' && viewingTrip.values[9] !== 0) ||
+                                    (viewingTrip.values[24] !== undefined && viewingTrip.values[24] !== null && String(viewingTrip.values[24]).trim() !== '' && viewingTrip.values[24] !== '0' && viewingTrip.values[24] !== 0) ||
+                                    (viewingTrip.values[25] !== undefined && viewingTrip.values[25] !== null && String(viewingTrip.values[25]).trim() !== '') ||
+                                    (viewingTrip.values[26] !== undefined && viewingTrip.values[26] !== null && String(viewingTrip.values[26]).trim() !== '') ||
+                                    (viewingTrip.values[28] !== undefined && viewingTrip.values[28] !== null && String(viewingTrip.values[28]).trim() !== '') ||
+                                    (viewingTrip.values[10] && String(viewingTrip.values[10]).includes('(Fuel'))
+                                  );
+                                  if (!hasFuel) return '-';
+                                  return viewingTrip.values[32] || 'Office card';
+                                })()
+                              ) : field.idx === 34 ? (
+                                (() => {
+                                  const hasSecondFuel = Boolean(
+                                    (viewingTrip.values[24] !== undefined && viewingTrip.values[24] !== null && String(viewingTrip.values[24]).trim() !== '' && viewingTrip.values[24] !== '0' && viewingTrip.values[24] !== 0) ||
+                                    (viewingTrip.values[25] !== undefined && viewingTrip.values[25] !== null && String(viewingTrip.values[25]).trim() !== '') ||
+                                    (viewingTrip.values[26] !== undefined && viewingTrip.values[26] !== null && String(viewingTrip.values[26]).trim() !== '')
+                                  );
+                                  if (!hasSecondFuel) return '-';
+                                  return viewingTrip.values[34] || 'Office card';
+                                })()
+                              ) : (
+                                viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
+                                  ? (
+                                    (field.idx === 29 || field.idx === 30 || field.idx === 31 || field.idx === 33) && viewingTrip.values[field.idx as number].startsWith('http')
+                                      ? <a href={viewingTrip.values[field.idx as number]} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">View Map</a>
+                                      : field.idx === 10 ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() || '-' : viewingTrip.values[field.idx as number]
+                                  )
+                                  : (field.idx === 18 ? '0' : '-')
+                              )}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end">
+                  <button
+                    onClick={() => setViewingTrip(null)}
+                    className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-sky-500/20"
+                  >
+                    Close Viewer
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {viewingDriver && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            >
+              <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                src={fullscreenImage.url}
-                alt={fullscreenImage.name || 'Full Screen Image'}
-                className="max-h-[85vh] max-w-[95vw] w-auto h-auto object-contain rounded-xl shadow-2xl border border-white/10"
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* System Popup: Add Image Label Prompt */}
-      <AnimatePresence>
-        {imageLabelPrompt && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 15 }}
-              className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <div className="flex items-center gap-2">
-                  <Camera className="w-5 h-5 text-emerald-400" />
-                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Add Image Proof</h3>
-                </div>
-                <button
-                  onClick={() => setImageLabelPrompt(null)}
-                  className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Image Thumbnail Preview */}
-              <div className="relative rounded-xl overflow-hidden bg-black/60 border border-white/10 h-36 flex items-center justify-center p-2">
-                <img
-                  src={imageLabelPrompt.dataUrl}
-                  alt="Preview"
-                  className="max-h-full max-w-full object-contain rounded-lg shadow-md"
-                />
-              </div>
-
-              {/* Image Name Input */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                  Image Label / Category
-                </label>
-                <input
-                  type="text"
-                  value={imageLabelPrompt.nameInput}
-                  onChange={(e) => setImageLabelPrompt({ ...imageLabelPrompt, nameInput: e.target.value })}
-                  placeholder="e.g. GARAGE_START, FUEL_RECEIPT"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-white font-bold text-xs focus:border-emerald-500 focus:outline-none transition-colors"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setImageLabelPrompt(null)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmAddImage}
-                  disabled={addingImage}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-                >
-                  {addingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  <span>Confirm & Upload</span>
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* System Popup: Delete Image Confirmation */}
-      <AnimatePresence>
-        {deleteImageConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 15 }}
-              className="bg-slate-900 border border-rose-500/30 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 space-y-4"
-            >
-              <div className="flex items-center gap-3 border-b border-white/10 pb-3">
-                <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
-                  <Trash2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Confirm Delete</h3>
-                  <p className="text-[10px] text-slate-400 font-medium">Remove Image Proof</p>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                Are you sure you want to delete <span className="font-extrabold text-rose-400">"{deleteImageConfirm.name}"</span>? This action will permanently remove this image from the database.
-              </p>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteImageConfirm(null)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmDeleteImage}
-                  disabled={deletingImageIdx !== null}
-                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-600/20 flex items-center gap-2"
-                >
-                  {deletingImageIdx !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                  <span>Yes, Delete</span>
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {/* View Trip Modal */}
-      <AnimatePresence>
-        {viewingTrip && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
-            >
-              <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-sky-500" />
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">View Fleet Record ({viewingTrip.rf})</h3>
-                </div>
-                <button
-                  onClick={() => setViewingTrip(null)}
-                  className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-6 overflow-y-auto space-y-6 flex-1">
-                {[
-                  {
-                    title: 'Start Details',
-                    fields: [
-                      { label: 'Status', idx: 0 },
-                      { label: 'Staff Comment', idx: 27 },
-                      { label: 'FR Ref', idx: 1 },
-                      { label: 'Start TS', idx: 2 },
-                      { label: 'Start Loc', idx: 29 },
-                      { label: 'Driver', idx: 3 },
-                      { label: 'Vehicle Num', idx: 4 },
-                      { label: 'Purpose', idx: 5 },
-                      { label: 'Garage Start', idx: 6 },
-                    ]
-                  },
-                  {
-                    title: 'Fuel / Repair Details',
-                    fields: [
-                      { label: 'Fuel Update TS', idx: 28 },
-                      { label: '1st Fuel Loc', idx: 31 },
-                      { label: 'Fuel Cost', idx: 9 },
-                      { label: 'Fuel Meter', idx: 'fuel_meter' },
-                      { label: 'Fuel Liters', idx: 'fuel_liters' },
-                      { label: 'Payment Type', idx: 32 },
-                      { label: '2nd Fuel Cost', idx: 24 },
-                      { label: '2nd Fuel Meter', idx: 25 },
-                      { label: '2nd Fuel Liters', idx: 26 },
-                      { label: '2nd Fuel Loc', idx: 33 },
-                      { label: '2nd Payment Type', idx: 34 },
-                      { label: 'Comments', idx: 10 },
-                      { label: 'Repair Cost', idx: 11 },
-                      { label: 'Repair Meter', idx: 35 },
-                      { label: 'Folder URL', idx: 20 },
-                      { label: 'Folder ID', idx: 21 },
-                    ]
-                  },
-                  {
-                    title: 'End Details',
-                    fields: [
-                      { label: 'Garage End', idx: 8 },
-                      { label: 'End TS', idx: 7 },
-                      { label: 'End Loc', idx: 30 },
-                      { label: 'Trip Ref', idx: 12 },
-                      { label: 'SC Due Amount', idx: 13 },
-                      { label: 'Drv Comms', idx: 14 },
-                      { label: 'Trip Start Meter', idx: 15 },
-                      { label: 'Trip End Meter', idx: 16 },
-                      { label: 'Pkg Balance Mileage', idx: 17 },
-                      { label: 'Loss (Start)', idx: 18 },
-                      { label: 'Loss (End)', idx: 19 },
-                      { label: 'Total Mileage', idx: 22 },
-                      { label: 'Final Price', idx: 23 },
-                    ]
-                  }
-                ].map((section, sIdx) => (
-                  <div key={sIdx} className="bg-white/5 p-5 rounded-2xl border border-white/5">
-                    <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">{section.title}</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
-                      {section.fields.map((field, i) => (
-                        <div key={i} className="space-y-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{field.label}</p>
-                      <p className="text-xs font-medium text-white truncate" title={String(field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
-                        (() => {
-                          const rawComments = viewingTrip.values[10] || '';
-                          const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
-                          if (fuelMatches.length > 0) {
-                            const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                            if (field.idx === 'fuel_meter') {
-                              const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                              return m ? m[1] : '-';
-                            } else {
-                              const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                              return m ? m[1] : '-';
-                            }
-                          } else {
-                            const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-                            const oldFuelMatch = rawComments.match(oldFuelRegex);
-                            if (oldFuelMatch && field.idx === 'fuel_meter') return oldFuelMatch[1];
-                            return '-';
-                          }
-                        })()
-                      ) : (
-                        viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
-                          ? (field.idx === 10 ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() : viewingTrip.values[field.idx as number])
-                          : (field.idx === 18 ? '0' : '-')
-                      ))}>
-                        {field.idx === 'fuel_meter' || field.idx === 'fuel_liters' ? (
-                          (() => {
-                            const rawComments = viewingTrip.values[10] || '';
-                            const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
-                            if (fuelMatches.length > 0) {
-                              const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                              if (field.idx === 'fuel_meter') {
-                                const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                return m ? m[1] : '-';
-                              } else {
-                                const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                return m ? m[1] : '-';
-                              }
-                            } else {
-                              const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-                              const oldFuelMatch = rawComments.match(oldFuelRegex);
-                              if (oldFuelMatch && field.idx === 'fuel_meter') return oldFuelMatch[1];
-                              return '-';
-                            }
-                          })()
-                        ) : field.idx === 32 ? (
-                          (() => {
-                            const hasFuel = Boolean(
-                              (viewingTrip.values[9] !== undefined && viewingTrip.values[9] !== null && String(viewingTrip.values[9]).trim() !== '' && viewingTrip.values[9] !== '0' && viewingTrip.values[9] !== 0) ||
-                              (viewingTrip.values[24] !== undefined && viewingTrip.values[24] !== null && String(viewingTrip.values[24]).trim() !== '' && viewingTrip.values[24] !== '0' && viewingTrip.values[24] !== 0) ||
-                              (viewingTrip.values[25] !== undefined && viewingTrip.values[25] !== null && String(viewingTrip.values[25]).trim() !== '') ||
-                              (viewingTrip.values[26] !== undefined && viewingTrip.values[26] !== null && String(viewingTrip.values[26]).trim() !== '') ||
-                              (viewingTrip.values[28] !== undefined && viewingTrip.values[28] !== null && String(viewingTrip.values[28]).trim() !== '') ||
-                              (viewingTrip.values[10] && String(viewingTrip.values[10]).includes('(Fuel'))
-                            );
-                            if (!hasFuel) return '-';
-                            return viewingTrip.values[32] || 'Office card';
-                          })()
-                        ) : field.idx === 34 ? (
-                          (() => {
-                            const hasSecondFuel = Boolean(
-                              (viewingTrip.values[24] !== undefined && viewingTrip.values[24] !== null && String(viewingTrip.values[24]).trim() !== '' && viewingTrip.values[24] !== '0' && viewingTrip.values[24] !== 0) ||
-                              (viewingTrip.values[25] !== undefined && viewingTrip.values[25] !== null && String(viewingTrip.values[25]).trim() !== '') ||
-                              (viewingTrip.values[26] !== undefined && viewingTrip.values[26] !== null && String(viewingTrip.values[26]).trim() !== '')
-                            );
-                            if (!hasSecondFuel) return '-';
-                            return viewingTrip.values[34] || 'Office card';
-                          })()
-                        ) : (
-                          viewingTrip.values[field.idx as number] !== undefined && viewingTrip.values[field.idx as number] !== null && viewingTrip.values[field.idx as number] !== ''
-                            ? (
-                                (field.idx === 29 || field.idx === 30 || field.idx === 31 || field.idx === 33) && viewingTrip.values[field.idx as number].startsWith('http')
-                                  ? <a href={viewingTrip.values[field.idx as number]} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">View Map</a>
-                                  : field.idx === 10 ? viewingTrip.values[10].toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim() || '-' : viewingTrip.values[field.idx as number]
-                              )
-                            : (field.idx === 18 ? '0' : '-')
-                        )}
-                      </p>
+                className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              >
+                <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
+                      <Eye className="w-5 h-5" />
                     </div>
-                  ))}
-                  </div>
-                </div>
-                ))}
-              </div>
-
-              <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-end">
-                <button
-                  onClick={() => setViewingTrip(null)}
-                  className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-sky-500/20"
-                >
-                  Close Viewer
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {viewingDriver && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
-            >
-              <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
-                    <Eye className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Driver Details</h3>
-                    <p className="text-[10px] text-slate-400 font-medium">{viewingDriver.username}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setViewingDriver(null)}
-                  className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Username</p>
-                    <p className="text-xs font-bold text-emerald-500">{viewingDriver.username}</p>
-                  </div>
-                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Password</p>
-                    <p className="text-xs font-mono text-slate-300">{viewingDriver.password}</p>
-                  </div>
-                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Name</p>
-                    <p className="text-xs font-bold text-white">{viewingDriver.name || '-'}</p>
-                  </div>
-                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone</p>
-                    <p className="text-xs font-medium text-slate-300">{viewingDriver.phone || '-'}</p>
-                  </div>
-                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Role</p>
-                    <p className="text-xs font-bold text-indigo-400">{viewingDriver.role}</p>
-                  </div>
-                  <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</p>
-                    <span className={cn(
-                      "inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider",
-                      viewingDriver.status === 'Active' ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
-                    )}>
-                      {viewingDriver.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 border-t border-white/5 bg-white/5 flex justify-end">
-                <button
-                  onClick={() => setViewingDriver(null)}
-                  className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-sky-500/20"
-                >
-                  Close Viewer
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {editingDriver && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
-            >
-              <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
-                    <Edit className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Edit Driver</h3>
-                    <p className="text-[10px] text-slate-400 font-medium">{editingDriver.username}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setEditingDriver(null)}
-                  className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleEditDriverSubmit} className="flex flex-col flex-1 overflow-hidden">
-                <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
-                  
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Username (Read-Only)</label>
-                    <input
-                      type="text"
-                      className="w-full bg-black/20 border border-white/5 rounded-xl py-3 px-4 text-xs font-bold text-emerald-500 opacity-70 cursor-not-allowed"
-                      value={editingDriver.username}
-                      readOnly
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
-                    <input
-                      type="text"
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                      value={editingDriver.password}
-                      onChange={(e) => setEditingDriver({ ...editingDriver, password: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</label>
-                    <input
-                      type="text"
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                      value={editingDriver.name || ''}
-                      onChange={(e) => setEditingDriver({ ...editingDriver, name: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone</label>
-                    <input
-                      type="text"
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                      value={editingDriver.phone || ''}
-                      onChange={(e) => setEditingDriver({ ...editingDriver, phone: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</label>
-                      <select
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                        value={editingDriver.role}
-                        onChange={(e) => setEditingDriver({ ...editingDriver, role: e.target.value })}
-                      >
-                        <option value="driver">Driver</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
-                      <select
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                        value={editingDriver.status}
-                        onChange={(e) => setEditingDriver({ ...editingDriver, status: e.target.value })}
-                      >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vehicle</label>
-                      <select
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                        value={editingDriver.vehicle || "Unassigned"}
-                        onChange={(e) => setEditingDriver({ ...editingDriver, vehicle: e.target.value })}
-                      >
-                        <option value="Unassigned">Unassigned</option>
-                        {adminData?.filterOptions?.vehicles?.map((v: string) => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-wider">Driver Details</h3>
+                      <p className="text-[10px] text-slate-400 font-medium">{viewingDriver.username}</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-4 border-t border-white/5 bg-white/5 flex gap-3 justify-end">
                   <button
-                    type="button"
+                    onClick={() => setViewingDriver(null)}
+                    className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Username</p>
+                      <p className="text-xs font-bold text-emerald-500">{viewingDriver.username}</p>
+                    </div>
+                    <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Password</p>
+                      <p className="text-xs font-mono text-slate-300">{viewingDriver.password}</p>
+                    </div>
+                    <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Name</p>
+                      <p className="text-xs font-bold text-white">{viewingDriver.name || '-'}</p>
+                    </div>
+                    <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone</p>
+                      <p className="text-xs font-medium text-slate-300">{viewingDriver.phone || '-'}</p>
+                    </div>
+                    <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Role</p>
+                      <p className="text-xs font-bold text-indigo-400">{viewingDriver.role}</p>
+                    </div>
+                    <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/5">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</p>
+                      <span className={cn(
+                        "inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider",
+                        viewingDriver.status === 'Active' ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+                      )}>
+                        {viewingDriver.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border-t border-white/5 bg-white/5 flex justify-end">
+                  <button
+                    onClick={() => setViewingDriver(null)}
+                    className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-sky-500/20"
+                  >
+                    Close Viewer
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {editingDriver && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              >
+                <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                      <Edit className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-wider">Edit Driver</h3>
+                      <p className="text-[10px] text-slate-400 font-medium">{editingDriver.username}</p>
+                    </div>
+                  </div>
+                  <button
                     onClick={() => setEditingDriver(null)}
-                    className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all"
-                    disabled={savingDriver}
+                    className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-                    disabled={savingDriver}
-                  >
-                    {savingDriver && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {savingDriver ? 'Saving...' : 'Save Changes'}
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
 
-        {addingDriver && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
+                <form onSubmit={handleEditDriverSubmit} className="flex flex-col flex-1 overflow-hidden">
+                  <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Username</label>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-emerald-500 focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={editingDriver.username}
+                        onChange={(e) => setEditingDriver({ ...editingDriver, username: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={editingDriver.password}
+                        onChange={(e) => setEditingDriver({ ...editingDriver, password: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</label>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={editingDriver.name || ''}
+                        onChange={(e) => setEditingDriver({ ...editingDriver, name: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone</label>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={editingDriver.phone || ''}
+                        onChange={(e) => setEditingDriver({ ...editingDriver, phone: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</label>
+                        <select
+                          className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                          value={editingDriver.role}
+                          onChange={(e) => setEditingDriver({ ...editingDriver, role: e.target.value })}
+                        >
+                          <option value="driver">Driver</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+                        <select
+                          className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                          value={editingDriver.status}
+                          onChange={(e) => setEditingDriver({ ...editingDriver, status: e.target.value })}
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vehicle</label>
+                        <select
+                          className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                          value={editingDriver.vehicle || "Unassigned"}
+                          onChange={(e) => setEditingDriver({ ...editingDriver, vehicle: e.target.value })}
+                        >
+                          <option value="Unassigned">Unassigned</option>
+                          {adminData?.filterOptions?.vehicles?.map((v: string) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border-t border-white/5 bg-white/5 flex gap-3 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setEditingDriver(null)}
+                      className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all"
+                      disabled={savingDriver}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                      disabled={savingDriver}
+                    >
+                      {savingDriver && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {savingDriver ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {addingDriver && (
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             >
-              <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
-                    <Plus className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Add New Driver</h3>
-                    <p className="text-[10px] text-slate-400 font-medium">Create a new system user</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setAddingDriver(null)}
-                  className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleAddDriverSubmit} className="flex flex-col flex-1 overflow-hidden">
-                <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
-                  
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Username</label>
-                    <input
-                      type="text"
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-emerald-500 focus:border-emerald-500 focus:outline-none transition-colors"
-                      value={addingDriver.username}
-                      onChange={(e) => setAddingDriver({ ...addingDriver, username: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
-                    <input
-                      type="text"
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                      value={addingDriver.password}
-                      onChange={(e) => setAddingDriver({ ...addingDriver, password: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</label>
-                    <input
-                      type="text"
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                      value={addingDriver.name || ''}
-                      onChange={(e) => setAddingDriver({ ...addingDriver, name: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone</label>
-                    <input
-                      type="text"
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                      value={addingDriver.phone || ''}
-                      onChange={(e) => setAddingDriver({ ...addingDriver, phone: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</label>
-                      <select
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                        value={addingDriver.role}
-                        onChange={(e) => setAddingDriver({ ...addingDriver, role: e.target.value })}
-                      >
-                        <option value="driver">Driver</option>
-                        <option value="admin">Admin</option>
-                      </select>
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              >
+                <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                      <Plus className="w-5 h-5" />
                     </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
-                      <select
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                        value={addingDriver.status}
-                        onChange={(e) => setAddingDriver({ ...addingDriver, status: e.target.value })}
-                      >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vehicle</label>
-                      <select
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-                        value={addingDriver.vehicle || "Unassigned"}
-                        onChange={(e) => setAddingDriver({ ...addingDriver, vehicle: e.target.value })}
-                      >
-                        <option value="Unassigned">Unassigned</option>
-                        {adminData?.filterOptions?.vehicles?.map((v: string) => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-wider">Add New Driver</h3>
+                      <p className="text-[10px] text-slate-400 font-medium">Create a new system user</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-4 border-t border-white/5 bg-white/5 flex gap-3 justify-end">
                   <button
-                    type="button"
                     onClick={() => setAddingDriver(null)}
-                    className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all"
-                    disabled={savingDriver}
+                    className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-                    disabled={savingDriver}
-                  >
-                    {savingDriver && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {savingDriver ? 'Saving...' : 'Create Driver'}
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-              </form>
+
+                <form onSubmit={handleAddDriverSubmit} className="flex flex-col flex-1 overflow-hidden">
+                  <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Username</label>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-emerald-500 focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={addingDriver.username}
+                        onChange={(e) => setAddingDriver({ ...addingDriver, username: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-mono text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={addingDriver.password}
+                        onChange={(e) => setAddingDriver({ ...addingDriver, password: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</label>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={addingDriver.name || ''}
+                        onChange={(e) => setAddingDriver({ ...addingDriver, name: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone</label>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                        value={addingDriver.phone || ''}
+                        onChange={(e) => setAddingDriver({ ...addingDriver, phone: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</label>
+                        <select
+                          className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                          value={addingDriver.role}
+                          onChange={(e) => setAddingDriver({ ...addingDriver, role: e.target.value })}
+                        >
+                          <option value="driver">Driver</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+                        <select
+                          className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                          value={addingDriver.status}
+                          onChange={(e) => setAddingDriver({ ...addingDriver, status: e.target.value })}
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vehicle</label>
+                        <select
+                          className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                          value={addingDriver.vehicle || "Unassigned"}
+                          onChange={(e) => setAddingDriver({ ...addingDriver, vehicle: e.target.value })}
+                        >
+                          <option value="Unassigned">Unassigned</option>
+                          {adminData?.filterOptions?.vehicles?.map((v: string) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border-t border-white/5 bg-white/5 flex gap-3 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setAddingDriver(null)}
+                      className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all"
+                      disabled={savingDriver}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                      disabled={savingDriver}
+                    >
+                      {savingDriver && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {savingDriver ? 'Saving...' : 'Create Driver'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </main>
+          )}
+        </AnimatePresence>
+      </main>
     </>
   );
 }

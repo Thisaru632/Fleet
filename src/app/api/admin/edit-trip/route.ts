@@ -59,6 +59,7 @@ export async function PUT(request: Request) {
           purpose: rawValues[5] || trip.purpose,
           fuel: parseNum(rawValues[9]) + (rawValues.length > 24 ? parseNum(rawValues[24]) : 0),
           repair: parseNum(rawValues[11]),
+          repairMeter: rawValues.length > 35 && rawValues[35] !== undefined ? String(rawValues[35] || '') : (trip.repairMeter || ''),
           commission: parseNum(rawValues[14]),
           finalPrice: parseNum(rawValues[23]),
           mileage: trip.mileage,
