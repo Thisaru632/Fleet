@@ -383,6 +383,7 @@ export async function GET(request: Request) {
       purpose: trip.purpose,
       status: trip.status,
       paymentType: accountTypeMap.get(String(trip.rawValues?.[12] || '').trim()) || 'cash',
+      repairMeter: trip.repairMeter || trip.rawValues?.[35] || '',
       values: trip.rawValues || [],
     }));
 

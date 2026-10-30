@@ -17,21 +17,9 @@ if (!cached) {
   cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
+// Background Google Sheet sync disabled per user request
 async function startBackgroundSync() {
-  if ((global as any).autoSyncStarted) return;
-  (global as any).autoSyncStarted = true;
-  
-  console.log("[AutoSync] Initializing background task (every 5 minutes)...");
-  setInterval(async () => {
-    try {
-      console.log("[AutoSync] Running scheduled account sheet sync...");
-      const { runAccountSync } = await import("./syncHelper");
-      const result = await runAccountSync();
-      console.log("[AutoSync] Scheduled sync completed:", result.message);
-    } catch (err) {
-      console.error("[AutoSync] Scheduled sync failed:", err);
-    }
-  }, 5 * 60 * 1000);
+  // Sync stopped
 }
 
 async function dbConnect() {
