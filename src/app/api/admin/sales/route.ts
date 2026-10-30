@@ -406,7 +406,11 @@ export async function GET(request: Request) {
     // Format Drivers
     const driverNames: Record<string, string> = {};
     const driversList = users.map((u: any) => {
-      if (u.username) driverNames[String(u.username)] = String(u.name);
+      const uName = String(u.name ?? '').trim();
+      if (u.username && uName) {
+        driverNames[String(u.username)] = uName;
+        driverNames[String(u.username).trim().toUpperCase()] = uName;
+      }
       return {
         username: u.username,
         password: u.password,
@@ -453,7 +457,7 @@ export async function GET(request: Request) {
         salaryMap.set(key, { 
           key, 
           driverCode, 
-          driverName: driverNames[driverCode] || driverCode, 
+          driverName: driverNames[driverCode] || driverNames[driverCode.trim().toUpperCase()] || driverCode, 
           month, 
           baseComm: 0,
           salaryAdvance: 0, 

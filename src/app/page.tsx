@@ -1626,6 +1626,9 @@ export default function FleetApp() {
       const data = await safeJson(res);
       if (data.error) throw new Error(data.error);
 
+      if (editingDriver.originalUsername && editingDriver.originalUsername !== editingDriver.username) {
+        assignVehicleToDriver(editingDriver.originalUsername, 'Unassigned');
+      }
       if (editingDriver.vehicle !== undefined) {
         assignVehicleToDriver(editingDriver.username, editingDriver.vehicle);
       }
@@ -5032,7 +5035,7 @@ export default function FleetApp() {
                                     View
                                   </button>
                                   <button
-                                    onClick={() => setEditingDriver({ ...driver, vehicle: assignedVehicle })}
+                                    onClick={() => setEditingDriver({ ...driver, originalUsername: driver.username, vehicle: assignedVehicle })}
                                     className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[10px] font-black transition-colors uppercase tracking-wider"
                                   >
                                     <Edit className="w-3 h-3" />
@@ -8532,12 +8535,13 @@ export default function FleetApp() {
                   <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
 
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Username (Read-Only)</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Username</label>
                       <input
                         type="text"
-                        className="w-full bg-black/20 border border-white/5 rounded-xl py-3 px-4 text-xs font-bold text-emerald-500 opacity-70 cursor-not-allowed"
+                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-emerald-500 focus:border-emerald-500 focus:outline-none transition-colors"
                         value={editingDriver.username}
-                        readOnly
+                        onChange={(e) => setEditingDriver({ ...editingDriver, username: e.target.value })}
+                        required
                       />
                     </div>
 
