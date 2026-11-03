@@ -2622,7 +2622,7 @@ export default function FleetApp() {
         : (driverName ? `${driverName} - Cash` : '- Cash');
 
       const endTimestamp = formatLakDateTime(b.estimatedCompletedAt || b.completedAt);
-      const cabType = b.cabType || '';
+      const vehicleNum = b.vehiclePlate || b.vehicle?.plateNo || '';
       const finalTotal =
         b.finalTotal !== undefined && b.finalTotal !== null
           ? String(b.finalTotal)
@@ -2651,7 +2651,7 @@ export default function FleetApp() {
         "",
         "",
         "",
-        cabType,
+        vehicleNum,
         "",
         "",
         "",
@@ -6003,7 +6003,7 @@ export default function FleetApp() {
                                 endTimestamp = parts.length === 2 ? `${parts[0]} ${parts[1].substring(0, 5)}` : String(endTimeVal);
                               }
 
-                              const cabType = b.cabType || '';
+                              const vehicleNum = b.vehiclePlate || b.vehicle?.plateNo || '';
                               const finalTotal =
                                 b.finalTotal !== undefined && b.finalTotal !== null
                                   ? String(b.finalTotal)
@@ -6033,7 +6033,7 @@ export default function FleetApp() {
                                   <td className="p-2 border-r border-white/5"></td>
                                   <td className="p-2 border-r border-white/5"></td>
                                   <td className="p-2 border-r border-white/5"></td>
-                                  <td className="p-2 border-r border-white/5 text-white">{cabType}</td>
+                                  <td className="p-2 border-r border-white/5 text-white">{vehicleNum}</td>
                                   <td className="p-2 border-r border-white/5"></td>
                                   <td className="p-2 border-r border-white/5"></td>
                                   <td className="p-2 border-r border-white/5"></td>

@@ -209,6 +209,7 @@ export async function GET(request: Request) {
                   ...detData.dataBundle,
                   estimatedCompletedAt: b.estimatedCompletedAt || detData.dataBundle?.estimatedCompletedAt,
                   cabType: b.cabType || detData.dataBundle?.cabType,
+                  vehiclePlate: b.vehiclePlate || detData.dataBundle?.vehicle?.plateNo || detData.dataBundle?.vehiclePlate,
                   finalTotal: b.finalTotal ?? detData.dataBundle?.finalTotal ?? detData.dataBundle?.payment?.totalAmount,
                   driverId: b.driverId || detData.dataBundle?.driver?.userId,
                   fleetDriverName,
