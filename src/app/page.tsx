@@ -499,7 +499,7 @@ export default function FleetApp() {
   }, [adminTab, reportCategory, reportAccountData, reportFleetData, fetchingReportData]);
 
   useEffect(() => {
-    if (adminTab === 'report' && reportCategory === 'Invoice') {
+    if (adminTab === 'report' && (reportCategory === 'Invoice' || reportCategory === 'Credit')) {
       let isCancelled = false;
       setFetchingLakReportData(true);
       const params = new URLSearchParams();
@@ -2480,8 +2480,13 @@ export default function FleetApp() {
   }
 
   const generateCreditReportCSV = () => {
-    if (!reportFleetData?.tables?.fleetData) {
-      setAlert({ type: 'error', message: 'No fleet data available to generate report.' });
+    const completedBookings = (reportLakMobileData || []).filter((b: any) => {
+      const s = String(b.status || '').toUpperCase();
+      return s === 'PAYMENT_COMPLETE' || s === 'COMPLETED';
+    });
+
+    if (completedBookings.length === 0) {
+      setAlert({ type: 'error', message: 'No completed Lak Mobile fleet bookings available to generate report.' });
       setTimeout(() => setAlert(null), 3000);
       return;
     }
@@ -2495,87 +2500,37 @@ export default function FleetApp() {
 
     let csvContent = headers.join(",") + "\n";
 
-    const parseDateToLocalMs = (dateStr: string | undefined): number => {
-      if (!dateStr) return 0;
-      const raw = String(dateStr).split(' ')[0].trim();
-      if (!raw) return 0;
-
-      if (raw.includes('-')) {
-        const parts = raw.split('-');
-        if (parts.length === 3) {
-          if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-          if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+    const formatLakDateTime = (dt?: string | null) => {
+      if (!dt) return '';
+      try {
+        const parts = String(dt).split('T');
+        if (parts.length === 2) {
+          return `${parts[0]} ${parts[1].substring(0, 5)}`;
         }
+        return String(dt);
+      } catch {
+        return String(dt);
       }
-
-      if (raw.includes('/')) {
-        const parts = raw.split('/');
-        if (parts.length === 3) {
-          if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-          if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
-        }
-      }
-
-      const d = new Date(raw);
-      if (!isNaN(d.getTime())) {
-        return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-      }
-      return 0;
     };
 
-    const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
-    const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
-
-    const records = reportFleetData.tables.fleetData
-      .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
-      .filter((t: any) => {
-        if (!startMs && endMs === Infinity) return true;
-        const tripRef = t.values[12] || '';
-        let recordMs = 0;
-        if (tripRef && reportAccountData?.data) {
-          const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
-          if (accMatch) {
-            const rawEndDate = accMatch.rawValues[15] || '';
-            recordMs = parseDateToLocalMs(rawEndDate);
-          }
-        }
-        if (!recordMs) return false;
-        return recordMs >= startMs && recordMs <= endMs;
-      });
-
-    records.forEach((t: any) => {
-      const tripRef = t.values[12] || '';
-      let formattedDate = '';
-      let pickUp = '';
-      let dropOff = '';
+    completedBookings.forEach((b: any) => {
+      const tripRef = b.id ?? '';
+      const completedTimestamp = formatLakDateTime(b.completedAt);
+      const description = b.pickDropBrief || '';
       let scComm = '';
 
       if (tripRef && reportAccountData?.data) {
-        const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+        const accMatch = reportAccountData.data.find((row: any) => row.rawValues && String(row.rawValues[11] || '').trim() === String(tripRef).trim());
         if (accMatch) {
-          const rawEndDate = accMatch.rawValues[15] || '';
-          if (rawEndDate) {
-            const raw = String(rawEndDate).split(' ')[0];
-            const d = new Date(raw);
-            if (!isNaN(d.getTime())) {
-              formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-            } else {
-              formattedDate = raw.replace(/\//g, '-');
-            }
-          }
-          pickUp = accMatch.rawValues[24] || '';
-          dropOff = accMatch.rawValues[27] || '';
           scComm = String(accMatch.rawValues[3] || '').replace(/Rs\.?\s*/gi, '');
         }
       }
-
-      const description = pickUp && dropOff ? `${pickUp} to ${dropOff}` : pickUp || dropOff || '';
 
       const row = [
         tripRef,
         tripRef ? `C${tripRef}` : "",
         "Senu Cabs and Tours",
-        formattedDate,
+        completedTimestamp,
         "",
         "",
         "CAB COMMISSION",
@@ -2585,7 +2540,7 @@ export default function FleetApp() {
         scComm,
         ""
       ];
-      csvContent += row.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(",") + "\n";
+      csvContent += row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(",") + "\n";
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -2602,7 +2557,12 @@ export default function FleetApp() {
   };
 
   const generateInvoiceReportCSV = () => {
-    if (!reportLakMobileData || reportLakMobileData.length === 0) {
+    const completedBookings = (reportLakMobileData || []).filter((b: any) => {
+      const s = String(b.status || '').toUpperCase();
+      return s === 'PAYMENT_COMPLETE' || s === 'COMPLETED';
+    });
+
+    if (completedBookings.length === 0) {
       setAlert({ type: 'error', message: 'No Lak Mobile fleet booking data available to generate report.' });
       setTimeout(() => setAlert(null), 3000);
       return;
@@ -2630,7 +2590,7 @@ export default function FleetApp() {
       }
     };
 
-    reportLakMobileData.forEach((b: any) => {
+    completedBookings.forEach((b: any) => {
       const invoiceNo = b.id ?? '';
       const driverCode = String(b.driverId || b.driver?.userId || '').trim();
       const driverName =
@@ -5884,8 +5844,8 @@ export default function FleetApp() {
                 </div>
 
                 {/* Credit Report Table */}
-                {reportCategory === 'Credit' && reportFleetData?.tables?.fleetData && (
-                  fetchingReportData ? (
+                {reportCategory === 'Credit' && (
+                  (fetchingReportData || fetchingLakReportData) ? (
                     <div className="flex flex-col items-center justify-center p-12">
                       <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
                       <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
@@ -5911,82 +5871,36 @@ export default function FleetApp() {
                             </tr>
                           </thead>
                           <tbody className="text-[12px] text-slate-300">
-                            {reportFleetData.tables.fleetData
-                              .filter((t: any) => t.values[5] === 'Hire' && !String(t.values[0] || '').toLowerCase().includes('cancel'))
-                              .filter((t: any) => {
-                                const parseDateToLocalMs = (dateStr: string | undefined): number => {
-                                  if (!dateStr) return 0;
-                                  const raw = String(dateStr).split(' ')[0].trim();
-                                  if (!raw) return 0;
-                                  if (raw.includes('-')) {
-                                    const parts = raw.split('-');
-                                    if (parts.length === 3) {
-                                      if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                                      if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
-                                    }
-                                  }
-                                  if (raw.includes('/')) {
-                                    const parts = raw.split('/');
-                                    if (parts.length === 3) {
-                                      if (parts[2].length === 4) return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1])).getTime();
-                                      if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                                    }
-                                  }
-                                  const d = new Date(raw);
-                                  if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-                                  return 0;
-                                };
-                                const startMs = reportStartDate ? parseDateToLocalMs(reportStartDate) : 0;
-                                const endMs = reportEndDate ? parseDateToLocalMs(reportEndDate) + 86399999 : Infinity;
-                                if (!startMs && endMs === Infinity) return true;
-
-                                const tripRef = t.values[12] || '';
-                                let recordMs = 0;
-                                if (tripRef && reportAccountData?.data) {
-                                  const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
-                                  if (accMatch) {
-                                    const rawEndDate = accMatch.rawValues[15] || '';
-                                    recordMs = parseDateToLocalMs(rawEndDate);
-                                  }
-                                }
-                                if (!recordMs) return false;
-                                return recordMs >= startMs && recordMs <= endMs;
+                            {(reportLakMobileData || [])
+                              .filter((b: any) => {
+                                const s = String(b.status || '').toUpperCase();
+                                return s === 'PAYMENT_COMPLETE' || s === 'COMPLETED';
                               })
-                              .map((t: any, i: number) => {
-                                const tripRef = t.values[12] || '';
-                                let formattedDate = '';
-                                let pickUp = '';
-                                let dropOff = '';
-                                let scComm = '';
+                              .map((b: any, i: number) => {
+                                const tripRef = b.id ?? '';
+                                let completedTimestamp = '';
+                                if (b.completedAt) {
+                                  const parts = String(b.completedAt).split('T');
+                                  completedTimestamp = parts.length === 2 ? `${parts[0]} ${parts[1].substring(0, 5)}` : String(b.completedAt);
+                                }
 
+                                const description = b.pickDropBrief || '';
+                                const shortDescription = description.split(' ').length > 6 ? description.split(' ').slice(0, 6).join(' ') + '...' : description;
+
+                                let scComm = '';
                                 if (tripRef && reportAccountData?.data) {
-                                  const accMatch = reportAccountData.data.find((row: any) => row.rawValues && row.rawValues[11] === tripRef);
+                                  const accMatch = reportAccountData.data.find((row: any) => row.rawValues && String(row.rawValues[11] || '').trim() === String(tripRef).trim());
                                   if (accMatch) {
-                                    const rawEndDate = accMatch.rawValues[15] || '';
-                                    if (rawEndDate) {
-                                      const raw = String(rawEndDate).split(' ')[0];
-                                      const d = new Date(raw);
-                                      if (!isNaN(d.getTime())) {
-                                        formattedDate = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-                                      } else {
-                                        formattedDate = raw.replace(/\//g, '-');
-                                      }
-                                    }
-                                    pickUp = accMatch.rawValues[24] || '';
-                                    dropOff = accMatch.rawValues[27] || '';
                                     scComm = String(accMatch.rawValues[3] || '').replace(/Rs\.?\s*/gi, '');
                                   }
                                 }
 
-                                const description = pickUp && dropOff ? `${pickUp} to ${dropOff}` : pickUp || dropOff || '';
-                                const shortDescription = description.split(' ').length > 6 ? description.split(' ').slice(0, 6).join(' ') + '...' : description;
-
                                 return (
-                                  <tr key={i} className="hover:bg-white/5 transition-colors border-b border-white/5">
+                                  <tr key={b.id || i} className="hover:bg-white/5 transition-colors border-b border-white/5">
                                     <td className="p-2 border-r border-white/5 text-slate-400">{tripRef}</td>
                                     <td className="p-2 border-r border-white/5 text-white">{tripRef ? `C${tripRef}` : ''}</td>
                                     <td className="p-2 border-r border-white/5 text-white">Senu Cabs and Tours</td>
-                                    <td className="p-2 border-r border-white/5 text-center text-white">{formattedDate}</td>
+                                    <td className="p-2 border-r border-white/5 text-center text-white">{completedTimestamp}</td>
                                     <td className="p-2 border-r border-white/5"></td>
                                     <td className="p-2 border-r border-white/5"></td>
                                     <td className="p-2 border-r border-white/5 text-emerald-400">CAB COMMISSION</td>
@@ -6034,7 +5948,12 @@ export default function FleetApp() {
                             </tr>
                           </thead>
                           <tbody className="text-[12px] text-slate-300">
-                            {(reportLakMobileData || []).map((b: any, i: number) => {
+                            {(reportLakMobileData || [])
+                              .filter((b: any) => {
+                                const s = String(b.status || '').toUpperCase();
+                                return s === 'PAYMENT_COMPLETE' || s === 'COMPLETED';
+                              })
+                              .map((b: any, i: number) => {
                               const invoiceNo = b.id ?? '';
                               const driverCode = String(b.driverId || b.driver?.userId || '').trim();
                               const driverName =

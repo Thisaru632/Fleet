@@ -150,7 +150,7 @@ export async function GET(request: Request) {
           const drvCode = String(b.driverId || '').trim().toUpperCase();
           if (!drvCode || !fleetDriverMap.has(drvCode)) return false;
           const s = String(b.status || '').toUpperCase();
-          if (s === 'CANCELLED' || s === 'ACCEPT_REJECTED' || s === 'NON_ACCEPT_REJECTED') return false;
+          if (s !== 'PAYMENT_COMPLETE' && s !== 'COMPLETED') return false;
           return true;
         });
 
