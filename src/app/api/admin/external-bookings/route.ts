@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import dbConnect from '@/lib/mongodb';
+import User from '@/models/User';
+import Trip from '@/models/Trip';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,6 +119,102 @@ export async function GET(request: Request) {
         },
         { status: res.status }
       );
+    }
+
+    const fleetOnly = searchParams.get('fleetOnly') === 'true';
+    const includeDetails = searchParams.get('includeDetails') === 'true';
+
+    if ((fleetOnly || includeDetails) && Array.isArray(data?.dataBundle)) {
+      let items: any[] = data.dataBundle;
+      const fleetDriverMap = new Map<string, string>();
+      const fleetDrvCommMap = new Map<string, string>();
+
+      if (fleetOnly) {
+        await dbConnect();
+        const users = await User.find({}, { username: 1, driverId: 1, name: 1, status: 1 }).lean();
+        users.forEach((u: any) => {
+          const uName = String(u.name ?? '').trim();
+          if (u.username) {
+            const code = String(u.username).trim().toUpperCase();
+            if (code) fleetDriverMap.set(code, uName || String(u.username).trim());
+          }
+          if (u.driverId) {
+            const dCode = String(u.driverId).trim().toUpperCase();
+            if (dCode && !fleetDriverMap.has(dCode)) {
+              fleetDriverMap.set(dCode, uName || String(u.driverId).trim());
+            }
+          }
+        });
+
+        items = items.filter((b: any) => {
+          const drvCode = String(b.driverId || '').trim().toUpperCase();
+          if (!drvCode || !fleetDriverMap.has(drvCode)) return false;
+          const s = String(b.status || '').toUpperCase();
+          if (s === 'CANCELLED' || s === 'ACCEPT_REJECTED' || s === 'NON_ACCEPT_REJECTED') return false;
+          return true;
+        });
+
+        if (items.length > 0) {
+          const bookingIdStrings = items.map((b: any) => String(b.id).trim());
+          const matchedTrips = await Trip.find(
+            { 'rawValues.12': { $in: bookingIdStrings } },
+            { rawValues: 1, status: 1 }
+          ).lean();
+          matchedTrips.forEach((t: any) => {
+            const statusStr = String(t.rawValues?.[0] || t.status || '').toLowerCase();
+            if (statusStr.includes('cancel')) return;
+            const refStr = String(t.rawValues?.[12] || '').trim();
+            const commStr = String(t.rawValues?.[14] ?? '').replace(/Rs\.?\s*/gi, '').trim();
+            if (refStr && commStr && !fleetDrvCommMap.has(refStr)) {
+              fleetDrvCommMap.set(refStr, commStr);
+            }
+          });
+        }
+      }
+
+      if (includeDetails && items.length > 0) {
+        const baseUrlClean = BASE_URL.replace(/\/+$/, '');
+        const authHeader = getAuthHeader();
+        const detailedItems = await Promise.all(
+          items.map(async (b: any) => {
+            const drvCode = String(b.driverId || '').trim().toUpperCase();
+            const fleetDriverName = fleetDriverMap.get(drvCode) || '';
+            const fleetDrvComm = fleetDrvCommMap.get(String(b.id).trim()) || '';
+            try {
+              const detRes = await fetch(`${baseUrlClean}/api/ext/bookings/${encodeURIComponent(b.id)}`, {
+                method: 'GET',
+                headers: {
+                  'Authorization': authHeader,
+                  'customer-reference': TENANT,
+                  'Accept': 'application/json'
+                },
+                cache: 'no-store'
+              });
+              const detData = await detRes.json().catch(() => null);
+              if (detRes.ok && detData?.dataBundle) {
+                return {
+                  ...b,
+                  ...detData.dataBundle,
+                  cabType: b.cabType || detData.dataBundle?.cabType,
+                  finalTotal: b.finalTotal ?? detData.dataBundle?.finalTotal ?? detData.dataBundle?.payment?.totalAmount,
+                  driverId: b.driverId || detData.dataBundle?.driver?.userId,
+                  fleetDriverName,
+                  fleetDrvComm
+                };
+              }
+              return { ...b, fleetDriverName, fleetDrvComm };
+            } catch {
+              return { ...b, fleetDriverName, fleetDrvComm };
+            }
+          })
+        );
+        items = detailedItems.filter((b: any) => !b.cancelledAt);
+      }
+
+      return NextResponse.json({
+        ...data,
+        dataBundle: items
+      });
     }
 
     return NextResponse.json(data);
