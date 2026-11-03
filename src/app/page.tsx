@@ -2482,7 +2482,12 @@ export default function FleetApp() {
   const generateCreditReportCSV = () => {
     const completedBookings = (reportLakMobileData || []).filter((b: any) => {
       const s = String(b.status || '').toUpperCase();
-      return s === 'PAYMENT_COMPLETE' || s === 'COMPLETED';
+      if (s !== 'PAYMENT_COMPLETE' && s !== 'COMPLETED') return false;
+      if (!b.completedAt) return false;
+      const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
+      if (reportStartDate && completedDate < reportStartDate) return false;
+      if (reportEndDate && completedDate > reportEndDate) return false;
+      return true;
     });
 
     if (completedBookings.length === 0) {
@@ -2557,7 +2562,12 @@ export default function FleetApp() {
   const generateInvoiceReportCSV = () => {
     const completedBookings = (reportLakMobileData || []).filter((b: any) => {
       const s = String(b.status || '').toUpperCase();
-      return s === 'PAYMENT_COMPLETE' || s === 'COMPLETED';
+      if (s !== 'PAYMENT_COMPLETE' && s !== 'COMPLETED') return false;
+      if (!b.completedAt) return false;
+      const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
+      if (reportStartDate && completedDate < reportStartDate) return false;
+      if (reportEndDate && completedDate > reportEndDate) return false;
+      return true;
     });
 
     if (completedBookings.length === 0) {
@@ -5872,7 +5882,12 @@ export default function FleetApp() {
                             {(reportLakMobileData || [])
                               .filter((b: any) => {
                                 const s = String(b.status || '').toUpperCase();
-                                return s === 'PAYMENT_COMPLETE' || s === 'COMPLETED';
+                                if (s !== 'PAYMENT_COMPLETE' && s !== 'COMPLETED') return false;
+                                if (!b.completedAt) return false;
+                                const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
+                                if (reportStartDate && completedDate < reportStartDate) return false;
+                                if (reportEndDate && completedDate > reportEndDate) return false;
+                                return true;
                               })
                               .map((b: any, i: number) => {
                                 const tripRef = b.id ?? '';
@@ -5948,7 +5963,12 @@ export default function FleetApp() {
                             {(reportLakMobileData || [])
                               .filter((b: any) => {
                                 const s = String(b.status || '').toUpperCase();
-                                return s === 'PAYMENT_COMPLETE' || s === 'COMPLETED';
+                                if (s !== 'PAYMENT_COMPLETE' && s !== 'COMPLETED') return false;
+                                if (!b.completedAt) return false;
+                                const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
+                                if (reportStartDate && completedDate < reportStartDate) return false;
+                                if (reportEndDate && completedDate > reportEndDate) return false;
+                                return true;
                               })
                               .map((b: any, i: number) => {
                               const invoiceNo = b.id ?? '';

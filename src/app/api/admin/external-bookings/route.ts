@@ -57,8 +57,23 @@ export async function GET(request: Request) {
     const from = searchParams.get('from') || `${defaultYear}-${defaultMonth}-01`;
     const to = searchParams.get('to') || `${defaultYear}-${defaultMonth}-${defaultDay}`;
 
+    const fleetOnly = searchParams.get('fleetOnly') === 'true';
+    const includeDetails = searchParams.get('includeDetails') === 'true';
+
+    let apiFrom = from;
+    if (fleetOnly && includeDetails && from) {
+      const fromDateObj = new Date(`${from}T00:00:00`);
+      if (!isNaN(fromDateObj.getTime())) {
+        fromDateObj.setDate(fromDateObj.getDate() - 14);
+        const y = fromDateObj.getFullYear();
+        const m = String(fromDateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(fromDateObj.getDate()).padStart(2, '0');
+        apiFrom = `${y}-${m}-${d}`;
+      }
+    }
+
     const query = new URLSearchParams();
-    query.set('from', from);
+    query.set('from', apiFrom);
     query.set('to', to);
 
     const search = searchParams.get('search') || searchParams.get('searchString');
@@ -120,9 +135,6 @@ export async function GET(request: Request) {
         { status: res.status }
       );
     }
-
-    const fleetOnly = searchParams.get('fleetOnly') === 'true';
-    const includeDetails = searchParams.get('includeDetails') === 'true';
 
     if ((fleetOnly || includeDetails) && Array.isArray(data?.dataBundle)) {
       let items: any[] = data.dataBundle;
@@ -208,7 +220,14 @@ export async function GET(request: Request) {
             }
           })
         );
-        items = detailedItems.filter((b: any) => !b.cancelledAt);
+        items = detailedItems.filter((b: any) => {
+          if (b.cancelledAt) return false;
+          if (!b.completedAt) return false;
+          const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
+          if (from && completedDate < from) return false;
+          if (to && completedDate > to) return false;
+          return true;
+        });
       }
 
       return NextResponse.json({
