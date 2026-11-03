@@ -207,6 +207,7 @@ export async function GET(request: Request) {
                 return {
                   ...b,
                   ...detData.dataBundle,
+                  estimatedCompletedAt: b.estimatedCompletedAt || detData.dataBundle?.estimatedCompletedAt,
                   cabType: b.cabType || detData.dataBundle?.cabType,
                   finalTotal: b.finalTotal ?? detData.dataBundle?.finalTotal ?? detData.dataBundle?.payment?.totalAmount,
                   driverId: b.driverId || detData.dataBundle?.driver?.userId,
@@ -222,10 +223,11 @@ export async function GET(request: Request) {
         );
         items = detailedItems.filter((b: any) => {
           if (b.cancelledAt) return false;
-          if (!b.completedAt) return false;
-          const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
-          if (from && completedDate < from) return false;
-          if (to && completedDate > to) return false;
+          const endTimeVal = b.estimatedCompletedAt || b.completedAt;
+          if (!endTimeVal) return false;
+          const endDateStr = String(endTimeVal).split('T')[0].split(' ')[0].trim();
+          if (from && endDateStr < from) return false;
+          if (to && endDateStr > to) return false;
           return true;
         });
       }

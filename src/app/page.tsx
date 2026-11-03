@@ -2483,10 +2483,11 @@ export default function FleetApp() {
     const completedBookings = (reportLakMobileData || []).filter((b: any) => {
       const s = String(b.status || '').toUpperCase();
       if (s !== 'PAYMENT_COMPLETE' && s !== 'COMPLETED') return false;
-      if (!b.completedAt) return false;
-      const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
-      if (reportStartDate && completedDate < reportStartDate) return false;
-      if (reportEndDate && completedDate > reportEndDate) return false;
+      const endTimeVal = b.estimatedCompletedAt || b.completedAt;
+      if (!endTimeVal) return false;
+      const endDateStr = String(endTimeVal).split('T')[0].split(' ')[0].trim();
+      if (reportStartDate && endDateStr < reportStartDate) return false;
+      if (reportEndDate && endDateStr > reportEndDate) return false;
       return true;
     });
 
@@ -2520,7 +2521,7 @@ export default function FleetApp() {
 
     completedBookings.forEach((b: any) => {
       const tripRef = b.id ?? '';
-      const completedTimestamp = formatLakDateTime(b.completedAt);
+      const endTimestamp = formatLakDateTime(b.estimatedCompletedAt || b.completedAt);
       const description = b.pickDropBrief || '';
       const finalTotal =
         b.finalTotal !== undefined && b.finalTotal !== null
@@ -2533,7 +2534,7 @@ export default function FleetApp() {
         tripRef,
         tripRef ? `C${tripRef}` : "",
         "Senu Cabs and Tours",
-        completedTimestamp,
+        endTimestamp,
         "",
         "",
         "CAB COMMISSION",
@@ -2563,10 +2564,11 @@ export default function FleetApp() {
     const completedBookings = (reportLakMobileData || []).filter((b: any) => {
       const s = String(b.status || '').toUpperCase();
       if (s !== 'PAYMENT_COMPLETE' && s !== 'COMPLETED') return false;
-      if (!b.completedAt) return false;
-      const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
-      if (reportStartDate && completedDate < reportStartDate) return false;
-      if (reportEndDate && completedDate > reportEndDate) return false;
+      const endTimeVal = b.estimatedCompletedAt || b.completedAt;
+      if (!endTimeVal) return false;
+      const endDateStr = String(endTimeVal).split('T')[0].split(' ')[0].trim();
+      if (reportStartDate && endDateStr < reportStartDate) return false;
+      if (reportEndDate && endDateStr > reportEndDate) return false;
       return true;
     });
 
@@ -2619,7 +2621,7 @@ export default function FleetApp() {
         ? 'Senu Cabs and Tours'
         : (driverName ? `${driverName} - Cash` : '- Cash');
 
-      const completedTimestamp = formatLakDateTime(b.completedAt);
+      const endTimestamp = formatLakDateTime(b.estimatedCompletedAt || b.completedAt);
       const cabType = b.cabType || '';
       const finalTotal =
         b.finalTotal !== undefined && b.finalTotal !== null
@@ -2644,8 +2646,8 @@ export default function FleetApp() {
       const row = [
         invoiceNo,
         customerName,
-        completedTimestamp,
-        completedTimestamp,
+        endTimestamp,
+        endTimestamp,
         "",
         "",
         "",
@@ -5883,18 +5885,20 @@ export default function FleetApp() {
                               .filter((b: any) => {
                                 const s = String(b.status || '').toUpperCase();
                                 if (s !== 'PAYMENT_COMPLETE' && s !== 'COMPLETED') return false;
-                                if (!b.completedAt) return false;
-                                const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
-                                if (reportStartDate && completedDate < reportStartDate) return false;
-                                if (reportEndDate && completedDate > reportEndDate) return false;
+                                const endTimeVal = b.estimatedCompletedAt || b.completedAt;
+                                if (!endTimeVal) return false;
+                                const endDateStr = String(endTimeVal).split('T')[0].split(' ')[0].trim();
+                                if (reportStartDate && endDateStr < reportStartDate) return false;
+                                if (reportEndDate && endDateStr > reportEndDate) return false;
                                 return true;
                               })
                               .map((b: any, i: number) => {
                                 const tripRef = b.id ?? '';
-                                let completedTimestamp = '';
-                                if (b.completedAt) {
-                                  const parts = String(b.completedAt).split('T');
-                                  completedTimestamp = parts.length === 2 ? `${parts[0]} ${parts[1].substring(0, 5)}` : String(b.completedAt);
+                                let endTimestamp = '';
+                                const endTimeVal = b.estimatedCompletedAt || b.completedAt;
+                                if (endTimeVal) {
+                                  const parts = String(endTimeVal).split('T');
+                                  endTimestamp = parts.length === 2 ? `${parts[0]} ${parts[1].substring(0, 5)}` : String(endTimeVal);
                                 }
 
                                 const description = b.pickDropBrief || '';
@@ -5912,7 +5916,7 @@ export default function FleetApp() {
                                     <td className="p-2 border-r border-white/5 text-slate-400">{tripRef}</td>
                                     <td className="p-2 border-r border-white/5 text-white">{tripRef ? `C${tripRef}` : ''}</td>
                                     <td className="p-2 border-r border-white/5 text-white">Senu Cabs and Tours</td>
-                                    <td className="p-2 border-r border-white/5 text-center text-white">{completedTimestamp}</td>
+                                    <td className="p-2 border-r border-white/5 text-center text-white">{endTimestamp}</td>
                                     <td className="p-2 border-r border-white/5"></td>
                                     <td className="p-2 border-r border-white/5"></td>
                                     <td className="p-2 border-r border-white/5 text-emerald-400">CAB COMMISSION</td>
@@ -5964,10 +5968,11 @@ export default function FleetApp() {
                               .filter((b: any) => {
                                 const s = String(b.status || '').toUpperCase();
                                 if (s !== 'PAYMENT_COMPLETE' && s !== 'COMPLETED') return false;
-                                if (!b.completedAt) return false;
-                                const completedDate = String(b.completedAt).split('T')[0].split(' ')[0].trim();
-                                if (reportStartDate && completedDate < reportStartDate) return false;
-                                if (reportEndDate && completedDate > reportEndDate) return false;
+                                const endTimeVal = b.estimatedCompletedAt || b.completedAt;
+                                if (!endTimeVal) return false;
+                                const endDateStr = String(endTimeVal).split('T')[0].split(' ')[0].trim();
+                                if (reportStartDate && endDateStr < reportStartDate) return false;
+                                if (reportEndDate && endDateStr > reportEndDate) return false;
                                 return true;
                               })
                               .map((b: any, i: number) => {
@@ -5991,10 +5996,11 @@ export default function FleetApp() {
                                 ? 'Senu Cabs and Tours'
                                 : (driverName ? `${driverName} - Cash` : '- Cash');
 
-                              let completedTimestamp = '';
-                              if (b.completedAt) {
-                                const parts = String(b.completedAt).split('T');
-                                completedTimestamp = parts.length === 2 ? `${parts[0]} ${parts[1].substring(0, 5)}` : String(b.completedAt);
+                              let endTimestamp = '';
+                              const endTimeVal = b.estimatedCompletedAt || b.completedAt;
+                              if (endTimeVal) {
+                                const parts = String(endTimeVal).split('T');
+                                endTimestamp = parts.length === 2 ? `${parts[0]} ${parts[1].substring(0, 5)}` : String(endTimeVal);
                               }
 
                               const cabType = b.cabType || '';
@@ -6022,8 +6028,8 @@ export default function FleetApp() {
                                 <tr key={b.id || i} className="hover:bg-white/5 transition-colors border-b border-white/5">
                                   <td className="p-2 border-r border-white/5 text-slate-400">{invoiceNo}</td>
                                   <td className="p-2 border-r border-white/5 text-emerald-400">{customerName}</td>
-                                  <td className="p-2 border-r border-white/5 text-center text-white">{completedTimestamp}</td>
-                                  <td className="p-2 border-r border-white/5 text-center text-white">{completedTimestamp}</td>
+                                  <td className="p-2 border-r border-white/5 text-center text-white">{endTimestamp}</td>
+                                  <td className="p-2 border-r border-white/5 text-center text-white">{endTimestamp}</td>
                                   <td className="p-2 border-r border-white/5"></td>
                                   <td className="p-2 border-r border-white/5"></td>
                                   <td className="p-2 border-r border-white/5"></td>

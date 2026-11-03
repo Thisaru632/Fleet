@@ -705,6 +705,7 @@ export default function LakMobileTable() {
                   <tr className="bg-white/[0.02]">
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">ID</th>
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Pick Time</th>
+                    <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">End Time</th>
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Status</th>
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Customer</th>
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Cab Type</th>
@@ -743,6 +744,13 @@ export default function LakMobileTable() {
                             Scheduled
                           </span>
                         )}
+                      </td>
+
+                      {/* End Time */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="font-medium text-slate-200">
+                          {formatDateTime(b.estimatedCompletedAt)}
+                        </div>
                       </td>
 
                       {/* Status */}
