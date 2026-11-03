@@ -2517,14 +2517,12 @@ export default function FleetApp() {
       const tripRef = b.id ?? '';
       const completedTimestamp = formatLakDateTime(b.completedAt);
       const description = b.pickDropBrief || '';
-      let scComm = '';
-
-      if (tripRef && reportAccountData?.data) {
-        const accMatch = reportAccountData.data.find((row: any) => row.rawValues && String(row.rawValues[11] || '').trim() === String(tripRef).trim());
-        if (accMatch) {
-          scComm = String(accMatch.rawValues[3] || '').replace(/Rs\.?\s*/gi, '');
-        }
-      }
+      const finalTotal =
+        b.finalTotal !== undefined && b.finalTotal !== null
+          ? String(b.finalTotal)
+          : b.payment?.totalAmount !== undefined && b.payment?.totalAmount !== null
+          ? String(b.payment.totalAmount)
+          : '';
 
       const row = [
         tripRef,
@@ -2537,7 +2535,7 @@ export default function FleetApp() {
         description,
         "",
         "",
-        scComm,
+        finalTotal,
         ""
       ];
       csvContent += row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(",") + "\n";
@@ -5887,13 +5885,12 @@ export default function FleetApp() {
                                 const description = b.pickDropBrief || '';
                                 const shortDescription = description.split(' ').length > 6 ? description.split(' ').slice(0, 6).join(' ') + '...' : description;
 
-                                let scComm = '';
-                                if (tripRef && reportAccountData?.data) {
-                                  const accMatch = reportAccountData.data.find((row: any) => row.rawValues && String(row.rawValues[11] || '').trim() === String(tripRef).trim());
-                                  if (accMatch) {
-                                    scComm = String(accMatch.rawValues[3] || '').replace(/Rs\.?\s*/gi, '');
-                                  }
-                                }
+                                const finalTotal =
+                                  b.finalTotal !== undefined && b.finalTotal !== null
+                                    ? String(b.finalTotal)
+                                    : b.payment?.totalAmount !== undefined && b.payment?.totalAmount !== null
+                                    ? String(b.payment.totalAmount)
+                                    : '';
 
                                 return (
                                   <tr key={b.id || i} className="hover:bg-white/5 transition-colors border-b border-white/5">
@@ -5907,7 +5904,7 @@ export default function FleetApp() {
                                     <td className="p-2 border-r border-white/5 whitespace-normal text-xs text-white" title={description}>{shortDescription}</td>
                                     <td className="p-2 border-r border-white/5"></td>
                                     <td className="p-2 border-r border-white/5"></td>
-                                    <td className="p-2 border-r border-white/5 text-right font-bold text-white">{scComm}</td>
+                                    <td className="p-2 border-r border-white/5 text-right font-bold text-white">{finalTotal}</td>
                                     <td className="p-2"></td>
                                   </tr>
                                 );
