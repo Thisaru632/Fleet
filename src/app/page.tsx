@@ -2558,12 +2558,40 @@ export default function FleetApp() {
       const tripRef = b.id ?? '';
       const endTimestamp = formatLakDateTime(b.estimatedCompletedAt || b.completedAt);
       const description = b.pickDropBrief || '';
-      const finalTotal =
-        b.finalTotal !== undefined && b.finalTotal !== null
-          ? String(b.finalTotal)
-          : b.payment?.totalAmount !== undefined && b.payment?.totalAmount !== null
-          ? String(b.payment.totalAmount)
-          : '';
+
+      let fleetFinalPrice: number | null =
+        b.fleetFinalPrice !== undefined && b.fleetFinalPrice !== null && !isNaN(Number(b.fleetFinalPrice))
+          ? Number(b.fleetFinalPrice)
+          : null;
+      if (fleetFinalPrice === null) {
+        const fleetList = reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || [];
+        const fleetMatch = fleetList.find(
+          (t: any) =>
+            !String(t.values?.[0] || t.status || '').toLowerCase().includes('cancel') &&
+            String(t.values?.[12] || '').trim() === String(tripRef).trim()
+        );
+        if (fleetMatch) {
+          const rawPrice = String(fleetMatch.values?.[23] ?? fleetMatch.finalPrice ?? '').replace(/[^\d.-]/g, '').trim();
+          const parsed = parseFloat(rawPrice);
+          if (rawPrice !== '' && !isNaN(parsed)) {
+            fleetFinalPrice = parsed;
+          }
+        }
+      }
+
+      let incVal = 0;
+      if (b.increment !== null && b.increment !== undefined && String(b.increment).trim() !== '' && String(b.increment).trim() !== '—') {
+        const parsedInc = Number(b.increment);
+        if (!isNaN(parsedInc)) {
+          incVal = Math.abs(parsedInc) > 0 && Math.abs(parsedInc) < 1 ? parsedInc * 100 : parsedInc;
+        }
+      }
+      const cabCommPercent = 10 + incVal;
+      let itemAmount = '';
+      if (fleetFinalPrice !== null) {
+        const calc = fleetFinalPrice * (cabCommPercent / 100);
+        itemAmount = Number.isInteger(calc) ? String(calc) : String(Math.round(calc * 100) / 100);
+      }
 
       const row = [
         tripRef,
@@ -2576,7 +2604,7 @@ export default function FleetApp() {
         description,
         "",
         "",
-        finalTotal,
+        itemAmount,
         ""
       ];
       csvContent += row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(",") + "\n";
@@ -5939,12 +5967,39 @@ export default function FleetApp() {
                                 const description = b.pickDropBrief || '';
                                 const shortDescription = description.split(' ').length > 6 ? description.split(' ').slice(0, 6).join(' ') + '...' : description;
 
-                                const finalTotal =
-                                  b.finalTotal !== undefined && b.finalTotal !== null
-                                    ? String(b.finalTotal)
-                                    : b.payment?.totalAmount !== undefined && b.payment?.totalAmount !== null
-                                    ? String(b.payment.totalAmount)
-                                    : '';
+                                let fleetFinalPrice: number | null =
+                                  b.fleetFinalPrice !== undefined && b.fleetFinalPrice !== null && !isNaN(Number(b.fleetFinalPrice))
+                                    ? Number(b.fleetFinalPrice)
+                                    : null;
+                                if (fleetFinalPrice === null) {
+                                  const fleetList = reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || [];
+                                  const fleetMatch = fleetList.find(
+                                    (t: any) =>
+                                      !String(t.values?.[0] || t.status || '').toLowerCase().includes('cancel') &&
+                                      String(t.values?.[12] || '').trim() === String(tripRef).trim()
+                                  );
+                                  if (fleetMatch) {
+                                    const rawPrice = String(fleetMatch.values?.[23] ?? fleetMatch.finalPrice ?? '').replace(/[^\d.-]/g, '').trim();
+                                    const parsed = parseFloat(rawPrice);
+                                    if (rawPrice !== '' && !isNaN(parsed)) {
+                                      fleetFinalPrice = parsed;
+                                    }
+                                  }
+                                }
+
+                                let incVal = 0;
+                                if (b.increment !== null && b.increment !== undefined && String(b.increment).trim() !== '' && String(b.increment).trim() !== '—') {
+                                  const parsedInc = Number(b.increment);
+                                  if (!isNaN(parsedInc)) {
+                                    incVal = Math.abs(parsedInc) > 0 && Math.abs(parsedInc) < 1 ? parsedInc * 100 : parsedInc;
+                                  }
+                                }
+                                const cabCommPercent = 10 + incVal;
+                                let itemAmount = '';
+                                if (fleetFinalPrice !== null) {
+                                  const calc = fleetFinalPrice * (cabCommPercent / 100);
+                                  itemAmount = Number.isInteger(calc) ? String(calc) : String(Math.round(calc * 100) / 100);
+                                }
 
                                 return (
                                   <tr key={b.id || i} className="hover:bg-white/5 transition-colors border-b border-white/5">
@@ -5958,7 +6013,7 @@ export default function FleetApp() {
                                     <td className="p-2 border-r border-white/5 whitespace-normal text-xs text-white" title={description}>{shortDescription}</td>
                                     <td className="p-2 border-r border-white/5"></td>
                                     <td className="p-2 border-r border-white/5"></td>
-                                    <td className="p-2 border-r border-white/5 text-right font-bold text-white">{finalTotal}</td>
+                                    <td className="p-2 border-r border-white/5 text-right font-bold text-white">{itemAmount}</td>
                                     <td className="p-2"></td>
                                   </tr>
                                 );

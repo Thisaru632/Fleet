@@ -712,6 +712,7 @@ export default function LakMobileTable() {
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Hire Nature</th>
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Pick → Drop Route</th>
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">Subtotal</th>
+                    <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">Increment</th>
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">Final Total</th>
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Payment</th>
                     <th className="px-4 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Vehicle</th>
@@ -797,6 +798,11 @@ export default function LakMobileTable() {
                       {/* Subtotal */}
                       <td className="px-4 py-3 whitespace-nowrap text-right font-medium text-slate-300">
                         {formatCurrency(b.subTotal ?? b.amount)}
+                      </td>
+
+                      {/* Increment */}
+                      <td className="px-4 py-3 whitespace-nowrap text-right font-medium text-amber-400">
+                        {b.increment !== null && b.increment !== undefined ? b.increment : '—'}
                       </td>
 
                       {/* Final Total */}

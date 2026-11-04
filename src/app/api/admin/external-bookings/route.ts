@@ -140,6 +140,7 @@ export async function GET(request: Request) {
       let items: any[] = data.dataBundle;
       const fleetDriverMap = new Map<string, string>();
       const fleetDrvCommMap = new Map<string, string>();
+      const fleetFinalPriceMap = new Map<string, number>();
 
       if (fleetOnly) {
         await dbConnect();
@@ -170,7 +171,7 @@ export async function GET(request: Request) {
           const bookingIdStrings = items.map((b: any) => String(b.id).trim());
           const matchedTrips = await Trip.find(
             { 'rawValues.12': { $in: bookingIdStrings } },
-            { rawValues: 1, status: 1 }
+            { rawValues: 1, finalPrice: 1, status: 1 }
           ).lean();
           matchedTrips.forEach((t: any) => {
             const statusStr = String(t.rawValues?.[0] || t.status || '').toLowerCase();
@@ -179,6 +180,11 @@ export async function GET(request: Request) {
             const commStr = String(t.rawValues?.[14] ?? '').replace(/Rs\.?\s*/gi, '').trim();
             if (refStr && commStr && !fleetDrvCommMap.has(refStr)) {
               fleetDrvCommMap.set(refStr, commStr);
+            }
+            const rawPriceStr = String(t.rawValues?.[23] ?? t.finalPrice ?? '').replace(/[^\d.-]/g, '').trim();
+            const parsedPrice = parseFloat(rawPriceStr);
+            if (refStr && rawPriceStr !== '' && !isNaN(parsedPrice) && !fleetFinalPriceMap.has(refStr)) {
+              fleetFinalPriceMap.set(refStr, parsedPrice);
             }
           });
         }
@@ -191,9 +197,11 @@ export async function GET(request: Request) {
           items.map(async (b: any) => {
             const drvCode = String(b.driverId || '').trim().toUpperCase();
             const fleetDriverName = fleetDriverMap.get(drvCode) || '';
-            const fleetDrvComm = fleetDrvCommMap.get(String(b.id).trim()) || '';
+            const idKey = String(b.id).trim();
+            const fleetDrvComm = fleetDrvCommMap.get(idKey) || '';
+            const fleetFinalPrice = fleetFinalPriceMap.has(idKey) ? fleetFinalPriceMap.get(idKey) : null;
             if (b.estimatedCompletedAt) {
-              return { ...b, fleetDriverName, fleetDrvComm };
+              return { ...b, fleetDriverName, fleetDrvComm, fleetFinalPrice };
             }
             try {
               const detRes = await fetch(`${baseUrlClean}/api/ext/bookings/${encodeURIComponent(b.id)}`, {
@@ -216,12 +224,13 @@ export async function GET(request: Request) {
                   finalTotal: b.finalTotal ?? detData.dataBundle?.finalTotal ?? detData.dataBundle?.payment?.totalAmount,
                   driverId: b.driverId || detData.dataBundle?.driver?.userId,
                   fleetDriverName,
-                  fleetDrvComm
+                  fleetDrvComm,
+                  fleetFinalPrice
                 };
               }
-              return { ...b, fleetDriverName, fleetDrvComm };
+              return { ...b, fleetDriverName, fleetDrvComm, fleetFinalPrice };
             } catch {
-              return { ...b, fleetDriverName, fleetDrvComm };
+              return { ...b, fleetDriverName, fleetDrvComm, fleetFinalPrice };
             }
           })
         );
