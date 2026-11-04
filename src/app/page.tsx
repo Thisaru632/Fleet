@@ -485,18 +485,41 @@ export default function FleetApp() {
   }, [adminTab]);
 
   useEffect(() => {
-    if (adminTab === 'report' && (reportCategory === 'Credit' || reportCategory === 'Invoice' || reportCategory === 'Recent Trips' || reportCategory === 'Tank wise fuel analyzing') && (!reportAccountData || !reportFleetData) && !fetchingReportData) {
+    if (adminTab === 'report' && (reportCategory === 'Recent Trips' || reportCategory === 'Tank wise fuel analyzing')) {
+      let isCancelled = false;
       setFetchingReportData(true);
-      Promise.all([
-        fetch('/api/admin/account-data?page=1&limit=5000').then(safeJson),
-        fetch('/api/admin/sales?page=1&limit=5000').then(safeJson)
-      ]).then(([accData, fleetRes]) => {
-        if (accData && !accData.error) setReportAccountData(accData);
-        if (fleetRes && !fleetRes.error) setReportFleetData(fleetRes);
-        setFetchingReportData(false);
-      });
+      const params = new URLSearchParams({ page: '1', limit: '5000' });
+      if (reportStartDate) {
+        const dObj = new Date(`${reportStartDate}T00:00:00`);
+        if (!isNaN(dObj.getTime())) {
+          dObj.setDate(dObj.getDate() - 60);
+          const y = dObj.getFullYear();
+          const m = String(dObj.getMonth() + 1).padStart(2, '0');
+          const d = String(dObj.getDate()).padStart(2, '0');
+          params.set('startDate', `${y}-${m}-${d}`);
+        } else {
+          params.set('startDate', reportStartDate);
+        }
+      }
+      if (reportEndDate) {
+        params.set('endDate', reportEndDate);
+      }
+      fetch(`/api/admin/sales?${params.toString()}`)
+        .then(safeJson)
+        .then((fleetRes) => {
+          if (isCancelled) return;
+          if (fleetRes && !fleetRes.error) setReportFleetData(fleetRes);
+          setFetchingReportData(false);
+        })
+        .catch(() => {
+          if (isCancelled) return;
+          setFetchingReportData(false);
+        });
+      return () => {
+        isCancelled = true;
+      };
     }
-  }, [adminTab, reportCategory, reportAccountData, reportFleetData, fetchingReportData]);
+  }, [adminTab, reportCategory, reportStartDate, reportEndDate]);
 
   useEffect(() => {
     if (adminTab === 'report' && (reportCategory === 'Invoice' || reportCategory === 'Credit')) {
@@ -5855,7 +5878,7 @@ export default function FleetApp() {
 
                 {/* Credit Report Table */}
                 {reportCategory === 'Credit' && (
-                  (fetchingReportData || fetchingLakReportData) ? (
+                  fetchingLakReportData ? (
                     <div className="flex flex-col items-center justify-center p-12">
                       <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
                       <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>
@@ -5937,7 +5960,7 @@ export default function FleetApp() {
 
                 {/* Invoice Report Table */}
                 {reportCategory === 'Invoice' && (
-                  (fetchingReportData || fetchingLakReportData) ? (
+                  fetchingLakReportData ? (
                     <div className="flex flex-col items-center justify-center p-12">
                       <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
                       <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Loading Report Data...</p>

@@ -140,26 +140,40 @@ export async function GET(request: Request) {
     }
 
     // 3. Exclude any trip refs already submitted as an FR trip in MongoDB
-    const allTripsInDb = await Trip.find(
-      { status: { $not: { $regex: /^cancelled$/i } } },
-      { reference: 1, rawValues: 1, tripRef: 1, bookingRef: 1 }
-    ).lean();
+    const candidateRefs = tripRefs
+      .map((item: any) => (item?.ref ? String(item.ref).trim() : ""))
+      .filter(Boolean);
+
     const usedTripRefs = new Set<string>();
-    for (const t of allTripsInDb as any[]) {
-      if (t.reference) usedTripRefs.add(String(t.reference).trim());
-      const r12 = t.rawValues && t.rawValues[12] ? String(t.rawValues[12]).trim() : '';
-      if (r12) usedTripRefs.add(r12);
-      if (t.tripRef) usedTripRefs.add(String(t.tripRef).trim());
-      if (t.bookingRef) usedTripRefs.add(String(t.bookingRef).trim());
+    if (candidateRefs.length > 0) {
+      const matchedTripsInDb = await Trip.find(
+        {
+          $or: [
+            { "rawValues.12": { $in: candidateRefs } },
+            { reference: { $in: candidateRefs } }
+          ]
+        },
+        { reference: 1, rawValues: 1, status: 1 }
+      ).lean();
+
+      for (const t of matchedTripsInDb as any[]) {
+        const statusStr = String(t.rawValues?.[0] || t.status || "").trim().toLowerCase();
+        if (statusStr.includes("cancel")) continue;
+        if (t.reference) usedTripRefs.add(String(t.reference).trim());
+        const r12 = t.rawValues && t.rawValues[12] ? String(t.rawValues[12]).trim() : "";
+        if (r12) usedTripRefs.add(r12);
+      }
     }
+
     const filteredTripRefs = tripRefs.filter((item: any) => {
       const refStr = item?.ref ? item.ref.toString().trim() : '';
       return refStr && !usedTripRefs.has(refStr);
     });
 
     // 4. Pending trips (FR refs) for this driver from MongoDB
+    const drvVariants = Array.from(new Set([cleanDrvId, cleanDrvId.toUpperCase(), cleanDrvId.toLowerCase()]));
     const tripsInDb = await Trip.find(
-      { driverId: { $regex: new RegExp(`^${drvId}$`, "i") } },
+      { driverId: { $in: drvVariants } },
       { images: 0 },
       { sort: { updatedAt: -1 }, allowDiskUse: true }
     ).lean() as any[];

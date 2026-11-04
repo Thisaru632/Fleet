@@ -255,12 +255,17 @@ export async function GET(request: Request) {
     });
 
     const tripRefs = (allTripsRaw || []).map((t: any) => String(t.rawValues?.[12] || '').trim()).filter(Boolean);
-    const accountData = await AccountSheet.find({
-        $or: [
-           { bookingRef: { $in: tripRefs } },
-           { rawValues: { $in: tripRefs } }
-        ]
-    }).lean();
+    const accountData = tripRefs.length > 0
+      ? await AccountSheet.find(
+          {
+            $or: [
+              { bookingRef: { $in: tripRefs } },
+              { "rawValues.11": { $in: tripRefs } }
+            ]
+          },
+          { bookingRef: 1, rawValues: 1 }
+        ).lean()
+      : [];
     const accountTypeMap = new Map();
     accountData.forEach((acc: any) => {
         const hireType = String(acc.rawValues?.[31] || '').trim().toLowerCase();

@@ -40,9 +40,9 @@ async function dbConnect() {
     const opts = {
       bufferCommands: false,
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      maxIdleTimeMS: 10000, // close idle connections early to prevent Atlas timeouts
+      serverSelectionTimeoutMS: 15000,
+      socketTimeoutMS: 90000,
+      maxIdleTimeMS: 60000,
       family: 4, // Force IPv4 to prevent IPv6 resolution timeouts
     };
 

@@ -192,6 +192,9 @@ export async function GET(request: Request) {
             const drvCode = String(b.driverId || '').trim().toUpperCase();
             const fleetDriverName = fleetDriverMap.get(drvCode) || '';
             const fleetDrvComm = fleetDrvCommMap.get(String(b.id).trim()) || '';
+            if (b.estimatedCompletedAt) {
+              return { ...b, fleetDriverName, fleetDrvComm };
+            }
             try {
               const detRes = await fetch(`${baseUrlClean}/api/ext/bookings/${encodeURIComponent(b.id)}`, {
                 method: 'GET',
