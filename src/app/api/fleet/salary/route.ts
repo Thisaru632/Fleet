@@ -28,20 +28,23 @@ export async function GET(request: Request) {
     const endDateStr = `${y}-${String(m).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")} 23:59:59`;
     const monthKey = `${y}-${String(m).padStart(2, "0")}`;
 
+    const cleanDrv = drvId.trim();
+    const drvVariants = Array.from(new Set([cleanDrv, cleanDrv.toUpperCase(), cleanDrv.toLowerCase()]));
+
     const [trips, adj] = (await Promise.all([
       Trip.find(
         {
-          driverId: { $regex: new RegExp(`^${drvId}$`, "i") },
-          purpose: { $regex: /^Hire$/i },
+          driverId: { $in: drvVariants },
+          purpose: { $in: ["Hire", "hire", "HIRE"] },
           "rawValues.7": { $gte: startDateStr, $lte: endDateStr }
         },
-        null,
+        { reference: 1, commission: 1, timestamp: 1, rawValues: 1 },
         { sort: { "rawValues.7": 1 }, allowDiskUse: true }
-      ),
+      ).lean(),
       DriverAdjustment.findOne({
-        driverCode: { $regex: new RegExp(`^${drvId.trim()}$`, "i") },
+        driverCode: { $in: drvVariants },
         month: monthKey
-      })
+      }).lean()
     ])) as [any[], any];
 
     const ZERO_SALARY_TRIP_REFS = new Set(['20260879626', '20260879925', 'FR07452', 'FR7452', 'FR7525', 'FR07525']);

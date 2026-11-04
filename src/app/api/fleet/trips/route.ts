@@ -75,34 +75,53 @@ export async function GET(request: Request) {
   try {
     await dbConnect();
     const cleanDrvId = (drvId || "").trim();
+    const drvVariants = Array.from(new Set([cleanDrvId, cleanDrvId.toUpperCase(), cleanDrvId.toLowerCase()]));
+    const statusVariants = [
+      "Accepted", "accepted", "ACCEPTED",
+      "Scheduled", "scheduled", "SCHEDULED",
+      "Assigned", "assigned", "ASSIGNED"
+    ];
 
-    // 1. Fetch assigned trips directly from Lak Mobile in real-time
-    let tripRefs: any[] = await fetchDriverTripsFromLakMobile(cleanDrvId);
+    // Run Lak Mobile fetch, AccountSheet fallback, and driver's Trip query in parallel
+    const [lakTrips, accountDocs, tripsInDb] = await Promise.all([
+      fetchDriverTripsFromLakMobile(cleanDrvId),
+      AccountSheet.find(
+        {
+          $and: [
+            {
+              $or: [
+                { driverId: { $in: drvVariants } },
+                { "rawValues.16": { $in: drvVariants } },
+                { "rawValues.9": { $in: drvVariants } }
+              ]
+            },
+            {
+              $or: [
+                { status: { $in: statusVariants } },
+                { "rawValues.15": { $in: statusVariants } }
+              ]
+            }
+          ]
+        },
+        { bookingRef: 1, vehicle: 1, driverId: 1, status: 1, rawValues: 1 }
+      ).lean().catch((accountError) => {
+        console.error("AccountSheet fallback skipped:", accountError);
+        return [] as any[];
+      }),
+      Trip.find(
+        { driverId: { $in: drvVariants } },
+        { reference: 1, status: 1, rawValues: 1 },
+        { sort: { updatedAt: -1 }, allowDiskUse: true }
+      ).lean() as Promise<any[]>
+    ]);
+
+    let tripRefs: any[] = [...lakTrips];
 
     // 2. Fallback / Merge with AccountSheet in MongoDB
     try {
-      const drvRegex = new RegExp(`^\\s*${cleanDrvId}\\s*$`, "i");
-      const accountDocs = await AccountSheet.find({ 
-        $and: [
-          {
-            $or: [
-              { driverId: drvRegex },
-              { "rawValues.16": drvRegex },
-              { "rawValues.9": drvRegex }
-            ]
-          },
-          {
-            $or: [
-              { status: { $regex: /^(Accepted|Scheduled|Assigned)$/i } },
-              { "rawValues.15": { $regex: /^(Accepted|Scheduled|Assigned)$/i } }
-            ]
-          }
-        ]
-      });
-
       const parseNum = (val: any) => Number(val?.toString().replace(/[^\d.]/g, '')) || '';
-      const fallbackRefs = accountDocs
-        .filter(doc => {
+      const fallbackRefs = (accountDocs || [])
+        .filter((doc: any) => {
           const is17 = Array.isArray(doc.rawValues) && doc.rawValues.length === 17;
           const status = ((is17 ? doc.rawValues[15] : '') || doc.status || '').toString().trim().toLowerCase();
           if (status !== 'accepted' && status !== 'scheduled' && status !== 'assigned') return false;
@@ -115,7 +134,7 @@ export async function GET(request: Request) {
           if (startMeterRaw !== undefined && startMeterRaw !== null && String(startMeterRaw).trim() !== '' && Number(startMeterRaw) > 0) return false;
           return true;
         })
-        .map(doc => {
+        .map((doc: any) => {
           const is15or17 = Array.isArray(doc.rawValues) && (doc.rawValues.length === 15 || doc.rawValues.length === 17);
           const ref = doc.bookingRef || (is15or17 ? doc.rawValues?.[0] : doc.rawValues?.[11]);
           const vehicle = doc.vehicle || (is15or17 ? doc.rawValues?.[5] : doc.rawValues?.[7]);
@@ -126,7 +145,7 @@ export async function GET(request: Request) {
             endMeter: parseNum(is15or17 ? doc.rawValues?.[11] : doc.rawValues?.[57])
           };
         })
-        .filter(item => item.ref && item.ref !== "N/A" && item.ref !== "");
+        .filter((item: any) => item.ref && item.ref !== "N/A" && item.ref !== "");
 
       const seen = new Set(tripRefs.map(t => t.ref));
       for (const f of fallbackRefs) {
@@ -171,13 +190,6 @@ export async function GET(request: Request) {
     });
 
     // 4. Pending trips (FR refs) for this driver from MongoDB
-    const drvVariants = Array.from(new Set([cleanDrvId, cleanDrvId.toUpperCase(), cleanDrvId.toLowerCase()]));
-    const tripsInDb = await Trip.find(
-      { driverId: { $in: drvVariants } },
-      { images: 0 },
-      { sort: { updatedAt: -1 }, allowDiskUse: true }
-    ).lean() as any[];
-
     const frRefs = tripsInDb
       .filter((t: any) => {
         const status = (t.status || '').toLowerCase();

@@ -123,9 +123,10 @@ export async function GET(request: Request) {
       const accountDoc = await AccountSheet.findOne({
         $or: [
           { bookingRef: trimmedRef },
-          { rawValues: trimmedRef }
+          { "rawValues.11": trimmedRef },
+          { "rawValues.0": trimmedRef }
         ]
-      });
+      }).lean() as any;
 
       if (!accountDoc) {
         return NextResponse.json({ details: null });
@@ -160,7 +161,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ details: raw });
     } else {
       // MOVED to MongoDB for "fr" (Fleet data)
-      const trip = await Trip.findOne({ reference: ref.trim() });
+      const trip = await Trip.findOne({ reference: ref.trim() }, { images: 0 }).lean() as any;
       
       if (!trip) {
         return NextResponse.json({ error: "Reference not found" }, { status: 404 });

@@ -10,10 +10,15 @@ export async function GET() {
   try {
     await dbConnect();
     
-    // Fetch unique vehicles and purposes from all existing trips in MongoDB
-    const dbVehicles = await Trip.distinct("vehicle", { vehicle: { $nin: [null, ""] } });
-    const addedVehiclesMeta = await SheetMetadata.findOne({ key: "added_vehicles" }).lean();
-    const dbPurposes = await Trip.distinct("purpose", { purpose: { $nin: [null, ""] } });
+    // Fetch unique vehicles and purposes in parallel using index-only distinct scans
+    const [rawVehicles, addedVehiclesMeta, rawPurposes] = await Promise.all([
+      Trip.distinct("vehicle"),
+      SheetMetadata.findOne({ key: "added_vehicles" }).lean() as Promise<any>,
+      Trip.distinct("purpose")
+    ]);
+
+    const dbVehicles = (rawVehicles || []).filter((v: any) => v !== null && v !== undefined && String(v).trim() !== "");
+    const dbPurposes = (rawPurposes || []).filter((p: any) => p !== null && p !== undefined && String(p).trim() !== "");
 
     // Ensure default vehicles and purposes are always available
     const defaultVehicles = ["PK-3991"];

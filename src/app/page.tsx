@@ -107,7 +107,10 @@ export default function FleetApp() {
   const [loading, setLoading] = useState(false);
   const isSubmittingRef = useRef(false);
   const [fetchingDetails, setFetchingDetails] = useState(false);
-  const [options, setOptions] = useState<{ vehicles: string[], purposes: string[] }>({ vehicles: [], purposes: [] });
+  const [options, setOptions] = useState<{ vehicles: string[], purposes: string[] }>({
+    vehicles: ['PK-3991'],
+    purposes: ['Fuel', 'Hire', 'Office Use', 'Personal', 'Repair']
+  });
   const [tripRefs, setTripRefs] = useState<any[]>([]);
   const [frRefs, setFrRefs] = useState<string[]>([]);
   const [historyFrRefs, setHistoryFrRefs] = useState<string[]>([]);
@@ -931,18 +934,25 @@ export default function FleetApp() {
 
   const fetchInitialData = async (drvId: string) => {
     try {
-      const [optRes, tripRes] = await Promise.all([
-        fetch('/api/fleet/options'),
-        fetch(`/api/fleet/trips?drvId=${drvId}`)
-      ]);
-      const optData = await safeJson(optRes);
-      const tripData = await safeJson(tripRes);
-      if (!optData.error) setOptions(optData);
-      if (!tripData.error) {
-        setTripRefs(tripData.tripRefs || []);
-        setFrRefs(tripData.frRefs || []);
-        setHistoryFrRefs(tripData.historyFrRefs || []);
-      }
+      const optPromise = fetch('/api/fleet/options')
+        .then(safeJson)
+        .then((optData) => {
+          if (optData && !optData.error) setOptions(optData);
+        })
+        .catch((err) => console.error('Error fetching options:', err));
+
+      const tripPromise = fetch(`/api/fleet/trips?drvId=${drvId}`)
+        .then(safeJson)
+        .then((tripData) => {
+          if (tripData && !tripData.error) {
+            setTripRefs(tripData.tripRefs || []);
+            setFrRefs(tripData.frRefs || []);
+            setHistoryFrRefs(tripData.historyFrRefs || []);
+          }
+        })
+        .catch((err) => console.error('Error fetching trips:', err));
+
+      await Promise.all([optPromise, tripPromise]);
     } catch (err) {
       console.error('Error fetching initial data:', err);
     }
@@ -1059,9 +1069,11 @@ export default function FleetApp() {
 
   useEffect(() => {
     if (user && user[0]) {
-      fetchInboxMessages();
-      fetchDashMonthStats();
-      if (stage === 'contact-office') {
+      if (stage === 'dashboard') {
+        fetchInboxMessages();
+        fetchDashMonthStats();
+      } else if (stage === 'contact-office') {
+        fetchInboxMessages();
         fetchSentMessages();
       }
     }
