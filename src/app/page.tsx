@@ -2686,15 +2686,13 @@ export default function FleetApp() {
 
       const endTimestamp = formatLakDateTime(b.estimatedCompletedAt || b.completedAt);
       const vehicleNum = b.vehiclePlate || b.vehicle?.plateNo || '';
-      const finalTotal =
-        b.finalTotal !== undefined && b.finalTotal !== null
-          ? String(b.finalTotal)
-          : b.payment?.totalAmount !== undefined && b.payment?.totalAmount !== null
-          ? String(b.payment.totalAmount)
-          : '';
 
+      let itemAmount =
+        b.fleetFinalPrice !== undefined && b.fleetFinalPrice !== null
+          ? String(b.fleetFinalPrice)
+          : '';
       let driverComm = b.fleetDrvComm || '';
-      if (!driverComm) {
+      if (!itemAmount || !driverComm) {
         const fleetList = reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || [];
         const fleetMatch = fleetList.find(
           (t: any) =>
@@ -2702,7 +2700,13 @@ export default function FleetApp() {
             String(t.values?.[12] || '').trim() === String(invoiceNo).trim()
         );
         if (fleetMatch) {
-          driverComm = String(fleetMatch.values?.[14] || '').replace(/Rs\.?\s*/gi, '').trim();
+          if (!itemAmount) {
+            const rawPrice = String(fleetMatch.values?.[23] ?? fleetMatch.finalPrice ?? '').replace(/Rs\.?\s*/gi, '').trim();
+            if (rawPrice) itemAmount = rawPrice;
+          }
+          if (!driverComm) {
+            driverComm = String(fleetMatch.values?.[14] || '').replace(/Rs\.?\s*/gi, '').trim();
+          }
         }
       }
 
@@ -2718,7 +2722,7 @@ export default function FleetApp() {
         "",
         "",
         "",
-        finalTotal,
+        itemAmount,
         driverComm
       ];
       csvContent += row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(",") + "\n";
@@ -6094,15 +6098,13 @@ export default function FleetApp() {
                               }
 
                               const vehicleNum = b.vehiclePlate || b.vehicle?.plateNo || '';
-                              const finalTotal =
-                                b.finalTotal !== undefined && b.finalTotal !== null
-                                  ? String(b.finalTotal)
-                                  : b.payment?.totalAmount !== undefined && b.payment?.totalAmount !== null
-                                  ? String(b.payment.totalAmount)
+                              let itemAmount =
+                                b.fleetFinalPrice !== undefined && b.fleetFinalPrice !== null
+                                  ? String(b.fleetFinalPrice)
                                   : '';
 
                               let driverComm = b.fleetDrvComm || '';
-                              if (!driverComm) {
+                              if (!itemAmount || !driverComm) {
                                 const fleetList = reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || [];
                                 const fleetMatch = fleetList.find(
                                   (t: any) =>
@@ -6110,7 +6112,13 @@ export default function FleetApp() {
                                     String(t.values?.[12] || '').trim() === String(invoiceNo).trim()
                                 );
                                 if (fleetMatch) {
-                                  driverComm = String(fleetMatch.values?.[14] || '').replace(/Rs\.?\s*/gi, '').trim();
+                                  if (!itemAmount) {
+                                    const rawPrice = String(fleetMatch.values?.[23] ?? fleetMatch.finalPrice ?? '').replace(/Rs\.?\s*/gi, '').trim();
+                                    if (rawPrice) itemAmount = rawPrice;
+                                  }
+                                  if (!driverComm) {
+                                    driverComm = String(fleetMatch.values?.[14] || '').replace(/Rs\.?\s*/gi, '').trim();
+                                  }
                                 }
                               }
 
@@ -6127,7 +6135,7 @@ export default function FleetApp() {
                                   <td className="p-2 border-r border-white/5"></td>
                                   <td className="p-2 border-r border-white/5"></td>
                                   <td className="p-2 border-r border-white/5"></td>
-                                  <td className="p-2 border-r border-white/5 text-right font-bold text-white">{finalTotal}</td>
+                                  <td className="p-2 border-r border-white/5 text-right font-bold text-white">{itemAmount}</td>
                                   <td className="p-2 text-right font-bold text-rose-400">{driverComm}</td>
                                 </tr>
                               );
