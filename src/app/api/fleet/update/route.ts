@@ -102,6 +102,30 @@ export async function POST(request: Request) {
       existingArray[10] = scDue;
       
       trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...existingArray];
+    } else if (stage === 'trip-start') {
+      const existingArray = trip.rawValues.slice(3);
+      const startMeterVal = (array && array[12] !== undefined && array[12] !== '') ? array[12] : '';
+      existingArray[12] = startMeterVal;
+      
+      const gStart = parseNum(existingArray[3]);
+      const tStart = parseNum(startMeterVal);
+      if (startMeterVal !== '' && existingArray[3] !== '') {
+        existingArray[15] = tStart - gStart;
+      }
+      
+      trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...existingArray];
+    } else if (stage === 'trip-end') {
+      const existingArray = trip.rawValues.slice(3);
+      const endMeterVal = (array && array[13] !== undefined && array[13] !== '') ? array[13] : '';
+      existingArray[13] = endMeterVal;
+      
+      const gEnd = parseNum(existingArray[5]);
+      const tEnd = parseNum(endMeterVal);
+      if (endMeterVal !== '' && existingArray[5] !== '') {
+        existingArray[16] = gEnd - tEnd;
+      }
+      
+      trip.rawValues = [trip.status, trip.reference, trip.timestamp, ...existingArray];
     } else {
       trip.driverId = array[0] || trip.driverId;
       trip.vehicle = array[1] || trip.vehicle;
@@ -141,6 +165,10 @@ export async function POST(request: Request) {
         array[32] = repairMeterVal;
       }
       if (existingArray[24] && !array[24]) array[24] = existingArray[24];
+      if (existingArray[12] && !array[12]) array[12] = existingArray[12];
+      if (existingArray[13] && !array[13]) array[13] = existingArray[13];
+      if (existingArray[15] && !array[15]) array[15] = existingArray[15];
+      if (existingArray[16] && !array[16]) array[16] = existingArray[16];
       // Preserve specific timestamps and locations if they aren't explicitly provided
       if (existingArray[25] && !array[25]) array[25] = existingArray[25]; // Fuel Update TS
       if (existingArray[26] && !array[26]) array[26] = existingArray[26]; // Start Location

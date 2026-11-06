@@ -5,6 +5,7 @@ import User from "@/models/User";
 import SheetMetadata from "@/models/SheetMetadata";
 import DriverAdjustment from "@/models/DriverAdjustment";
 import AccountSheet from "@/models/AccountSheet";
+import BankReceipt from "@/models/BankReceipt";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -122,10 +123,11 @@ export async function GET(request: Request) {
       uniqueDrivers,
       users,
       addedVehiclesMeta,
-      allTripsRaw
+      allTripsRaw,
+      allBankReceipts
     ] = await Promise.all([
       Trip.countDocuments(fleetQuery),
-      Trip.find(fleetQuery, { images: 0 }).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
+      Trip.find(fleetQuery, { 'images.dataUrl': 0 }).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
       Trip.find(query, { images: 0, rawValues: 0 }).sort({ timestamp: -1 }).limit(10).lean(),
       Trip.aggregate([
         { $match: query },
@@ -210,7 +212,8 @@ export async function GET(request: Request) {
       Trip.distinct("driverId"),
       User.find({}, { username: 1, name: 1, password: 1, phone: 1, role: 1, status: 1 }).lean(),
       SheetMetadata.findOne({ key: "added_vehicles" }).lean(),
-      Trip.find(query, { rawValues: 1, vehicle: 1, status: 1, finalPrice: 1, purpose: 1 }).lean()
+      Trip.find(query, { rawValues: 1, vehicle: 1, status: 1, finalPrice: 1, purpose: 1 }).lean(),
+      BankReceipt.find({}, { reference: 1, tripRef: 1, status: 1, receiptValue: 1, imageName: 1 }).lean().catch(() => [])
     ]);
 
     // KPI mapping
@@ -379,8 +382,17 @@ export async function GET(request: Request) {
     });
     const purposeCount = Object.keys(purposeDataMap).map(purpose => ({ purpose, count: purposeDataMap[purpose] }));
 
+    const bankReceiptMap = new Map<string, any>();
+    (allBankReceipts || []).forEach((br: any) => {
+      if (br.reference) bankReceiptMap.set(String(br.reference).trim().toUpperCase(), br);
+      if (br.tripRef) bankReceiptMap.set(String(br.tripRef).trim().toUpperCase(), br);
+    });
+
     // Format Fleet Data for the current page
-    const fleetData = tripsForPage.map((trip: any) => ({
+    const fleetData = tripsForPage.map((trip: any) => {
+      const matchedReceipt = bankReceiptMap.get(String(trip.reference || '').trim().toUpperCase()) ||
+        bankReceiptMap.get(String(trip.rawValues?.[12] || '').trim().toUpperCase());
+      return {
       rf: trip.reference,
       date: trip.rawValues?.[7] || trip.timestamp,
       driver: trip.driverId,
@@ -390,7 +402,11 @@ export async function GET(request: Request) {
       paymentType: accountTypeMap.get(String(trip.rawValues?.[12] || '').trim()) || 'cash',
       repairMeter: trip.repairMeter || trip.rawValues?.[35] || '',
       values: trip.rawValues || [],
-    }));
+      images: (trip.images || []).map((img: any) => ({ name: img.name, id: img._id })),
+      imageCount: (trip.images || []).length,
+      paymentStatus: matchedReceipt?.status || trip.paymentStatus || '',
+      paymentValue: matchedReceipt?.receiptValue || 0,
+    };});
 
     // Format Recent Trips
     const recentTrips = recentTripsRaw.map((trip: any) => ({

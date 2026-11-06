@@ -55,7 +55,8 @@ async function fetchDriverTripsFromLakMobile(cleanDrvId: string): Promise<any[]>
         ref: String(b.id).trim(),
         vehicle: String(b.vehiclePlate || b.cabType || '').trim(),
         startMeter: 0,
-        endMeter: 0
+        endMeter: 0,
+        hireType: b.hireType ?? null
       }))
       .filter((item: any) => item.ref && item.ref !== 'N/A');
   } catch (err) {

@@ -59,12 +59,13 @@ export async function GET(request: Request) {
         const bookingRef = String(detail.id);
         const vehicleType = detail.cabType || detail?.vehicle?.modelCategory || "";
         
+        const isShortHire = detail.hireType === 0 || String(detail.hireType) === "0";
         const startMeter = detail?.meterReading?.startKm !== null && detail?.meterReading?.startKm !== undefined
           ? detail.meterReading.startKm
-          : 0;
+          : (isShortHire ? "" : 0);
         const endMeter = detail?.meterReading?.endKm !== null && detail?.meterReading?.endKm !== undefined
           ? detail.meterReading.endKm
-          : 0;
+          : (isShortHire ? "" : 0);
 
         const fb = detail?.payment?.fareBreakdown || detail?.fareBreakdown;
 
@@ -115,8 +116,9 @@ export async function GET(request: Request) {
         expanded[54] = startMeter;
         expanded[57] = endMeter;
         expanded[58] = runDistance;
+        expanded[59] = detail.hireType !== undefined && detail.hireType !== null ? detail.hireType : "";
 
-        return NextResponse.json({ details: expanded });
+        return NextResponse.json({ details: expanded, hireType: detail.hireType ?? null });
       }
 
       // 2. Fallback to MongoDB AccountSheet if Lak Mobile didn't return detail
@@ -161,11 +163,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ details: raw });
     } else {
       // MOVED to MongoDB for "fr" (Fleet data)
-      const trip = await Trip.findOne({ reference: ref.trim() }, { images: 0 }).lean() as any;
+      const trip = await Trip.findOne({ reference: ref.trim() }, { 'images.dataUrl': 0 }).lean() as any;
       
       if (!trip) {
         return NextResponse.json({ error: "Reference not found" }, { status: 404 });
       }
+
+      const hasStartMeterImage = (trip.images || []).some((img: any) => img.name && img.name.includes('TripStartMeter'));
+      const hasEndMeterImage = (trip.images || []).some((img: any) => img.name && img.name.includes('TripEndMeter'));
 
       const details = trip.rawValues || [];
       if (details.length === 0) {
@@ -183,7 +188,7 @@ export async function GET(request: Request) {
         row[21] = trip.mileage;
         row[23] = trip.finalPrice;
         if (trip.repairMeter) row[35] = trip.repairMeter;
-        return NextResponse.json({ details: row });
+        return NextResponse.json({ details: row, hasStartMeterImage, hasEndMeterImage });
       }
 
       if (trip.repairMeter && !details[35]) {
@@ -191,7 +196,7 @@ export async function GET(request: Request) {
         details[35] = trip.repairMeter;
       }
 
-      return NextResponse.json({ details });
+      return NextResponse.json({ details, hasStartMeterImage, hasEndMeterImage });
     }
   } catch (error: any) {
     console.error("Error fetching details:", error);

@@ -18,10 +18,14 @@ import {
   Fuel,
   Wrench,
   ClipboardCheck,
+  Landmark,
+  Receipt,
   Camera,
   MessageSquare,
   AlertCircle,
   CheckCircle2,
+  Check,
+  XCircle,
   Loader2,
   IdCard,
   Phone,
@@ -103,7 +107,7 @@ const captureLocation = (): Promise<string> => {
 
 export default function FleetApp() {
   const [user, setUser] = useState<any>(null);
-  const [stage, setStage] = useState<'dashboard' | 'new' | 'update' | 'last-trip' | 'salary' | 'contact-office' | 'admin'>('dashboard');
+  const [stage, setStage] = useState<'dashboard' | 'new' | 'update' | 'last-trip' | 'salary' | 'contact-office' | 'admin' | 'bank-receipts'>('dashboard');
   const [loading, setLoading] = useState(false);
   const isSubmittingRef = useRef(false);
   const [fetchingDetails, setFetchingDetails] = useState(false);
@@ -624,7 +628,78 @@ export default function FleetApp() {
     fuelLiterCount: '',
     repairStationMeter: '',
     paymentType: 'Office card',
+    isShortHire: false,
   });
+
+  // Bank Receipts state
+  const [bankReceiptForm, setBankReceiptForm] = useState({
+    reference: '',
+    receiptValue: '',
+    comments: '',
+  });
+  const [bankReceiptFile, setBankReceiptFile] = useState<File | null>(null);
+  const [pendingFleetHireRefs, setPendingFleetHireRefs] = useState<any[]>([]);
+  const [submittingBankReceipt, setSubmittingBankReceipt] = useState(false);
+  const [selectedBankTripDetails, setSelectedBankTripDetails] = useState<any>(null);
+  const [loadingBankTripDetails, setLoadingBankTripDetails] = useState(false);
+  const [fleetSubTab, setFleetSubTab] = useState<'fleet' | 'payment-list'>('fleet');
+  const [paymentList, setPaymentList] = useState<any[]>([]);
+  const [loadingPaymentList, setLoadingPaymentList] = useState(false);
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
+
+  const paymentMap = useMemo(() => {
+    const map = new Map<string, any>();
+    paymentList.forEach((p: any) => {
+      if (p.reference) map.set(String(p.reference).trim().toUpperCase(), p);
+      if (p.tripRef) map.set(String(p.tripRef).trim().toUpperCase(), p);
+    });
+    return map;
+  }, [paymentList]);
+
+  const handleUpdatePaymentStatus = async (id: string, newStatus: 'Approved' | 'Rejected', reference?: string) => {
+    if (updatingPaymentId) return;
+    setUpdatingPaymentId(id);
+    try {
+      const res = await fetch('/api/fleet/bank-receipts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+      const data = await safeJson(res);
+      if (data.error) throw new Error(data.error);
+
+      setPaymentList((prev: any[]) =>
+        prev.map((p: any) => (p._id === id ? { ...p, status: newStatus } : p))
+      );
+
+      if (reference) {
+        setAdminData((prev: any) => {
+          if (!prev?.tables?.fleetData) return prev;
+          const updatedFleet = prev.tables.fleetData.map((row: any) => {
+            if (row.rf === reference || row.values?.[1] === reference || row.values?.[12] === reference) {
+              return { ...row, paymentStatus: newStatus };
+            }
+            return row;
+          });
+          return {
+            ...prev,
+            tables: { ...prev.tables, fleetData: updatedFleet }
+          };
+        });
+      }
+
+      setAlert({
+        type: newStatus === 'Approved' ? 'success' : 'warning',
+        message: `Payment ${reference ? `for ${reference} ` : ''}marked as ${newStatus}!`
+      });
+    } catch (err: any) {
+      console.error('Error updating payment status:', err);
+      setAlert({ type: 'error', message: err.message || 'Failed to update payment status' });
+    } finally {
+      setUpdatingPaymentId(null);
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
 
   const [files, setFiles] = useState<{ [key: string]: File | null }>({
     garageStartImage: null,
@@ -633,12 +708,16 @@ export default function FleetApp() {
     repairReceipt: null,
     fuelStationMeterImage: null,
     repairStationMeterImage: null,
+    tripStartMeterImage: null,
+    tripEndMeterImage: null,
   });
 
   const [isFuelSubmitted, setIsFuelSubmitted] = useState(false);
   const [fuelSubmitCount, setFuelSubmitCount] = useState(0);
   const [showRepairDetails, setShowRepairDetails] = useState(false);
   const [isRepairSubmitted, setIsRepairSubmitted] = useState(false);
+  const [isTripStartSubmitted, setIsTripStartSubmitted] = useState(false);
+  const [isTripEndSubmitted, setIsTripEndSubmitted] = useState(false);
 
   const handleAddMoreFuel = () => {
     if (fuelSubmitCount >= 2) {
@@ -877,6 +956,233 @@ export default function FleetApp() {
     }
   };
 
+  const fetchPaymentList = async () => {
+    setLoadingPaymentList(true);
+    try {
+      const res = await fetch('/api/fleet/bank-receipts');
+      const data = await safeJson(res);
+      if (data && data.receipts) {
+        setPaymentList(data.receipts);
+      }
+    } catch (err) {
+      console.error('Error fetching payment list:', err);
+    } finally {
+      setLoadingPaymentList(false);
+    }
+  };
+
+  const handleBankTripChange = async (ref: string) => {
+    setBankReceiptForm(prev => ({ ...prev, reference: ref }));
+    if (!ref) {
+      setSelectedBankTripDetails(null);
+      return;
+    }
+
+    const matched = pendingFleetHireRefs.find((p: any) => p.reference === ref);
+    const fleetMatch = adminData?.tables?.fleetData?.find((t: any) => t.values?.[1] === ref || t.values?.[12] === ref);
+    const rawScDue = matched?.scDueAmount ?? fleetMatch?.values?.[13] ?? '';
+    const rawDrvComms = matched?.drvComms ?? fleetMatch?.values?.[14] ?? '';
+    const scDueAmount = Number(String(rawScDue).replace(/[^\d.-]/g, '')) || 0;
+    const drvComms = Number(String(rawDrvComms).replace(/[^\d.-]/g, '')) || 0;
+    const totalScDue = (matched?.scDue !== undefined && matched?.scDue !== null && Number(matched.scDue) > 0)
+      ? Number(matched.scDue)
+      : (scDueAmount + drvComms);
+
+    const initialDetails = {
+      ...(matched || { reference: ref }),
+      scDueAmount,
+      drvComms,
+      scDue: totalScDue
+    };
+    setSelectedBankTripDetails(initialDetails);
+
+    const lookupRef = matched?.tripRef || ref;
+    if (lookupRef) {
+      setLoadingBankTripDetails(true);
+      try {
+        const res = await fetch(`/api/fleet/details?type=trip&ref=${encodeURIComponent(lookupRef)}`);
+        const data = await safeJson(res);
+        if (data && data.details) {
+          const d = data.details;
+          setSelectedBankTripDetails((prev: any) => ({
+            ...prev,
+            ...matched,
+            scDueAmount,
+            drvComms,
+            scDue: totalScDue,
+            startDate: d[13] || '',
+            startTime: d[14] || '',
+            endDate: d[15] || '',
+            endTime: d[16] || '',
+            vehicleType: d[17] || '',
+            noOfPax: d[18] || '',
+            pickupStreet: d[24] || '',
+            dropoffStreet: d[25] || d[26] || '',
+            journeyType: d[30] || '',
+            finalPrice: d[4] || prev?.finalPrice || ''
+          }));
+        }
+      } catch (err) {
+        console.error("Error fetching trip details for bank receipt:", err);
+      } finally {
+        setLoadingBankTripDetails(false);
+      }
+    }
+  };
+
+  const handleBankReceiptSubmit = async () => {
+    if (submittingBankReceipt) return;
+    if (!bankReceiptForm.reference) {
+      setAlert({ type: 'error', message: 'Please select a pending Fleet Hire Reference.' });
+      return;
+    }
+    if (!bankReceiptForm.receiptValue || Number(bankReceiptForm.receiptValue) <= 0) {
+      setAlert({ type: 'error', message: 'Please enter a valid Receipt Value.' });
+      return;
+    }
+    if (!bankReceiptFile) {
+      setAlert({ type: 'error', message: 'Please upload the bank receipt image.' });
+      return;
+    }
+
+    setSubmittingBankReceipt(true);
+    setAlert({ type: 'warning', message: 'Submitting bank receipt...' });
+
+    try {
+      const fileData = await fileToBase64(bankReceiptFile);
+      const res = await fetch('/api/fleet/bank-receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reference: bankReceiptForm.reference,
+          receiptValue: Number(bankReceiptForm.receiptValue),
+          comments: bankReceiptForm.comments,
+          fileData,
+          fileName: `${bankReceiptForm.reference}_BankReceipt_${Date.now()}`,
+          driverId: user?.[0] || 'Unknown'
+        })
+      });
+      const data = await safeJson(res);
+      if (data.error) throw new Error(data.error);
+
+      setAlert({ type: 'success', message: 'Bank receipt submitted successfully!' });
+      setBankReceiptForm({ reference: '', receiptValue: '', comments: '' });
+      setBankReceiptFile(null);
+
+      // Refresh pending references
+      if (user && user[0]) {
+        fetch(`/api/fleet/bank-receipts?type=pending-refs&driverId=${user[0]}`)
+          .then(safeJson)
+          .then((d) => {
+            if (d && d.pendingRefs) setPendingFleetHireRefs(d.pendingRefs);
+          });
+      }
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to submit bank receipt' });
+    } finally {
+      setSubmittingBankReceipt(false);
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
+  const handleTripStartMeterSubmit = async () => {
+    if (loading || isSubmittingRef.current || !currentRef) return;
+    if (!formData.tripStartMeter || String(formData.tripStartMeter).trim() === '') {
+      setAlert({ type: 'error', message: 'Please enter Trip Start Meter.' });
+      return;
+    }
+    if (!files.tripStartMeterImage && !isTripStartSubmitted) {
+      setAlert({ type: 'error', message: 'Please upload the Start Meter Image.' });
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setLoading(true);
+    setAlert({ type: 'warning', message: 'Submitting trip start meter to database...' });
+
+    try {
+      let uploadFiles: any[] = [];
+      if (files.tripStartMeterImage) {
+        uploadFiles.push({
+          name: `${currentRef}_TripStartMeter`,
+          dataUrl: await fileToBase64(files.tripStartMeterImage)
+        });
+      }
+
+      let array: any[] = new Array(30).fill('');
+      array[12] = formData.tripStartMeter;
+      if (formData.tripStartMeter !== '' && formData.garageStartMeter !== '') {
+        array[15] = Number(formData.tripStartMeter) - Number(formData.garageStartMeter);
+      }
+
+      const updateRes = await fetch('/api/fleet/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: 'trip-start', ref: currentRef, array, files: uploadFiles }),
+      });
+      const updateData = await safeJson(updateRes);
+      if (updateData.error) throw new Error(updateData.error);
+
+      setIsTripStartSubmitted(true);
+      setAlert({ type: 'success', message: 'Trip Start Meter submitted successfully!' });
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to submit trip start meter' });
+    } finally {
+      setLoading(false);
+      isSubmittingRef.current = false;
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
+  const handleTripEndMeterSubmit = async () => {
+    if (loading || isSubmittingRef.current || !currentRef) return;
+    if (!formData.tripEndMeter || String(formData.tripEndMeter).trim() === '') {
+      setAlert({ type: 'error', message: 'Please enter Trip End Meter.' });
+      return;
+    }
+    if (!files.tripEndMeterImage && !isTripEndSubmitted) {
+      setAlert({ type: 'error', message: 'Please upload the End Meter Image.' });
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setLoading(true);
+    setAlert({ type: 'warning', message: 'Submitting trip end meter to database...' });
+
+    try {
+      let uploadFiles: any[] = [];
+      if (files.tripEndMeterImage) {
+        uploadFiles.push({
+          name: `${currentRef}_TripEndMeter`,
+          dataUrl: await fileToBase64(files.tripEndMeterImage)
+        });
+      }
+
+      let array: any[] = new Array(30).fill('');
+      array[13] = formData.tripEndMeter;
+      if (formData.garageEndMeter !== '' && formData.tripEndMeter !== '') {
+        array[16] = Number(formData.garageEndMeter) - Number(formData.tripEndMeter);
+      }
+
+      const updateRes = await fetch('/api/fleet/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: 'trip-end', ref: currentRef, array, files: uploadFiles }),
+      });
+      const updateData = await safeJson(updateRes);
+      if (updateData.error) throw new Error(updateData.error);
+
+      setIsTripEndSubmitted(true);
+      setAlert({ type: 'success', message: 'Trip End Meter submitted successfully!' });
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to submit trip end meter' });
+    } finally {
+      setLoading(false);
+      isSubmittingRef.current = false;
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
   useEffect(() => {
     const savedUser = localStorage.getItem('fleetUser');
     if (savedUser) {
@@ -952,7 +1258,16 @@ export default function FleetApp() {
         })
         .catch((err) => console.error('Error fetching trips:', err));
 
-      await Promise.all([optPromise, tripPromise]);
+      const bankPromise = fetch(`/api/fleet/bank-receipts?type=pending-refs&driverId=${drvId}`)
+        .then(safeJson)
+        .then((data) => {
+          if (data && data.pendingRefs) {
+            setPendingFleetHireRefs(data.pendingRefs);
+          }
+        })
+        .catch((err) => console.error('Error fetching pending fleet hire refs:', err));
+
+      await Promise.all([optPromise, tripPromise, bankPromise]);
     } catch (err) {
       console.error('Error fetching initial data:', err);
     }
@@ -1115,6 +1430,7 @@ export default function FleetApp() {
   };
 
   const fetchAdminSales = async (quiet = false) => {
+    fetchPaymentList();
     if (!quiet) setFetchingAdmin(true);
     try {
       const params = new URLSearchParams({
@@ -1920,8 +2236,12 @@ export default function FleetApp() {
       fuelReceipt: null,
       repairReceipt: null,
       fuelStationMeterImage: null,
+      tripStartMeterImage: null,
+      tripEndMeterImage: null,
     });
     setIsFuelSubmitted(false);
+    setIsTripStartSubmitted(false);
+    setIsTripEndSubmitted(false);
     window.history.pushState({ stage: 'update' }, '');
     setStage('update');
   };
@@ -2024,6 +2344,20 @@ export default function FleetApp() {
         setIsFuelSubmitted(true);
       } else {
         setIsFuelSubmitted(false);
+        setIsTripStartSubmitted(false);
+        setIsTripEndSubmitted(false);
+      }
+
+      if (data.hasStartMeterImage || (details[15] !== undefined && details[15] !== null && String(details[15]).trim() !== '')) {
+        setIsTripStartSubmitted(true);
+      } else {
+        setIsTripStartSubmitted(false);
+      }
+
+      if (data.hasEndMeterImage || (details[16] !== undefined && details[16] !== null && String(details[16]).trim() !== '')) {
+        setIsTripEndSubmitted(true);
+      } else {
+        setIsTripEndSubmitted(false);
       }
 
       setAlert(null);
@@ -2040,11 +2374,17 @@ export default function FleetApp() {
 
   const handleTripRefChange = async (ref: string) => {
     const matchedRef = tripRefs.find((t: any) => (t.ref || t) === ref);
+    const isDifferentRef = Boolean(formData.tripRef && formData.tripRef !== ref);
     setFormData((prev: any) => ({
       ...prev,
       tripRef: ref,
-      tripStartMeter: matchedRef?.startMeter || prev.tripStartMeter,
-      tripEndMeter: matchedRef?.endMeter || prev.tripEndMeter
+      isShortHire: matchedRef?.hireType === 0,
+      tripStartMeter: matchedRef?.hireType === 0
+        ? (isDifferentRef ? '' : prev.tripStartMeter)
+        : (matchedRef?.startMeter || (isDifferentRef ? '' : prev.tripStartMeter)),
+      tripEndMeter: matchedRef?.hireType === 0
+        ? (isDifferentRef ? '' : prev.tripEndMeter)
+        : (matchedRef?.endMeter || (isDifferentRef ? '' : prev.tripEndMeter))
     }));
 
     if (!ref) return;
@@ -2070,6 +2410,7 @@ export default function FleetApp() {
         const pkgKms = parseNumVal(details[33]);
         const distance = parseNumVal(details[58]);
         const rawPkgBalance = (Math.round((pkgKms - distance) * 100) / 100).toString();
+        const isShortHire = data.hireType === 0 || details[59] === 0 || matchedRef?.hireType === 0;
 
         setFormData((prev: any) => {
           // Calculate Driver Salary based on Form Vehicle Number (Fleet Data) & Dynamic Commission Rate
@@ -2116,6 +2457,7 @@ export default function FleetApp() {
 
           return {
             ...prev,
+            isShortHire,
             tripStartMeter: prev.tripStartMeter || accStartMeter,
             tripEndMeter: prev.tripEndMeter || accEndMeter,
             drvComms: rawSalary,
@@ -2160,6 +2502,7 @@ export default function FleetApp() {
         ...prev,
         purpose: value,
         tripRef: '',
+        isShortHire: false,
         tripStartMeter: '',
         tripEndMeter: '',
         accStartDate: '',
@@ -2203,16 +2546,22 @@ export default function FleetApp() {
       });
     }
 
-    if (id === 'garageEndMeter') {
-      const gStart = Number(formData.garageStartMeter);
-      const gEnd = Number(value);
-      const tStart = Number(formData.tripStartMeter);
-      const tEnd = Number(formData.tripEndMeter);
-      setFormData((prev: any) => ({
-        ...prev,
-        startLossMileage: prev.purpose === 'Hire' ? tStart - gStart : '',
-        endLossMileage: prev.purpose === 'Hire' ? gEnd - tEnd : '',
-      }));
+    if (['garageEndMeter', 'garageStartMeter', 'tripStartMeter', 'tripEndMeter'].includes(id)) {
+      setFormData((prev: any) => {
+        const gStartStr = id === 'garageStartMeter' ? value : prev.garageStartMeter;
+        const gEndStr = id === 'garageEndMeter' ? value : prev.garageEndMeter;
+        const tStartStr = id === 'tripStartMeter' ? value : prev.tripStartMeter;
+        const tEndStr = id === 'tripEndMeter' ? value : prev.tripEndMeter;
+        const gStart = Number(gStartStr);
+        const gEnd = Number(gEndStr);
+        const tStart = Number(tStartStr);
+        const tEnd = Number(tEndStr);
+        return {
+          ...prev,
+          startLossMileage: prev.purpose === 'Hire' && tStartStr !== '' && gStartStr !== '' ? tStart - gStart : '',
+          endLossMileage: prev.purpose === 'Hire' && gEndStr !== '' && tEndStr !== '' ? gEnd - tEnd : '',
+        };
+      });
     }
   };
 
@@ -2310,7 +2659,22 @@ export default function FleetApp() {
       }
 
       if (formData.purpose === 'Hire') {
-        if (
+        if (formData.isShortHire) {
+          if (
+            formData.tripStartMeter === '' || formData.tripStartMeter === null || formData.tripStartMeter === undefined ||
+            formData.tripEndMeter === '' || formData.tripEndMeter === null || formData.tripEndMeter === undefined
+          ) {
+            setAlert({ type: 'error', message: 'Please enter Trip Start Meter and Trip End Meter for Short Hire.' });
+            return;
+          }
+          if (
+            formData.tripPrice === '' || formData.tripPrice === null || formData.tripPrice === undefined ||
+            formData.drvComms === '' || formData.drvComms === null || formData.drvComms === undefined
+          ) {
+            setShowRefreshPopup(true);
+            return;
+          }
+        } else if (
           formData.tripStartMeter === '' || formData.tripStartMeter === null || formData.tripStartMeter === undefined ||
           formData.tripEndMeter === '' || formData.tripEndMeter === null || formData.tripEndMeter === undefined ||
           formData.tripPrice === '' || formData.tripPrice === null || formData.tripPrice === undefined ||
@@ -2345,6 +2709,12 @@ export default function FleetApp() {
         const fileData = await fileToBase64(files.garageStartImage!);
         // We use TBD so the backend can replace it with the generated FR number
         uploadFiles.push({ name: `TBD Garage Start`, dataUrl: fileData });
+        if (files.tripStartMeterImage) {
+          uploadFiles.push({ name: `TBD_TripStartMeter`, dataUrl: await fileToBase64(files.tripStartMeterImage) });
+        }
+        if (files.tripEndMeterImage) {
+          uploadFiles.push({ name: `TBD_TripEndMeter`, dataUrl: await fileToBase64(files.tripEndMeterImage) });
+        }
 
         const locationUrl = await captureLocation();
         let array: any[] = new Array(30).fill('');
@@ -2353,7 +2723,14 @@ export default function FleetApp() {
         array[2] = formData.purpose;
         array[3] = formData.garageStartMeter;
 
-        if (formData.purpose === 'Hire') array[9] = formData.tripRef;
+        if (formData.purpose === 'Hire') {
+          array[9] = formData.tripRef;
+          if (formData.tripStartMeter !== '' && formData.tripStartMeter !== undefined) array[12] = formData.tripStartMeter;
+          if (formData.tripEndMeter !== '' && formData.tripEndMeter !== undefined) array[13] = formData.tripEndMeter;
+          if (formData.tripStartMeter !== '' && formData.garageStartMeter !== '') {
+            array[15] = Number(formData.tripStartMeter) - Number(formData.garageStartMeter);
+          }
+        }
         if (formData.purpose === 'Repair') array[8] = formData.repairCost;
         if (formData.purpose === 'Fuel') array[6] = formData.fuelCost;
 
@@ -2384,6 +2761,8 @@ export default function FleetApp() {
         if (files.fuelReceipt && !isFuelSubmitted) uploadFiles.push({ name: `${currentRef}_FuelReceipt`, dataUrl: await fileToBase64(files.fuelReceipt) });
         if (files.fuelStationMeterImage && !isFuelSubmitted) uploadFiles.push({ name: `${currentRef}_FuelStationMeter`, dataUrl: await fileToBase64(files.fuelStationMeterImage) });
         if (files.garageEndImage) uploadFiles.push({ name: `${currentRef}_GarageEnd`, dataUrl: await fileToBase64(files.garageEndImage) });
+        if (files.tripStartMeterImage) uploadFiles.push({ name: `${currentRef}_TripStartMeter`, dataUrl: await fileToBase64(files.tripStartMeterImage) });
+        if (files.tripEndMeterImage) uploadFiles.push({ name: `${currentRef}_TripEndMeter`, dataUrl: await fileToBase64(files.tripEndMeterImage) });
         if (files.repairReceipt) {
           const repairFiles = Array.isArray(files.repairReceipt) ? files.repairReceipt : [files.repairReceipt];
           for (let i = 0; i < repairFiles.length; i++) {
@@ -2433,8 +2812,16 @@ export default function FleetApp() {
         array[12] = formData.tripStartMeter || '';
         array[13] = formData.tripEndMeter || '';
         array[14] = formData.pkgBalanceMileage || '';
-        array[15] = formData.purpose === 'Hire' ? (formData.startLossMileage || '') : '';
-        array[16] = formData.purpose === 'Hire' ? (formData.endLossMileage || '') : '';
+        array[15] = formData.purpose === 'Hire'
+          ? (formData.startLossMileage !== '' && formData.startLossMileage !== undefined
+            ? formData.startLossMileage
+            : (formData.tripStartMeter !== '' && formData.garageStartMeter !== '' ? Number(formData.tripStartMeter) - Number(formData.garageStartMeter) : ''))
+          : '';
+        array[16] = formData.purpose === 'Hire'
+          ? (formData.endLossMileage !== '' && formData.endLossMileage !== undefined
+            ? formData.endLossMileage
+            : (formData.garageEndMeter !== '' && formData.tripEndMeter !== '' ? Number(formData.garageEndMeter) - Number(formData.tripEndMeter) : ''))
+          : '';
         array[17] = formData.folderUrl || '';
         array[18] = formData.folderId || '';
         array[19] = totalMileage || '';
@@ -2466,12 +2853,14 @@ export default function FleetApp() {
         setStage('dashboard');
         setAlert(null);
         setFormData({
-          vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '', tripRef: '',
+          vehicle: '', purpose: '', garageStartMeter: '', garageEndMeter: '', tripRef: '', isShortHire: false,
           tripStartMeter: '', tripEndMeter: '', fuelCost: '', repairCost: '', comments: '',
           scDueAmount: '', drvComms: '', startLossMileage: '', endLossMileage: '', pkgBalanceMileage: '', fuelStationMeter: '', fuelLiterCount: '',
         });
-        setFiles({ garageStartImage: null, garageEndImage: null, fuelReceipt: null, repairReceipt: null, fuelStationMeterImage: null });
+        setFiles({ garageStartImage: null, garageEndImage: null, fuelReceipt: null, repairReceipt: null, fuelStationMeterImage: null, tripStartMeterImage: null, tripEndMeterImage: null });
         setIsFuelSubmitted(false);
+        setIsTripStartSubmitted(false);
+        setIsTripEndSubmitted(false);
         if (user && user[0]) {
           fetchInitialData(user[0]);
         }
@@ -3539,35 +3928,55 @@ export default function FleetApp() {
                   {/* Records Section */}
                   <div className="space-y-2">
                     <p className="text-xs font-bold text-slate-400 tracking-wide px-1">Records</p>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-2 sm:gap-3">
                       {/* New */}
                       <button
                         onClick={handleNewRecord}
                         disabled={loading}
-                        className="bg-[#ebf9f1] border border-emerald-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                        className="bg-[#ebf9f1] border border-emerald-200/80 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
                       >
-                        <Plus className="w-6 h-6 text-emerald-600 group-hover:scale-110 transition-transform" />
-                        <span className="font-bold text-emerald-700 text-xs">New</span>
+                        <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-emerald-700 text-[11px] sm:text-xs">New</span>
                       </button>
 
                       {/* Update */}
                       <button
                         onClick={handleUpdateBtnClick}
                         disabled={loading}
-                        className="bg-[#fffbf0] border border-amber-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                        className="bg-[#fffbf0] border border-amber-200/80 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
                       >
-                        <RotateCw className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform" />
-                        <span className="font-bold text-amber-700 text-xs">Update</span>
+                        <RotateCw className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-amber-700 text-[11px] sm:text-xs">Update</span>
+                      </button>
+
+                      {/* Bank Receipts */}
+                      <button
+                        onClick={() => {
+                          window.history.pushState({ stage: 'bank-receipts' }, '');
+                          setStage('bank-receipts');
+                          if (user && user[0]) {
+                            fetch(`/api/fleet/bank-receipts?type=pending-refs&driverId=${user[0]}`)
+                              .then(safeJson)
+                              .then((d) => {
+                                if (d && d.pendingRefs) setPendingFleetHireRefs(d.pendingRefs);
+                              });
+                          }
+                        }}
+                        disabled={loading}
+                        className="bg-[#eef9f5] border border-teal-200/80 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                      >
+                        <Landmark className="w-5 h-5 sm:w-6 sm:h-6 text-teal-600 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-teal-700 text-[10px] sm:text-xs text-center leading-tight">Bank<br />Receipts</span>
                       </button>
 
                       {/* Leave Request */}
                       <button
                         onClick={() => setShowDevPopup(true)}
                         disabled={loading}
-                        className="bg-[#f0f4ff] border border-blue-200/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                        className="bg-[#f0f4ff] border border-blue-200/80 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
                       >
-                        <Calendar className="w-6 h-6 text-blue-600 group-hover:scale-110 transition-transform" />
-                        <span className="font-bold text-blue-700 text-xs text-center leading-tight">Leave<br />Request</span>
+                        <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-blue-700 text-[10px] sm:text-xs text-center leading-tight">Leave<br />Request</span>
                       </button>
                     </div>
                   </div>
@@ -3713,6 +4122,240 @@ export default function FleetApp() {
             </motion.div>
           ) : null}
         </AnimatePresence>
+
+        {stage === 'bank-receipts' && (
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  window.history.pushState({ stage: 'dashboard' }, '');
+                  setStage('dashboard');
+                }}
+                className="py-2.5 px-4 rounded-2xl bg-white border border-slate-200/80 text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" /> Back to Dashboard
+              </button>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-5"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3 text-slate-900 font-bold text-lg">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-50 flex items-center justify-center">
+                    <Landmark className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-900 leading-tight">Bank Receipts</h3>
+                    <p className="text-[11px] text-slate-400 font-medium">Upload bank deposit receipts for pending hire trips</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200/60 px-2.5 py-1 rounded-full">
+                  {pendingFleetHireRefs.length} Pending
+                </span>
+              </div>
+
+              {alert && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={cn(
+                    "p-4 rounded-2xl flex items-center gap-3 border shadow-lg transition-all",
+                    alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
+                    alert.type === 'warning' && "bg-amber-500/10 border-amber-500/30 text-amber-400",
+                    alert.type === 'error' && "bg-rose-950/40 border-rose-800/60 text-rose-500"
+                  )}
+                >
+                  {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />}
+                  <p className="text-sm font-medium">{alert.message}</p>
+                </motion.div>
+              )}
+
+              {/* Dropdown: pending status trip references */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Trip Reference</label>
+                <select
+                  value={bankReceiptForm.reference}
+                  onChange={(e) => handleBankTripChange(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 focus:outline-none focus:border-teal-500 transition-all font-medium shadow-inner cursor-pointer"
+                >
+                  <option value="">Select Pending Trip Reference</option>
+                  {pendingFleetHireRefs.map((item, idx) => (
+                    <option key={`${item.reference}-${idx}`} value={item.reference}>
+                      {item.tripRef || item.reference} {item.vehicle ? `(${item.vehicle})` : ''} {item.finalPrice ? `- Rs. ${Number(item.finalPrice).toLocaleString()}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {pendingFleetHireRefs.length === 0 && (
+                  <p className="text-[11px] text-amber-600 font-medium">No pending fleet hire trips found.</p>
+                )}
+              </div>
+
+              {/* Trip Details Card displayed upon selection */}
+              {selectedBankTripDetails && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3 relative overflow-hidden">
+                  {loadingBankTripDetails && (
+                    <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
+                      <span className="text-[10px] font-bold text-teal-700 uppercase tracking-widest">Loading Details...</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
+                    <span className="text-[10px] font-black text-teal-700 uppercase tracking-widest flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-teal-600" /> Trip Details
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-700 font-mono">
+                        Ref: {selectedBankTripDetails.tripRef || selectedBankTripDetails.reference}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-200/60 px-1.5 py-0.5 rounded">
+                        {selectedBankTripDetails.reference}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Vehicle</p>
+                      <p className="font-bold text-slate-800">{selectedBankTripDetails.vehicle || '-'}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Vehicle Type</p>
+                      <p className="font-semibold text-slate-700">{selectedBankTripDetails.vehicleType || '-'}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Final Price</p>
+                      <p className="font-extrabold text-emerald-600">
+                        Rs. {selectedBankTripDetails.finalPrice ? Number(selectedBankTripDetails.finalPrice).toLocaleString() : '0'}
+                      </p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">SC Due</p>
+                      <p className="font-bold text-teal-700">
+                        Rs. {selectedBankTripDetails.scDue ? Number(selectedBankTripDetails.scDue).toLocaleString() : '0'}
+                      </p>
+                      {Number(selectedBankTripDetails.drvComms) > 0 && (
+                        <p className="text-[8.5px] text-slate-400 font-medium">
+                          {Number(selectedBankTripDetails.scDueAmount).toLocaleString()} + {Number(selectedBankTripDetails.drvComms).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {(selectedBankTripDetails.startDate || selectedBankTripDetails.pickupStreet || selectedBankTripDetails.journeyType) && (
+                    <div className="space-y-2 pt-2 border-t border-slate-200/70 text-xs">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Start Date / Time</p>
+                          <p className="font-medium text-slate-700">
+                            {[selectedBankTripDetails.startDate, selectedBankTripDetails.startTime].filter(Boolean).join(' ') || '-'}
+                          </p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Journey Type</p>
+                          <p className="font-semibold text-emerald-600">{selectedBankTripDetails.journeyType || '-'}</p>
+                        </div>
+                      </div>
+
+                      {(selectedBankTripDetails.pickupStreet || selectedBankTripDetails.dropoffStreet) && (
+                        <div className="space-y-1 pt-1 text-xs">
+                          {selectedBankTripDetails.pickupStreet && (
+                            <p className="text-[11px] text-slate-600">
+                              <span className="font-bold text-slate-400 text-[9px] uppercase mr-1">Pickup:</span>
+                              {selectedBankTripDetails.pickupStreet}
+                            </p>
+                          )}
+                          {selectedBankTripDetails.dropoffStreet && (
+                            <p className="text-[11px] text-slate-600">
+                              <span className="font-bold text-slate-400 text-[9px] uppercase mr-1">Dropoff:</span>
+                              {selectedBankTripDetails.dropoffStreet}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Receipt Value */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Receipt Value (Rs.)</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Enter receipt amount (Rs.)"
+                  value={bankReceiptForm.receiptValue}
+                  onChange={(e) => setBankReceiptForm(prev => ({ ...prev, receiptValue: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-all font-medium shadow-inner"
+                />
+              </div>
+
+              {/* Upload Receipt Section */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Upload Receipt</label>
+                <div className="relative">
+                  <Camera className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setBankReceiptFile(e.target.files[0]);
+                      }
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 pr-10 text-xs text-slate-800 focus:outline-none focus:border-teal-500 transition-all font-medium shadow-inner"
+                  />
+                </div>
+                {bankReceiptFile && (
+                  <p className="text-[11px] font-bold text-teal-600 flex items-center gap-1.5 px-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Selected: {bankReceiptFile.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Comment Section */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Comments</label>
+                <textarea
+                  rows={3}
+                  placeholder="Enter comments / remarks..."
+                  value={bankReceiptForm.comments}
+                  onChange={(e) => setBankReceiptForm(prev => ({ ...prev, comments: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-all font-medium shadow-inner resize-none"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="button"
+                onClick={handleBankReceiptSubmit}
+                disabled={submittingBankReceipt}
+                className={cn(
+                  "w-full py-4 font-black rounded-2xl transition-all shadow-lg uppercase tracking-wider text-xs flex items-center justify-center gap-2 cursor-pointer mt-2",
+                  submittingBankReceipt
+                    ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                    : "bg-teal-600 hover:bg-teal-500 text-white shadow-teal-600/25 active:scale-[0.99]"
+                )}
+              >
+                {submittingBankReceipt ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Submitting Bank Receipt...
+                  </>
+                ) : (
+                  <>
+                    <Landmark className="w-4 h-4" />
+                    Submit Bank Receipt
+                  </>
+                )}
+              </button>
+            </motion.div>
+          </div>
+        )}
 
         {stage === 'contact-office' && (
           <div className="max-w-md mx-auto">
@@ -4432,7 +5075,37 @@ export default function FleetApp() {
                   >
                     <div className="p-4 border-b border-white/5 bg-white/5 flex flex-col 2xl:flex-row items-start 2xl:items-center justify-between gap-4">
                       <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 w-full 2xl:w-auto justify-between 2xl:justify-start">
-                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:block whitespace-nowrap">Complete Fleet Data</h3>
+                        <div className="flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-white/5">
+                          <button
+                            type="button"
+                            onClick={() => setFleetSubTab('fleet')}
+                            className={cn(
+                              "px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                              fleetSubTab === 'fleet' ? "bg-emerald-500 text-slate-950 shadow" : "text-slate-400 hover:text-white hover:bg-white/5"
+                            )}
+                          >
+                            Fleet Data
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFleetSubTab('payment-list');
+                              fetchPaymentList();
+                            }}
+                            className={cn(
+                              "px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer",
+                              fleetSubTab === 'payment-list' ? "bg-emerald-500 text-slate-950 shadow" : "text-slate-400 hover:text-white hover:bg-white/5"
+                            )}
+                          >
+                            Payment List
+                            <span className={cn(
+                              "px-1.5 py-0.2 rounded-full text-[9px] font-bold",
+                              fleetSubTab === 'payment-list' ? "bg-slate-950 text-white" : "bg-emerald-500/20 text-emerald-400"
+                            )}>
+                              {paymentList.length}
+                            </span>
+                          </button>
+                        </div>
 
                         {/* Pagination Controls */}
                         {adminData.pagination && adminData.pagination.totalPages > 1 && (
@@ -4507,8 +5180,116 @@ export default function FleetApp() {
                         </button>
                       </div>
                     </div>
-                    <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
-                      <table className="w-full text-left relative">
+                    {fleetSubTab === 'payment-list' ? (
+                      <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
+                        <table className="w-full text-left relative">
+                          <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
+                            <tr className="border-b border-white/5 bg-white/[0.02]">
+                              {['Ref', 'Trip Ref', 'Driver', 'Vehicle', 'Receipt Value', 'Receipt Image', 'Comments', 'Submitted Date', 'Status', 'Actions'].map((h) => (
+                                <th key={h} className="py-2.5 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {paymentList.length === 0 ? (
+                              <tr>
+                                <td colSpan={10} className="py-16 text-center text-slate-500 text-xs font-bold uppercase tracking-wider">
+                                  {loadingPaymentList ? 'Loading Payment List...' : 'No bank receipts found'}
+                                </td>
+                              </tr>
+                            ) : (
+                              paymentList.map((p: any, idx: number) => (
+                                <tr key={p._id || idx} className="transition-colors group hover:bg-white/5">
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-white">
+                                    {p.reference}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-400 font-mono">
+                                    {p.tripRef || '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap text-white font-medium">
+                                    {p.driverId || '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-300 font-medium">
+                                    {p.vehicle || '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-emerald-400">
+                                    Rs. {Number(p.receiptValue || 0).toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap">
+                                    {p.imageDataUrl ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setFullscreenImage({ url: p.imageDataUrl, name: p.imageName || `${p.reference} Bank Receipt` })}
+                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-colors text-xs font-bold cursor-pointer"
+                                      >
+                                        <Camera className="w-3.5 h-3.5" />
+                                        <span>View Receipt</span>
+                                      </button>
+                                    ) : (
+                                      <span className="text-slate-500">-</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs text-slate-300 max-w-xs truncate" title={p.comments}>
+                                    {p.comments || '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-400 font-mono">
+                                    {p.createdAt ? new Date(p.createdAt).toLocaleString('sv-SE').replace('T', ' ') : '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap">
+                                    <span className={cn(
+                                      "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                                      p.status === 'Approved' ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+                                        p.status === 'Rejected' ? "bg-rose-500/15 text-rose-400 border-rose-500/30" :
+                                          "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                                    )}>
+                                      {p.status || 'Submitted'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={updatingPaymentId === p._id || p.status === 'Approved'}
+                                        onClick={() => handleUpdatePaymentStatus(p._id, 'Approved', p.reference)}
+                                        className={cn(
+                                          "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
+                                          p.status === 'Approved'
+                                            ? "bg-emerald-500/10 text-emerald-400/40 border border-emerald-500/10 cursor-default"
+                                            : "bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 shadow-sm border border-emerald-500/30"
+                                        )}
+                                        title="Approve Payment"
+                                      >
+                                        {updatingPaymentId === p._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                        <span>Approve</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={updatingPaymentId === p._id || p.status === 'Rejected'}
+                                        onClick={() => handleUpdatePaymentStatus(p._id, 'Rejected', p.reference)}
+                                        className={cn(
+                                          "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
+                                          p.status === 'Rejected'
+                                            ? "bg-rose-500/10 text-rose-400/40 border border-rose-500/10 cursor-default"
+                                            : "bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white shadow-sm border border-rose-500/30"
+                                        )}
+                                        title="Reject Payment"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                        <span>Reject</span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
+                        <table className="w-full text-left relative">
                         <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                           <tr className="border-b border-white/5 bg-white/[0.02]">
                             {[
@@ -4686,7 +5467,8 @@ export default function FleetApp() {
                                           })()}
                                         </span>
                                       ) : idx === 0 ? (
-                                        <div className="relative inline-flex items-center justify-center">
+                                        <div className="flex items-center gap-1.5">
+                                          <div className="relative inline-flex items-center justify-center">
                                           <select
                                             value={t.values[idx as number] || 'Pending'}
                                             onChange={async (e) => {
@@ -4750,6 +5532,83 @@ export default function FleetApp() {
                                             </span>
                                           </div>
                                         </div>
+
+                                        {/* Payment Approved / Rejected Symbol */}
+                                        {(() => {
+                                          const tripRefKey = String(t.rf || t.values?.[1] || '').trim().toUpperCase();
+                                          const tripBookingKey = String(t.values?.[12] || '').trim().toUpperCase();
+                                          const matchedPayment = (tripRefKey && paymentMap.get(tripRefKey)) || (tripBookingKey && paymentMap.get(tripBookingKey));
+                                          const effectiveStatus = matchedPayment?.status || t.paymentStatus;
+                                          if (!effectiveStatus) return null;
+
+                                          const receiptImg = matchedPayment?.imageDataUrl || t.paymentReceiptImage;
+                                          const receiptVal = matchedPayment?.receiptValue || t.paymentValue;
+
+                                          if (effectiveStatus === 'Approved') {
+                                            return (
+                                              <button
+                                                type="button"
+                                                title={`Payment Approved${receiptVal ? ` (Rs. ${Number(receiptVal).toLocaleString()})` : ''}${receiptImg ? ' - Click to view receipt' : ''}`}
+                                                onClick={(e) => {
+                                                  if (receiptImg) {
+                                                    e.stopPropagation();
+                                                    setFullscreenImage({ url: receiptImg, name: `${t.rf || 'Fleet'} Bank Receipt` });
+                                                  }
+                                                }}
+                                                className={cn(
+                                                  "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm",
+                                                  receiptImg ? "cursor-pointer hover:bg-emerald-500/30 active:scale-95 transition-all" : "cursor-default"
+                                                )}
+                                              >
+                                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                                <span className="hidden sm:inline">Paid</span>
+                                              </button>
+                                            );
+                                          }
+
+                                          if (effectiveStatus === 'Rejected') {
+                                            return (
+                                              <button
+                                                type="button"
+                                                title={`Payment Rejected${receiptVal ? ` (Rs. ${Number(receiptVal).toLocaleString()})` : ''}${receiptImg ? ' - Click to view receipt' : ''}`}
+                                                onClick={(e) => {
+                                                  if (receiptImg) {
+                                                    e.stopPropagation();
+                                                    setFullscreenImage({ url: receiptImg, name: `${t.rf || 'Fleet'} Bank Receipt` });
+                                                  }
+                                                }}
+                                                className={cn(
+                                                  "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm",
+                                                  receiptImg ? "cursor-pointer hover:bg-rose-500/30 active:scale-95 transition-all" : "cursor-default"
+                                                )}
+                                              >
+                                                <XCircle className="w-3 h-3 text-rose-400" />
+                                                <span className="hidden sm:inline">Pay Rej</span>
+                                              </button>
+                                            );
+                                          }
+
+                                          return (
+                                            <button
+                                              type="button"
+                                              title={`Payment Submitted (Pending Review)${receiptVal ? ` - Rs. ${Number(receiptVal).toLocaleString()}` : ''}${receiptImg ? ' - Click to view receipt' : ''}`}
+                                              onClick={(e) => {
+                                                if (receiptImg) {
+                                                  e.stopPropagation();
+                                                  setFullscreenImage({ url: receiptImg, name: `${t.rf || 'Fleet'} Bank Receipt` });
+                                                }
+                                              }}
+                                              className={cn(
+                                                "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm",
+                                                receiptImg ? "cursor-pointer hover:bg-amber-500/30 active:scale-95 transition-all" : "cursor-default"
+                                              )}
+                                            >
+                                              <Clock className="w-3 h-3 text-amber-400" />
+                                              <span className="hidden sm:inline">Pay Sub</span>
+                                            </button>
+                                          );
+                                        })()}
+                                      </div>
                                       ) : idx === 5 ? (
                                         <span className={cn(
                                           "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
@@ -4800,6 +5659,44 @@ export default function FleetApp() {
                                             return t.values[32] || 'Office card';
                                           })()}
                                         </span>
+                                      ) : (idx === 15 || idx === 16) ? (
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-sans font-normal text-white">
+                                            {(t.values[idx] !== undefined && t.values[idx] !== null && String(t.values[idx]).trim() !== '')
+                                              ? `${t.values[idx]} KM`
+                                              : '-'}
+                                          </span>
+                                          {(() => {
+                                            const targetPattern = idx === 15 ? 'TripStartMeter' : 'TripEndMeter';
+                                            const hasImg = (t.images || []).some((img: any) => img.name && img.name.includes(targetPattern));
+                                            if (!hasImg) return null;
+                                            return (
+                                              <button
+                                                type="button"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  setViewingImages({ rf: t.rf, images: null, loading: true });
+                                                  try {
+                                                    const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
+                                                    const data = await safeJson(res);
+                                                    const allImgs = data.images || [];
+                                                    setViewingImages({ rf: t.rf, images: allImgs, loading: false });
+                                                    const matched = allImgs.find((img: any) => img.name && img.name.includes(targetPattern));
+                                                    if (matched) {
+                                                      setFullscreenImage({ url: matched.dataUrl, name: matched.name });
+                                                    }
+                                                  } catch (err) {
+                                                    setViewingImages({ rf: t.rf, images: [], loading: false });
+                                                  }
+                                                }}
+                                                className={`p-1 rounded transition-colors cursor-pointer ${idx === 15 ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400' : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400'}`}
+                                                title={`View ${idx === 15 ? 'Trip Start' : 'Trip End'} Meter Image`}
+                                              >
+                                                <Camera className="w-3.5 h-3.5" />
+                                              </button>
+                                            );
+                                          })()}
+                                        </div>
                                       ) : (
                                         <span className={cn(
                                           "font-sans font-normal flex items-center gap-1.5",
@@ -4882,7 +5779,7 @@ export default function FleetApp() {
                                         }}
                                         className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
                                       >
-                                        <ImageIcon className="w-3.5 h-3.5" /> Proofs
+                                        <ImageIcon className="w-3.5 h-3.5" /> Proofs {t.imageCount !== undefined ? `(${t.imageCount})` : ''}
                                       </button>
                                       <button
                                         type="button"
@@ -4928,6 +5825,7 @@ export default function FleetApp() {
                         </tbody>
                       </table>
                     </div>
+                    )}
 
                     {/* Pagination Controls moved to top */}
                   </motion.div>
@@ -6875,7 +7773,7 @@ export default function FleetApp() {
 
         {/* Alert Component */}
         <AnimatePresence>
-          {alert && stage !== 'dashboard' && stage !== 'new' && stage !== 'update' && (
+          {alert && ['last-trip', 'salary', 'contact-office'].includes(stage) && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -6895,7 +7793,7 @@ export default function FleetApp() {
 
         {/* Form Content */}
         <AnimatePresence>
-          {stage !== 'dashboard' && stage !== 'admin' && (
+          {['new', 'update', 'last-trip', 'salary'].includes(stage) && (
             <div className="max-w-md mx-auto">
               <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
                 <motion.div
@@ -7319,6 +8217,164 @@ export default function FleetApp() {
                           </div>
                         </div>
                       ) : null}
+                    </div>
+                  )}
+
+                  {stage === 'update' && currentRef && formData.purpose === 'Hire' && formData.tripRef && formData.isShortHire && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6 border-indigo-500/20 bg-indigo-500/5">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3 text-slate-900 font-bold text-lg">
+                          <ClipboardCheck className="w-5 h-5 text-indigo-500" />
+                          Short Hire Meter Details
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-600 border border-indigo-500/30">
+                          Short Hire
+                        </span>
+                      </div>
+
+                      {/* TRIP START SECTION */}
+                      <div className="space-y-4 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                            Trip Start Meter
+                          </p>
+                          {isTripStartSubmitted && (
+                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Submitted
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Trip Start Meter (KM)</label>
+                            <input
+                              id="tripStartMeter"
+                              type="number"
+                              min="0"
+                              disabled={isTripStartSubmitted}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-60"
+                              value={formData.tripStartMeter}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Start Meter Image</label>
+                            <div className="relative">
+                              <Camera className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                              <input
+                                id="tripStartMeterImage"
+                                type="file"
+                                accept="image/*"
+                                disabled={isTripStartSubmitted}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 pr-10 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-60"
+                                onChange={handleFileChange}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleTripStartMeterSubmit}
+                          disabled={isTripStartSubmitted || loading}
+                          className={cn(
+                            "w-full py-3 font-black rounded-xl transition-all shadow-md uppercase tracking-widest text-xs flex items-center justify-center gap-2",
+                            isTripStartSubmitted
+                              ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 cursor-default"
+                              : loading
+                                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                                : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20 cursor-pointer"
+                          )}
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : isTripStartSubmitted ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              Start Meter Submitted
+                            </>
+                          ) : (
+                            'Submit Start Meter'
+                          )}
+                        </button>
+                      </div>
+
+                      {/* TRIP END SECTION */}
+                      <div className="space-y-4 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                            Trip End Meter
+                          </p>
+                          {isTripEndSubmitted && (
+                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Submitted
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Trip End Meter (KM)</label>
+                            <input
+                              id="tripEndMeter"
+                              type="number"
+                              min="0"
+                              disabled={isTripEndSubmitted}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner py-3 disabled:opacity-60"
+                              value={formData.tripEndMeter}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">End Meter Image</label>
+                            <div className="relative">
+                              <Camera className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                              <input
+                                id="tripEndMeterImage"
+                                type="file"
+                                accept="image/*"
+                                disabled={isTripEndSubmitted}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 pr-10 text-[10px] text-slate-800 focus:outline-none focus:border-[#18859c] transition-all font-medium shadow-inner disabled:opacity-60"
+                                onChange={handleFileChange}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleTripEndMeterSubmit}
+                          disabled={isTripEndSubmitted || loading}
+                          className={cn(
+                            "w-full py-3 font-black rounded-xl transition-all shadow-md uppercase tracking-widest text-xs flex items-center justify-center gap-2",
+                            isTripEndSubmitted
+                              ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 cursor-default"
+                              : loading
+                                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20 cursor-pointer"
+                          )}
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : isTripEndSubmitted ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              End Meter Submitted
+                            </>
+                          ) : (
+                            'Submit End Meter'
+                          )}
+                        </button>
+                      </div>
                     </div>
                   )}
 
