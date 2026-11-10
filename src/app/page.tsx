@@ -138,6 +138,121 @@ export default function FleetApp() {
   const [fetchingInboxMessages, setFetchingInboxMessages] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [showRefreshPopup, setShowRefreshPopup] = useState(false);
+
+  const DriverMobileHeader = ({
+    title,
+    subtitle,
+    showBack = true
+  }: {
+    title?: string;
+    subtitle?: string;
+    showBack?: boolean;
+  }) => {
+    const driverName = (Array.isArray(user) ? user[4] : user?.name) || user?.[4] || user?.name || 'Driver';
+    const driverVdNo = (Array.isArray(user) ? user[0] : user?.username) || user?.[0] || user?.username || 'VD No';
+
+    return (
+      <div className="md:hidden flex items-center justify-between gap-2 py-2 px-1 mb-3 border-b border-slate-200/70 pb-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {showBack && (
+            <button
+              type="button"
+              onClick={() => {
+                window.history.pushState({ stage: 'dashboard' }, '');
+                setStage('dashboard');
+              }}
+              className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all flex items-center justify-center shadow-xs shrink-0 cursor-pointer"
+              title="Back to Dashboard"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-700" />
+            </button>
+          )}
+          <img src="/logo.jpg" alt="Logo" className="h-8 w-auto object-contain rounded-lg shadow-xs shrink-0" />
+          <div className="flex flex-col min-w-0">
+            <h1 className="text-xs sm:text-sm font-black tracking-tight text-slate-900 uppercase truncate leading-tight">
+              {title || 'YSM FLEET'}
+            </h1>
+            <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-0.5 block">
+              {subtitle || (stage === 'dashboard' ? 'Management' : 'Driver App')}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl px-2.5 py-1.5 shadow-xs shrink-0 max-w-[155px]">
+          <div className="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+            <User className="w-3.5 h-3.5" />
+          </div>
+          <div className="flex flex-col text-right min-w-0">
+            <span className="text-[11px] font-black text-slate-800 leading-tight truncate">
+              {driverName}
+            </span>
+            <span className="text-[8.5px] font-bold text-emerald-600 font-mono tracking-wider leading-none mt-0.5">
+              {driverVdNo}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const DriverMobileFooter = () => {
+    return (
+      <div className="md:hidden mt-auto pt-6">
+        {/* Brand Footer Note */}
+        <div className="text-center pb-2">
+          <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+            YSM FLEET MANAGEMENT
+          </p>
+          <p className="text-[9px] text-slate-400/70 font-medium">
+            © {new Date().getFullYear()} Senu Cabs • All Rights Reserved
+          </p>
+        </div>
+
+        {/* Floating Bottom Navigation Bar */}
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-white border border-slate-100 rounded-full p-2 shadow-xl flex items-center justify-around z-50">
+          <button
+            type="button"
+            onClick={() => {
+              window.history.pushState({ stage: 'dashboard' }, '');
+              setStage('dashboard');
+            }}
+            className={cn(
+              "p-2 rounded-full transition-colors cursor-pointer",
+              stage === 'dashboard' ? "text-sky-500 bg-sky-50" : "text-slate-400 hover:text-sky-500 hover:bg-sky-50/50"
+            )}
+            title="Home"
+          >
+            <Home className="w-5 h-5" />
+          </button>
+
+          {user?.[2]?.toLowerCase() === 'admin' && (
+            <button
+              type="button"
+              onClick={() => {
+                window.history.pushState({ stage: 'admin' }, '');
+                setAlert(null);
+                setStage('admin');
+              }}
+              disabled={loading}
+              className="p-2 rounded-full text-amber-500 hover:bg-amber-50 transition-colors cursor-pointer"
+              title="Admin Dashboard"
+            >
+              <ShieldCheck className="w-5 h-5" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="p-2 rounded-full text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+            title="Logout"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const [showDevPopup, setShowDevPopup] = useState(false);
   const [dashMonthStats, setDashMonthStats] = useState<{
     hireCount: number;
@@ -485,6 +600,8 @@ export default function FleetApp() {
       vehicle: 'All',
       driver: 'All'
     });
+    setPaymentSearch('');
+    setPaymentStatusFilter('All');
   };
 
   useEffect(() => {
@@ -646,6 +763,76 @@ export default function FleetApp() {
   const [paymentList, setPaymentList] = useState<any[]>([]);
   const [loadingPaymentList, setLoadingPaymentList] = useState(false);
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('All');
+
+  const filteredPaymentList = useMemo(() => {
+    return paymentList.filter((p: any) => {
+      // 1. Status Filter (Submitted, Approved, Rejected)
+      if (paymentStatusFilter !== 'All') {
+        const pStatus = String(p.status || 'Submitted').toLowerCase();
+        if (pStatus !== paymentStatusFilter.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 2. Separate Search for Payment List
+      if (paymentSearch.trim()) {
+        const query = paymentSearch.trim().toLowerCase();
+        const refMatch = String(p.reference || '').toLowerCase().includes(query);
+        const tripRefMatch = String(p.tripRef || '').toLowerCase().includes(query);
+        const driverMatch = String(p.driverId || '').toLowerCase().includes(query);
+        const vehicleMatch = String(p.vehicle || '').toLowerCase().includes(query);
+        const commentsMatch = String(p.comments || '').toLowerCase().includes(query);
+        const statusMatch = String(p.status || '').toLowerCase().includes(query);
+        const receiptValMatch = String(p.receiptValue || '').toLowerCase().includes(query);
+        const finalPriceMatch = String(p.finalPrice || '').toLowerCase().includes(query);
+
+        if (!refMatch && !tripRefMatch && !driverMatch && !vehicleMatch && !commentsMatch && !statusMatch && !receiptValMatch && !finalPriceMatch) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [paymentList, paymentStatusFilter, paymentSearch]);
+
+  const handleExportPaymentCSV = () => {
+    if (!filteredPaymentList.length) return;
+    const headers = ['Ref', 'Trip Ref', 'Driver', 'Vehicle', 'Final Price', 'Receipt Value', 'Balance', 'Comments', 'Submitted Date', 'Status'];
+    const rows = filteredPaymentList.map((p: any) => {
+      const fleetMatch = adminData?.tables?.fleetData?.find(
+        (t: any) => (t.rf && t.rf === p.reference) || 
+                    (t.values?.[1] && t.values[1] === p.reference) ||
+                    (t.values?.[12] && p.tripRef && t.values[12] === p.tripRef)
+      );
+      const finalPriceRaw = (fleetMatch?.values?.[23] !== undefined && fleetMatch?.values?.[23] !== null && String(fleetMatch?.values?.[23]).trim() !== '')
+        ? fleetMatch.values[23]
+        : (p.finalPrice !== undefined && p.finalPrice !== null && String(p.finalPrice).trim() !== '' ? p.finalPrice : '');
+      const cleanPriceNum = Number(String(finalPriceRaw).replace(/[^\d.-]/g, ''));
+      const balance = !isNaN(cleanPriceNum) ? (Math.round((cleanPriceNum - Number(p.receiptValue || 0)) * 100) / 100) : 0;
+
+      return [
+        p.reference || '',
+        p.tripRef || '',
+        p.driverId || '',
+        p.vehicle || '',
+        cleanPriceNum || '0',
+        p.receiptValue || '0',
+        balance,
+        `"${(p.comments || '').replace(/"/g, '""')}"`,
+        p.createdAt ? new Date(p.createdAt).toISOString() : '',
+        p.status || 'Submitted'
+      ];
+    });
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `payment_list_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
 
   const paymentMap = useMemo(() => {
     const map = new Map<string, any>();
@@ -3572,18 +3759,7 @@ export default function FleetApp() {
               </button>
             </div>
 
-            <button
-              onClick={handleSyncAccountSheet}
-              disabled={isSyncingAccounts}
-              className={`shrink-0 flex flex-col items-center justify-center p-3 sm:px-5 rounded-2xl transition-all border shadow-lg ${isSyncingAccounts
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
-                  : 'bg-emerald-500/20 border-emerald-500 hover:bg-emerald-500 hover:text-white text-emerald-500 shadow-emerald-500/20 hover:shadow-emerald-500/40'
-                }`}
-              title="Sync Account Data"
-            >
-              <RefreshCw className={`w-6 h-6 mb-1 ${isSyncingAccounts ? 'animate-spin opacity-50' : ''}`} />
-              <span className="text-[10px] font-bold uppercase tracking-wider">{isSyncingAccounts ? 'Syncing...' : 'Sync Data'}</span>
-            </button>
+
           </div>
         )}
 
@@ -3692,13 +3868,8 @@ export default function FleetApp() {
               {/* Mobile Driver Dashboard View */}
               <div className="md:hidden max-w-md mx-auto">
                 <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-24 min-h-[calc(100vh-1rem)] flex flex-col justify-between">
-                  {/* Mobile Brand Logo Header (At Top) */}
-                  <div className="flex items-center gap-3 py-1 px-1 mb-4">
-                    <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain rounded-md shadow-sm" />
-                    <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
-                      YSM FLEET MANAGEMENT
-                    </h1>
-                  </div>
+                  {/* Mobile Brand Logo & Driver Header */}
+                  <DriverMobileHeader title="YSM FLEET" subtitle="Management" showBack={false} />
 
                   {/* Top Sliding Banner Section */}
                   <div className="relative overflow-hidden bg-white rounded-3xl p-3 border border-slate-200/80 shadow-sm mb-4">
@@ -4079,53 +4250,20 @@ export default function FleetApp() {
                   </div>
                 </div>
 
-                {/* Bottom Navigation Bar */}
-                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-white border border-slate-100 rounded-full p-2 shadow-xl flex items-center justify-around z-50">
-                  <button
-                    onClick={() => setStage('dashboard')}
-                    className="p-2 rounded-full text-sky-500 hover:bg-sky-50 transition-colors cursor-pointer"
-                    title="Home"
-                  >
-                    <Home className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={handleSyncAccountSheet}
-                    disabled={isSyncingAccounts}
-                    className="p-2 rounded-full text-emerald-500 hover:bg-emerald-50 transition-colors cursor-pointer"
-                    title="Sync Data"
-                  >
-                    <RotateCw className={cn("w-5 h-5", isSyncingAccounts && "animate-spin")} />
-                  </button>
-                  {user[2]?.toLowerCase() === 'admin' && (
-                    <button
-                      onClick={() => {
-                        window.history.pushState({ stage: 'admin' }, '');
-                        setAlert(null);
-                        setStage('admin');
-                      }}
-                      disabled={loading}
-                      className="p-2 rounded-full text-amber-500 hover:bg-amber-50 transition-colors cursor-pointer"
-                      title="Admin Dashboard"
-                    >
-                      <ShieldCheck className="w-5 h-5" />
-                    </button>
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className="p-2 rounded-full text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
-                    title="Logout"
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
-                </div>
+                {/* Mobile Driver Footer */}
+                <DriverMobileFooter />
               </div>
             </motion.div>
           ) : null}
         </AnimatePresence>
 
         {stage === 'bank-receipts' && (
-          <div className="max-w-md mx-auto space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="max-w-md mx-auto space-y-4 pb-24">
+            {/* Mobile Driver Header */}
+            <DriverMobileHeader title="Bank Receipts" showBack={true} />
+
+            {/* Desktop Back Button */}
+            <div className="hidden md:flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => {
@@ -4354,14 +4492,20 @@ export default function FleetApp() {
                 )}
               </button>
             </motion.div>
+
+            {/* Mobile Driver Footer */}
+            <DriverMobileFooter />
           </div>
         )}
 
         {stage === 'contact-office' && (
           <div className="max-w-md mx-auto">
-            <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
-              {/* Header */}
-              <div className="flex items-center justify-between py-1 px-1">
+            <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-24 min-h-[calc(100vh-1rem)] space-y-5 flex flex-col justify-between">
+              {/* Mobile Driver Header */}
+              <DriverMobileHeader title="Contact Office" showBack={true} />
+
+              {/* Desktop Header */}
+              <div className="hidden md:flex items-center justify-between pb-2 border-b border-slate-200">
                 <div className="flex items-center gap-3">
                   <img src="/logo.jpg" alt="Logo" className="h-10 w-auto object-contain rounded-md shadow-sm" />
                   <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
@@ -4370,10 +4514,10 @@ export default function FleetApp() {
                 </div>
                 <button
                   onClick={() => setStage('dashboard')}
-                  className="w-9 h-9 rounded-full bg-white text-slate-600 border border-slate-200 flex items-center justify-center shadow-sm hover:bg-slate-50 transition-all cursor-pointer"
+                  className="py-2 px-4 rounded-xl bg-white text-slate-600 border border-slate-200 flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-all cursor-pointer text-xs font-bold"
                   title="Back to Dashboard"
                 >
-                  <ChevronLeft className="w-5 h-5 text-slate-700" />
+                  <ChevronLeft className="w-4 h-4 text-slate-700" /> Back to Dashboard
                 </button>
               </div>
 
@@ -4520,6 +4664,9 @@ export default function FleetApp() {
               >
                 <ChevronLeft className="w-4 h-4 text-slate-500" /> Back to Dashboard
               </button>
+
+              {/* Mobile Driver Footer */}
+              <DriverMobileFooter />
             </div>
           </div>
         )}
@@ -4568,9 +4715,14 @@ export default function FleetApp() {
                         <div className="space-y-1">
                           <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Purpose</label>
                           <select
-                            className="w-full input-field py-0 text-[10px] text-white h-7"
-                            value={adminFilters.purpose}
+                            disabled={adminTab === 'fleet' && fleetSubTab === 'payment-list'}
+                            className={cn(
+                              "w-full input-field py-0 text-[10px] text-white h-7",
+                              adminTab === 'fleet' && fleetSubTab === 'payment-list' && "opacity-40 cursor-not-allowed"
+                            )}
+                            value={adminTab === 'fleet' && fleetSubTab === 'payment-list' ? 'All' : adminFilters.purpose}
                             onChange={(e) => setAdminFilters({ ...adminFilters, purpose: e.target.value })}
+                            title={adminTab === 'fleet' && fleetSubTab === 'payment-list' ? "Purpose filter disabled in Payment List" : "Filter by Purpose"}
                           >
                             {adminData?.filterOptions.purposes.map((p: string) => <option key={p} value={p}>{p}</option>)}
                           </select>
@@ -4579,10 +4731,24 @@ export default function FleetApp() {
                           <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Status</label>
                           <select
                             className="w-full input-field py-0 text-[10px] text-white h-7"
-                            value={adminFilters.status}
-                            onChange={(e) => setAdminFilters({ ...adminFilters, status: e.target.value })}
+                            value={adminTab === 'fleet' && fleetSubTab === 'payment-list' ? paymentStatusFilter : adminFilters.status}
+                            onChange={(e) => {
+                              if (adminTab === 'fleet' && fleetSubTab === 'payment-list') {
+                                setPaymentStatusFilter(e.target.value);
+                              } else {
+                                setAdminFilters({ ...adminFilters, status: e.target.value });
+                              }
+                            }}
                           >
-                            {(adminData?.filterOptions?.statuses || ["All", "Approved", "Pending", "Cancelled"]).map((s: string) => <option key={s} value={s}>{s}</option>)}
+                            {adminTab === 'fleet' && fleetSubTab === 'payment-list' ? (
+                              ['All', 'Submitted', 'Approved', 'Rejected'].map((s: string) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))
+                            ) : (
+                              (adminData?.filterOptions?.statuses || ["All", "Approved", "Pending", "Cancelled"]).map((s: string) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))
+                            )}
                           </select>
                         </div>
                         <div className="space-y-1">
@@ -5108,7 +5274,7 @@ export default function FleetApp() {
                         </div>
 
                         {/* Pagination Controls */}
-                        {adminData.pagination && adminData.pagination.totalPages > 1 && (
+                        {fleetSubTab === 'fleet' && adminData.pagination && adminData.pagination.totalPages > 1 && (
                           <div className="flex items-center gap-3">
                             <p className="text-[9px] text-slate-500 font-medium whitespace-nowrap">
                               Showing <span className="text-white font-bold">{((adminData.pagination.page - 1) * 50) + 1}</span> to <span className="text-white font-bold">{Math.min(adminData.pagination.page * 50, adminData.pagination.totalItems)}</span> of <span className="text-white font-bold">{adminData.pagination.totalItems}</span>
@@ -5136,48 +5302,92 @@ export default function FleetApp() {
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                             <input
                               type="text"
-                              placeholder="Search fleet data..."
+                              placeholder={fleetSubTab === 'payment-list' ? "Search payment list..." : "Search fleet data..."}
                               className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-1.5 pl-8 pr-3 text-[10px] text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
-                              value={fleetSearch}
-                              onChange={(e) => setFleetSearch(e.target.value)}
+                              value={fleetSubTab === 'payment-list' ? paymentSearch : fleetSearch}
+                              onChange={(e) => {
+                                if (fleetSubTab === 'payment-list') {
+                                  setPaymentSearch(e.target.value);
+                                } else {
+                                  setFleetSearch(e.target.value);
+                                }
+                              }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                  handleExecuteFleetSearch();
+                                  if (fleetSubTab !== 'payment-list') {
+                                    handleExecuteFleetSearch();
+                                  }
                                 }
                               }}
                             />
+                            {fleetSubTab === 'payment-list' && paymentSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setPaymentSearch('')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                                title="Clear search"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
                           <button
                             type="button"
-                            onClick={handleExecuteFleetSearch}
-                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] rounded-lg transition-all flex items-center gap-1 shadow-sm uppercase tracking-wider whitespace-nowrap"
-                            title="Search Fleet Data"
+                            onClick={() => {
+                              if (fleetSubTab !== 'payment-list') {
+                                handleExecuteFleetSearch();
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] rounded-lg transition-all flex items-center gap-1 shadow-sm uppercase tracking-wider whitespace-nowrap cursor-pointer"
+                            title={fleetSubTab === 'payment-list' ? "Search Payment List" : "Search Fleet Data"}
                           >
                             <Search className="w-3 h-3" />
                             Search
                           </button>
                         </div>
-                        <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full hidden sm:inline-block">{adminData.tables.fleetData.length} Records</span>
+                        <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full hidden sm:inline-block">
+                          {fleetSubTab === 'payment-list' ? `${filteredPaymentList.length} Records` : `${adminData.tables.fleetData.length} Records`}
+                        </span>
                         <button
-                          onClick={() => fetchAdminSales()}
-                          className="p-1.5 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white"
+                          onClick={() => {
+                            if (fleetSubTab === 'payment-list') {
+                              fetchPaymentList();
+                            } else {
+                              fetchAdminSales();
+                            }
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-white/5 transition-all text-slate-400 hover:text-white cursor-pointer"
                           title="Refresh Data"
                         >
-                          <RefreshCw className={cn("w-3.5 h-3.5", fetchingAdmin && "animate-spin")} />
+                          <RefreshCw className={cn("w-3.5 h-3.5", (fetchingAdmin || loadingPaymentList) && "animate-spin")} />
                         </button>
-                        <label className="px-3 py-1 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer">
-                          {importingCsv ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                          <span className="hidden sm:inline">{importingCsv ? 'Importing...' : 'Import CSV'}</span>
-                          <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} disabled={importingCsv} />
-                        </label>
-                        <button
-                          onClick={handleExportCSV}
-                          className="px-3 py-1 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-black rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1"
-                          title="Export to CSV"
-                        >
-                          <Download className="w-3 h-3" />
-                          Export CSV
-                        </button>
+                        {fleetSubTab === 'fleet' && (
+                          <>
+                            <label className="px-3 py-1 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer">
+                              {importingCsv ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                              <span className="hidden sm:inline">{importingCsv ? 'Importing...' : 'Import CSV'}</span>
+                              <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} disabled={importingCsv} />
+                            </label>
+                            <button
+                              onClick={handleExportCSV}
+                              className="px-3 py-1 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-black rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                              title="Export to CSV"
+                            >
+                              <Download className="w-3 h-3" />
+                              Export CSV
+                            </button>
+                          </>
+                        )}
+                        {fleetSubTab === 'payment-list' && (
+                          <button
+                            onClick={handleExportPaymentCSV}
+                            className="px-3 py-1 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-black rounded text-[10px] font-bold transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                            title="Export Payment List to CSV"
+                          >
+                            <Download className="w-3 h-3" />
+                            Export CSV
+                          </button>
+                        )}
                       </div>
                     </div>
                     {fleetSubTab === 'payment-list' ? (
@@ -5185,7 +5395,7 @@ export default function FleetApp() {
                         <table className="w-full text-left relative">
                           <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                             <tr className="border-b border-white/5 bg-white/[0.02]">
-                              {['Ref', 'Trip Ref', 'Driver', 'Vehicle', 'Receipt Value', 'Receipt Image', 'Comments', 'Submitted Date', 'Status', 'Actions'].map((h) => (
+                              {['Ref', 'Trip Ref', 'Driver', 'Vehicle', 'Final Price', 'Receipt Value', 'Balance', 'Receipt Image', 'Comments', 'Submitted Date', 'Status', 'Actions'].map((h) => (
                                 <th key={h} className="py-2.5 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">
                                   {h}
                                 </th>
@@ -5193,14 +5403,26 @@ export default function FleetApp() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5">
-                            {paymentList.length === 0 ? (
+                            {filteredPaymentList.length === 0 ? (
                               <tr>
-                                <td colSpan={10} className="py-16 text-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-                                  {loadingPaymentList ? 'Loading Payment List...' : 'No bank receipts found'}
+                                <td colSpan={12} className="py-16 text-center text-slate-500 text-xs font-bold uppercase tracking-wider">
+                                  {loadingPaymentList ? 'Loading Payment List...' : (paymentSearch || paymentStatusFilter !== 'All') ? 'No matching bank receipts found' : 'No bank receipts found'}
                                 </td>
                               </tr>
                             ) : (
-                              paymentList.map((p: any, idx: number) => (
+                              filteredPaymentList.map((p: any, idx: number) => {
+                                const fleetMatch = adminData?.tables?.fleetData?.find(
+                                  (t: any) => (t.rf && t.rf === p.reference) || 
+                                              (t.values?.[1] && t.values[1] === p.reference) ||
+                                              (t.values?.[12] && p.tripRef && t.values[12] === p.tripRef)
+                                );
+                                const finalPriceRaw = (fleetMatch?.values?.[23] !== undefined && fleetMatch?.values?.[23] !== null && String(fleetMatch?.values?.[23]).trim() !== '')
+                                  ? fleetMatch.values[23]
+                                  : (p.finalPrice !== undefined && p.finalPrice !== null && String(p.finalPrice).trim() !== '' ? p.finalPrice : '');
+                                const cleanPriceNum = Number(String(finalPriceRaw).replace(/[^\d.-]/g, ''));
+                                const hasPrice = !isNaN(cleanPriceNum) && String(finalPriceRaw).trim() !== '';
+
+                                return (
                                 <tr key={p._id || idx} className="transition-colors group hover:bg-white/5">
                                   <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-white">
                                     {p.reference}
@@ -5214,8 +5436,22 @@ export default function FleetApp() {
                                   <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-300 font-medium">
                                     {p.vehicle || '-'}
                                   </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-sky-400">
+                                    {hasPrice ? `Rs. ${cleanPriceNum.toLocaleString()}` : (finalPriceRaw || '-')}
+                                  </td>
                                   <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-emerald-400">
                                     Rs. {Number(p.receiptValue || 0).toLocaleString()}
+                                  </td>
+                                  <td className={cn(
+                                    "py-2.5 px-6 text-xs whitespace-nowrap font-bold",
+                                    hasPrice ? (
+                                      (cleanPriceNum - Number(p.receiptValue || 0)) === 0 ? "text-emerald-400" :
+                                      (cleanPriceNum - Number(p.receiptValue || 0)) > 0 ? "text-amber-400" : "text-purple-400"
+                                    ) : "text-slate-400"
+                                  )}>
+                                    {hasPrice ? (
+                                      `Rs. ${(Math.round((cleanPriceNum - Number(p.receiptValue || 0)) * 100) / 100).toLocaleString()}`
+                                    ) : '-'}
                                   </td>
                                   <td className="py-2.5 px-6 text-xs whitespace-nowrap">
                                     {p.imageDataUrl ? (
@@ -5282,7 +5518,8 @@ export default function FleetApp() {
                                     </div>
                                   </td>
                                 </tr>
-                              ))
+                              );
+                              })
                             )}
                           </tbody>
                         </table>
@@ -7795,7 +8032,44 @@ export default function FleetApp() {
         <AnimatePresence>
           {['new', 'update', 'last-trip', 'salary'].includes(stage) && (
             <div className="max-w-md mx-auto">
-              <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-10 min-h-[calc(100vh-1rem)] space-y-5">
+              <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-24 min-h-[calc(100vh-1rem)] space-y-5 flex flex-col justify-between">
+                {/* Mobile Driver Header */}
+                <DriverMobileHeader
+                  title={
+                    stage === 'new'
+                      ? 'New Record'
+                      : stage === 'update'
+                      ? 'Update Record'
+                      : stage === 'last-trip'
+                      ? 'Last Trip'
+                      : 'Driver Salary'
+                  }
+                  showBack={true}
+                />
+
+                {/* Desktop Header */}
+                <div className="hidden md:flex items-center justify-between pb-2 border-b border-slate-200">
+                  <h2 className="text-base font-extrabold text-slate-900 uppercase">
+                    {stage === 'new'
+                      ? 'New Record'
+                      : stage === 'update'
+                      ? 'Update Record'
+                      : stage === 'last-trip'
+                      ? 'Last Trip'
+                      : 'Driver Salary'}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.history.pushState({ stage: 'dashboard' }, '');
+                      setStage('dashboard');
+                    }}
+                    className="py-1.5 px-3 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Back to Dashboard
+                  </button>
+                </div>
+
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -8790,6 +9064,9 @@ export default function FleetApp() {
                     </div>
                   )}
                 </motion.div>
+
+                {/* Mobile Driver Footer */}
+                <DriverMobileFooter />
               </div>
             </div>
           )}
