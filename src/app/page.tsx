@@ -223,6 +223,26 @@ export default function FleetApp() {
               <ShieldCheck className="w-5 h-5" />
             </button>
           )}
+
+          {isVD0001User && (
+            <button
+              type="button"
+              onClick={() => {
+                fetchNoticeBanners();
+                setShowNoticeBoardModal(true);
+              }}
+              className={cn(
+                "p-2 rounded-full transition-colors cursor-pointer",
+                showNoticeBoardModal
+                  ? "text-emerald-600 bg-emerald-50"
+                  : "text-emerald-600 hover:bg-emerald-50"
+              )}
+              title="Manage Notice Board Banners"
+            >
+              <ImageIcon className="w-5 h-5" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleLogout}
@@ -234,6 +254,119 @@ export default function FleetApp() {
         </div>
       </div>
     );
+  };
+
+  const isVD0001User = Boolean(
+    user &&
+      (String(user[0] || '').trim().toUpperCase() === 'VD0001' ||
+        String(user[3] || '').trim().toUpperCase() === 'VD0001' ||
+        String(user?.username || '').trim().toUpperCase() === 'VD0001' ||
+        (String(user[0] || '').trim().toUpperCase() === 'SCD001' &&
+          String(user[4] || '').trim().toLowerCase().includes('udara')))
+  );
+
+  const [noticeBanners, setNoticeBanners] = useState<any[]>([
+    { _id: 'default', title: 'Notice Banner', imageUrl: '/notice/notice_banner.jpg' }
+  ]);
+  const [showNoticeBoardModal, setShowNoticeBoardModal] = useState(false);
+  const [uploadingNoticeBanner, setUploadingNoticeBanner] = useState(false);
+  const [deletingNoticeBannerId, setDeletingNoticeBannerId] = useState<string | null>(null);
+  const [newNoticeBannerFile, setNewNoticeBannerFile] = useState<File | null>(null);
+
+  const fetchNoticeBanners = async () => {
+    try {
+      const res = await fetch(`/api/fleet/notice-banners?_t=${Date.now()}`);
+      const data = await safeJson(res);
+      if (data && Array.isArray(data.banners)) {
+        setNoticeBanners(data.banners);
+      }
+    } catch (err) {
+      console.error('Error fetching notice banners:', err);
+    }
+  };
+
+  const bannerFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1400;
+          const MAX_HEIGHT = 1400;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleAddNoticeBanner = async () => {
+    if (!newNoticeBannerFile || uploadingNoticeBanner || !isVD0001User) return;
+    setUploadingNoticeBanner(true);
+    try {
+      const imageUrl = await bannerFileToBase64(newNoticeBannerFile);
+      const res = await fetch('/api/fleet/notice-banners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newNoticeBannerFile.name.replace(/\.[^/.]+$/, '') || 'Notice Banner',
+          imageUrl,
+          userId: 'VD0001',
+        }),
+      });
+      const data = await safeJson(res);
+      if (data.error) throw new Error(data.error);
+      if (Array.isArray(data.banners)) {
+        setNoticeBanners(data.banners);
+        setBannerSlide(Math.max(0, data.banners.length - 1));
+      }
+      setNewNoticeBannerFile(null);
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to upload notice banner' });
+    } finally {
+      setUploadingNoticeBanner(false);
+    }
+  };
+
+  const handleDeleteNoticeBanner = async (id: string) => {
+    if (!id || deletingNoticeBannerId || !isVD0001User) return;
+    setDeletingNoticeBannerId(id);
+    try {
+      const res = await fetch(`/api/fleet/notice-banners?id=${encodeURIComponent(id)}&userId=VD0001`, {
+        method: 'DELETE',
+      });
+      const data = await safeJson(res);
+      if (data.error) throw new Error(data.error);
+      if (Array.isArray(data.banners)) {
+        setNoticeBanners(data.banners);
+        setBannerSlide(0);
+      }
+    } catch (err: any) {
+      setAlert({ type: 'error', message: err.message || 'Failed to delete notice banner' });
+    } finally {
+      setDeletingNoticeBannerId(null);
+    }
   };
 
   const [showDevPopup, setShowDevPopup] = useState(false);
@@ -1592,6 +1725,7 @@ export default function FleetApp() {
       if (stage === 'dashboard') {
         fetchInboxMessages();
         fetchDashMonthStats();
+        fetchNoticeBanners();
       } else if (stage === 'contact-office') {
         fetchInboxMessages();
         fetchSentMessages();
@@ -1603,11 +1737,12 @@ export default function FleetApp() {
 
   useEffect(() => {
     if (isBannerPaused) return;
+    const totalSlides = Math.max(1, noticeBanners.length) + 1;
     const timer = setInterval(() => {
-      setBannerSlide(prev => (prev === 0 ? 1 : 0));
+      setBannerSlide(prev => (prev + 1) % totalSlides);
     }, 10000);
     return () => clearInterval(timer);
-  }, [isBannerPaused]);
+  }, [isBannerPaused, noticeBanners.length]);
 
   const handleSendMessage = async () => {
     if (!officeMessage.trim()) return;
@@ -3708,6 +3843,134 @@ export default function FleetApp() {
           )}
         </AnimatePresence>
 
+        {/* Notice Board Banner Manager Modal (Only for VD0001) */}
+        <AnimatePresence>
+          {showNoticeBoardModal && isVD0001User && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                className="bg-white p-5 sm:p-6 w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 space-y-4 max-h-[85vh] flex flex-col text-slate-800"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-2xl bg-emerald-50 border border-emerald-200/70 flex items-center justify-center text-emerald-600">
+                      <ImageIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Notice Board Banners</h3>
+                      <p className="text-[10px] font-semibold text-slate-400">Upload or delete notice board banners</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNoticeBoardModal(false);
+                      setNewNoticeBannerFile(null);
+                    }}
+                    className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Upload New Banner Section */}
+                <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-2.5">
+                  <label className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">
+                    Add New Banner
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setNewNoticeBannerFile(e.target.files[0]);
+                      }
+                    }}
+                    className="w-full bg-white border border-emerald-200 rounded-xl p-2 text-xs text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-extrabold file:uppercase file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer"
+                  />
+                  <button
+                    type="button"
+                    disabled={!newNoticeBannerFile || uploadingNoticeBanner}
+                    onClick={handleAddNoticeBanner}
+                    className={cn(
+                      "w-full py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all",
+                      !newNoticeBannerFile || uploadingNoticeBanner
+                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                        : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm cursor-pointer"
+                    )}
+                  >
+                    {uploadingNoticeBanner ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Upload Banner
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Active Banners List */}
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                      Active Banners ({noticeBanners.length})
+                    </span>
+                  </div>
+
+                  {noticeBanners.length === 0 ? (
+                    <div className="py-8 text-center bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-xs font-bold text-slate-400">No banners in Notice Board</p>
+                    </div>
+                  ) : (
+                    noticeBanners.map((b: any, idx: number) => (
+                      <div
+                        key={b._id || idx}
+                        className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src={b.imageUrl}
+                            alt={b.title || `Banner ${idx + 1}`}
+                            className="w-20 h-12 object-cover rounded-xl border border-slate-200 shrink-0 bg-white"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-extrabold text-slate-800 truncate">
+                              Banner {idx + 1}
+                            </p>
+                            <p className="text-[10px] text-slate-400 truncate">
+                              {b.title || 'Notice Board'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={deletingNoticeBannerId === b._id}
+                          onClick={() => handleDeleteNoticeBanner(b._id)}
+                          className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/70 transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+                          title="Delete Banner"
+                        >
+                          {deletingNoticeBannerId === b._id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
 
         {/* Staff Comment Modal */}
         <AnimatePresence>
@@ -3895,13 +4158,21 @@ export default function FleetApp() {
                   <DriverMobileHeader title="YSM FLEET" subtitle="Management" showBack={false} />
 
                   {/* Top Sliding Banner Section */}
+                  {(() => {
+                    const bannerCount = Math.max(1, noticeBanners.length);
+                    const totalSlides = bannerCount + 1;
+                    const activeSlide = bannerSlide % totalSlides;
+                    const isNoticeSlide = activeSlide < bannerCount;
+                    const activeBanner = noticeBanners[activeSlide] || null;
+
+                    return (
                   <div className="relative overflow-hidden bg-white rounded-3xl p-3 border border-slate-200/80 shadow-sm mb-4">
                     <div className="relative min-h-[210px]">
                       <AnimatePresence mode="wait">
-                        {bannerSlide === 0 ? (
-                          /* Slide 1: Notice Board with Image Banner */
+                        {isNoticeSlide ? (
+                          /* Notice Board Slide(s) */
                           <motion.div
-                            key="notice-slide"
+                            key={`notice-slide-${activeBanner?._id || activeSlide}`}
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
@@ -3927,20 +4198,27 @@ export default function FleetApp() {
                             </div>
 
                             {/* Notice Banner */}
-                            <div
-                              onClick={() => {
-                                window.history.pushState({ stage: 'contact-office' }, '');
-                                setStage('contact-office');
-                              }}
-                              className="-mx-3 -mb-3 rounded-b-[22px] overflow-hidden group cursor-pointer"
-                            >
-                              <img
-                                src="/notice/notice_banner.jpg"
-                                alt="Notice Banner"
-                                className="w-full h-auto aspect-[2752/1536] object-fill transition-transform duration-300 group-hover:scale-105"
-                                style={{ imageRendering: '-webkit-optimize-contrast' }}
-                              />
-                            </div>
+                            {activeBanner ? (
+                              <div
+                                onClick={() => {
+                                  window.history.pushState({ stage: 'contact-office' }, '');
+                                  setStage('contact-office');
+                                }}
+                                className="-mx-3 -mb-3 rounded-b-[22px] overflow-hidden group cursor-pointer"
+                              >
+                                <img
+                                  src={activeBanner.imageUrl}
+                                  alt={activeBanner.title || "Notice Banner"}
+                                  className="w-full h-auto aspect-[2752/1536] object-fill transition-transform duration-300 group-hover:scale-105"
+                                  style={{ imageRendering: '-webkit-optimize-contrast' }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="h-40 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center text-slate-400 gap-1.5">
+                                <MessageSquare className="w-6 h-6 text-slate-300" />
+                                <span className="text-xs font-bold">No active notices</span>
+                              </div>
+                            )}
                           </motion.div>
                         ) : (
                           /* Slide 2: Monthly Summary */
@@ -4070,22 +4348,17 @@ export default function FleetApp() {
                     {/* Pagination Indicator Dots & Arrow Controls */}
                     <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
                       <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setBannerSlide(0)}
-                          className={cn(
-                            "h-2 rounded-full transition-all duration-300 cursor-pointer",
-                            bannerSlide === 0 ? "w-6 bg-[#18859c]" : "w-2 bg-slate-200 hover:bg-slate-300"
-                          )}
-                          aria-label="Notice Board Slide"
-                        />
-                        <button
-                          onClick={() => setBannerSlide(1)}
-                          className={cn(
-                            "h-2 rounded-full transition-all duration-300 cursor-pointer",
-                            bannerSlide === 1 ? "w-6 bg-[#18859c]" : "w-2 bg-slate-200 hover:bg-slate-300"
-                          )}
-                          aria-label="Monthly Stats Slide"
-                        />
+                        {Array.from({ length: totalSlides }).map((_, sIdx) => (
+                          <button
+                            key={sIdx}
+                            onClick={() => setBannerSlide(sIdx)}
+                            className={cn(
+                              "h-2 rounded-full transition-all duration-300 cursor-pointer",
+                              activeSlide === sIdx ? "w-6 bg-[#18859c]" : "w-2 bg-slate-200 hover:bg-slate-300"
+                            )}
+                            aria-label={`Slide ${sIdx + 1}`}
+                          />
+                        ))}
                       </div>
                       <div className="flex items-center gap-1">
                         {/* Small Stop / Play Toggle Button */}
@@ -4103,13 +4376,13 @@ export default function FleetApp() {
                           {isBannerPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
                         </button>
                         <button
-                          onClick={() => setBannerSlide(prev => (prev === 0 ? 1 : 0))}
+                          onClick={() => setBannerSlide(prev => (prev - 1 + totalSlides) % totalSlides)}
                           className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                         >
                           <ChevronLeft className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setBannerSlide(prev => (prev === 0 ? 1 : 0))}
+                          onClick={() => setBannerSlide(prev => (prev + 1) % totalSlides)}
                           className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                         >
                           <ChevronRight className="w-4 h-4" />
@@ -4117,6 +4390,8 @@ export default function FleetApp() {
                       </div>
                     </div>
                   </div>
+                    );
+                  })()}
 
 
                   {/* Records Section */}
