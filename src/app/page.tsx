@@ -139,11 +139,7 @@ export default function FleetApp() {
   const [showSplash, setShowSplash] = useState(true);
   const [showRefreshPopup, setShowRefreshPopup] = useState(false);
 
-  const DriverMobileHeader = ({
-    title,
-    subtitle,
-    showBack = true
-  }: {
+  const DriverMobileHeader = (_props?: {
     title?: string;
     subtitle?: string;
     showBack?: boolean;
@@ -152,28 +148,15 @@ export default function FleetApp() {
     const driverVdNo = (Array.isArray(user) ? user[0] : user?.username) || user?.[0] || user?.username || 'VD No';
 
     return (
-      <div className="md:hidden flex items-center justify-between gap-2 bg-gradient-to-r from-[#e3f6ec] via-[#eefbf4] to-[#e3f6ec] border border-emerald-200/80 rounded-2xl px-3 py-2.5 mb-3 shadow-xs">
+      <div className="md:hidden w-full flex items-center justify-between gap-2 bg-gradient-to-r from-[#e3f6ec] via-[#eefbf4] to-[#e3f6ec] border border-emerald-200/80 rounded-2xl px-3 py-2.5 mb-3 shadow-xs">
         <div className="flex items-center gap-2.5 min-w-0">
-          {showBack && (
-            <button
-              type="button"
-              onClick={() => {
-                window.history.pushState({ stage: 'dashboard' }, '');
-                setStage('dashboard');
-              }}
-              className="w-8 h-8 rounded-xl bg-white/90 border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-all flex items-center justify-center shadow-xs shrink-0 cursor-pointer"
-              title="Back to Dashboard"
-            >
-              <ChevronLeft className="w-4 h-4 text-emerald-700" />
-            </button>
-          )}
           <img src="/logo.jpg" alt="Logo" className="h-8 w-auto object-contain rounded-lg shadow-xs shrink-0" />
           <div className="flex flex-col min-w-0">
             <h1 className="text-xs sm:text-sm font-black tracking-tight text-emerald-950 uppercase truncate leading-tight">
-              {title || 'YSM FLEET'}
+              YSM FLEET
             </h1>
             <span className="text-[8.5px] font-bold text-emerald-700/80 uppercase tracking-widest leading-none mt-0.5 block">
-              {subtitle || (stage === 'dashboard' ? 'Management' : 'Driver App')}
+              MANAGEMENT
             </span>
           </div>
         </div>
@@ -803,9 +786,9 @@ export default function FleetApp() {
     const headers = ['Ref', 'Trip Ref', 'Driver', 'Vehicle', 'Final Price', 'Receipt Value', 'Balance', 'Comments', 'Submitted Date', 'Status', 'Approved / Rejected By'];
     const rows = filteredPaymentList.map((p: any) => {
       const fleetMatch = adminData?.tables?.fleetData?.find(
-        (t: any) => (t.rf && t.rf === p.reference) ||
-          (t.values?.[1] && t.values[1] === p.reference) ||
-          (t.values?.[12] && p.tripRef && t.values[12] === p.tripRef)
+        (t: any) => (t.rf && t.rf === p.reference) || 
+                    (t.values?.[1] && t.values[1] === p.reference) ||
+                    (t.values?.[12] && p.tripRef && t.values[12] === p.tripRef)
       );
       const finalPriceRaw = (fleetMatch?.values?.[23] !== undefined && fleetMatch?.values?.[23] !== null && String(fleetMatch?.values?.[23]).trim() !== '')
         ? fleetMatch.values[23]
@@ -2396,7 +2379,7 @@ export default function FleetApp() {
     }
     window.history.pushState({ stage: 'new' }, '');
     setStage('new');
-    setAlert({ type: 'success', message: 'Please fill details. The record will be created when you submit.' });
+    setAlert(null);
   };
 
   const handleUpdateBtnClick = () => {
@@ -3455,7 +3438,7 @@ export default function FleetApp() {
         <div className="fixed inset-0 bg-[#f4f7f9] z-[-1] md:hidden" />
       )}
 
-      <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full pb-0" : "max-w-xl", stage === 'dashboard' && "max-w-full md:max-w-xl p-0 md:p-4")}>
+      <main className={cn("container mx-auto px-4 py-8", stage === 'admin' ? "max-w-full pb-0" : "max-w-xl", stage !== 'admin' && "max-w-full md:max-w-xl p-0 md:p-4")}>
         {/* Desktop Header */}
         <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
           <div className="flex items-center gap-3">
@@ -4267,9 +4250,10 @@ export default function FleetApp() {
         </AnimatePresence>
 
         {stage === 'bank-receipts' && (
-          <div className="max-w-md mx-auto space-y-4 pb-24">
-            {/* Mobile Driver Header */}
-            <DriverMobileHeader title="Bank Receipts" showBack={true} />
+          <div className="max-w-md mx-auto">
+            <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-24 min-h-[calc(100vh-1rem)] space-y-5 flex flex-col justify-between">
+              {/* Mobile Driver Header */}
+              <DriverMobileHeader title="Bank Receipts" showBack={true} />
 
             {/* Desktop Back Button */}
             <div className="hidden md:flex items-center justify-between">
@@ -4502,8 +4486,9 @@ export default function FleetApp() {
               </button>
             </motion.div>
 
-            {/* Mobile Driver Footer */}
-            <DriverMobileFooter />
+              {/* Mobile Driver Footer */}
+              <DriverMobileFooter />
+            </div>
           </div>
         )}
 
@@ -5421,9 +5406,9 @@ export default function FleetApp() {
                             ) : (
                               filteredPaymentList.map((p: any, idx: number) => {
                                 const fleetMatch = adminData?.tables?.fleetData?.find(
-                                  (t: any) => (t.rf && t.rf === p.reference) ||
-                                    (t.values?.[1] && t.values[1] === p.reference) ||
-                                    (t.values?.[12] && p.tripRef && t.values[12] === p.tripRef)
+                                  (t: any) => (t.rf && t.rf === p.reference) || 
+                                              (t.values?.[1] && t.values[1] === p.reference) ||
+                                              (t.values?.[12] && p.tripRef && t.values[12] === p.tripRef)
                                 );
                                 const finalPriceRaw = (fleetMatch?.values?.[23] !== undefined && fleetMatch?.values?.[23] !== null && String(fleetMatch?.values?.[23]).trim() !== '')
                                   ? fleetMatch.values[23]
@@ -5432,105 +5417,105 @@ export default function FleetApp() {
                                 const hasPrice = !isNaN(cleanPriceNum) && String(finalPriceRaw).trim() !== '';
 
                                 return (
-                                  <tr key={p._id || idx} className="transition-colors group hover:bg-white/5">
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-white">
-                                      {p.reference}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-400 font-mono">
-                                      {p.tripRef || '-'}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap text-white font-medium">
-                                      {p.driverId || '-'}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-300 font-medium">
-                                      {p.vehicle || '-'}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-sky-400">
-                                      {hasPrice ? `Rs. ${cleanPriceNum.toLocaleString()}` : (finalPriceRaw || '-')}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-emerald-400">
-                                      Rs. {Number(p.receiptValue || 0).toLocaleString()}
-                                    </td>
-                                    <td className={cn(
-                                      "py-2.5 px-6 text-xs whitespace-nowrap font-bold",
-                                      hasPrice ? (
-                                        (Number(p.receiptValue || 0) - cleanPriceNum) === 0 ? "text-emerald-400" :
-                                          (Number(p.receiptValue || 0) - cleanPriceNum) > 0 ? "text-amber-400" : "text-purple-400"
-                                      ) : "text-slate-400"
+                                <tr key={p._id || idx} className="transition-colors group hover:bg-white/5">
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-white">
+                                    {p.reference}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-400 font-mono">
+                                    {p.tripRef || '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap text-white font-medium">
+                                    {p.driverId || '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-300 font-medium">
+                                    {p.vehicle || '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-sky-400">
+                                    {hasPrice ? `Rs. ${cleanPriceNum.toLocaleString()}` : (finalPriceRaw || '-')}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap font-bold text-emerald-400">
+                                    Rs. {Number(p.receiptValue || 0).toLocaleString()}
+                                  </td>
+                                  <td className={cn(
+                                    "py-2.5 px-6 text-xs whitespace-nowrap font-bold",
+                                    hasPrice ? (
+                                      (Number(p.receiptValue || 0) - cleanPriceNum) === 0 ? "text-emerald-400" :
+                                      (Number(p.receiptValue || 0) - cleanPriceNum) > 0 ? "text-amber-400" : "text-purple-400"
+                                    ) : "text-slate-400"
+                                  )}>
+                                    {hasPrice ? (
+                                      `Rs. ${(Math.round((Number(p.receiptValue || 0) - cleanPriceNum) * 100) / 100).toLocaleString()}`
+                                    ) : '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap">
+                                    {p.imageDataUrl ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setFullscreenImage({ url: p.imageDataUrl, name: p.imageName || `${p.reference} Bank Receipt` })}
+                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-colors text-xs font-bold cursor-pointer"
+                                      >
+                                        <Camera className="w-3.5 h-3.5" />
+                                        <span>View Receipt</span>
+                                      </button>
+                                    ) : (
+                                      <span className="text-slate-500">-</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs text-slate-300 max-w-xs truncate" title={p.comments}>
+                                    {p.comments || '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-400 font-mono">
+                                    {p.createdAt ? new Date(p.createdAt).toLocaleString('sv-SE').replace('T', ' ') : '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap">
+                                    <span className={cn(
+                                      "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                                      p.status === 'Approved' ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+                                        p.status === 'Rejected' ? "bg-rose-500/15 text-rose-400 border-rose-500/30" :
+                                          "bg-amber-500/15 text-amber-400 border-amber-500/30"
                                     )}>
-                                      {hasPrice ? (
-                                        `Rs. ${(Math.round((Number(p.receiptValue || 0) - cleanPriceNum) * 100) / 100).toLocaleString()}`
-                                      ) : '-'}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap">
-                                      {p.imageDataUrl ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => setFullscreenImage({ url: p.imageDataUrl, name: p.imageName || `${p.reference} Bank Receipt` })}
-                                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-colors text-xs font-bold cursor-pointer"
-                                        >
-                                          <Camera className="w-3.5 h-3.5" />
-                                          <span>View Receipt</span>
-                                        </button>
-                                      ) : (
-                                        <span className="text-slate-500">-</span>
-                                      )}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs text-slate-300 max-w-xs truncate" title={p.comments}>
-                                      {p.comments || '-'}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-400 font-mono">
-                                      {p.createdAt ? new Date(p.createdAt).toLocaleString('sv-SE').replace('T', ' ') : '-'}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap">
-                                      <span className={cn(
-                                        "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
-                                        p.status === 'Approved' ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
-                                          p.status === 'Rejected' ? "bg-rose-500/15 text-rose-400 border-rose-500/30" :
-                                            "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                                      )}>
-                                        {p.status || 'Submitted'}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-300 font-medium">
-                                      {p.reviewedBy || '-'}
-                                    </td>
-                                    <td className="py-2.5 px-6 text-xs whitespace-nowrap">
-                                      <div className="flex items-center gap-2">
-                                        <button
-                                          type="button"
-                                          disabled={updatingPaymentId === p._id || p.status === 'Approved'}
-                                          onClick={() => handleUpdatePaymentStatus(p._id, 'Approved', p.reference)}
-                                          className={cn(
-                                            "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
-                                            p.status === 'Approved'
-                                              ? "bg-emerald-500/10 text-emerald-400/40 border border-emerald-500/10 cursor-default"
-                                              : "bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 shadow-sm border border-emerald-500/30"
-                                          )}
-                                          title="Approve Payment"
-                                        >
-                                          {updatingPaymentId === p._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                                          <span>Approve</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          disabled={updatingPaymentId === p._id || p.status === 'Rejected'}
-                                          onClick={() => handleUpdatePaymentStatus(p._id, 'Rejected', p.reference)}
-                                          className={cn(
-                                            "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
-                                            p.status === 'Rejected'
-                                              ? "bg-rose-500/10 text-rose-400/40 border border-rose-500/10 cursor-default"
-                                              : "bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white shadow-sm border border-rose-500/30"
-                                          )}
-                                          title="Reject Payment"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                          <span>Reject</span>
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
+                                      {p.status || 'Submitted'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap text-slate-300 font-medium">
+                                    {p.reviewedBy || '-'}
+                                  </td>
+                                  <td className="py-2.5 px-6 text-xs whitespace-nowrap">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={updatingPaymentId === p._id || p.status === 'Approved'}
+                                        onClick={() => handleUpdatePaymentStatus(p._id, 'Approved', p.reference)}
+                                        className={cn(
+                                          "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
+                                          p.status === 'Approved'
+                                            ? "bg-emerald-500/10 text-emerald-400/40 border border-emerald-500/10 cursor-default"
+                                            : "bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 shadow-sm border border-emerald-500/30"
+                                        )}
+                                        title="Approve Payment"
+                                      >
+                                        {updatingPaymentId === p._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                        <span>Approve</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={updatingPaymentId === p._id || p.status === 'Rejected'}
+                                        onClick={() => handleUpdatePaymentStatus(p._id, 'Rejected', p.reference)}
+                                        className={cn(
+                                          "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
+                                          p.status === 'Rejected'
+                                            ? "bg-rose-500/10 text-rose-400/40 border border-rose-500/10 cursor-default"
+                                            : "bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white shadow-sm border border-rose-500/30"
+                                        )}
+                                        title="Reject Payment"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                        <span>Reject</span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
                               })
                             )}
                           </tbody>
@@ -5539,541 +5524,541 @@ export default function FleetApp() {
                     ) : (
                       <div className="overflow-x-auto overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)', height: 'calc(100vh - 200px)' }}>
                         <table className="w-full text-left relative">
-                          <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
-                            <tr className="border-b border-white/5 bg-white/[0.02]">
-                              {[
-                                'Status', 'STAFF COMMENT', 'FR Ref', 'Purpose', 'Start TS', 'Driver', 'Vehicle Num',
-                                'Garage Start', 'Garage End', 'End TS',
-                                'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
-                                'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
-                                'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
-                                'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS', 'Payment Type',
-                                'Actions'
-                              ].map(h => (
-                                <th key={h} className={cn(
-                                  "py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
-                                  (h === 'Status' || h === 'STAFF COMMENT') ? "px-2 sm:px-6" : "px-6",
-                                  h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5" : ""
-                                )}>
-                                  {h === 'STAFF COMMENT' ? (
-                                    <>
-                                      <span className="sm:hidden">STF CMM</span>
-                                      <span className="hidden sm:inline">STAFF COMMENT</span>
-                                    </>
-                                  ) : h === 'FR Ref' ? (
-                                    <>
-                                      <span className="sm:hidden">FR REF</span>
-                                      <span className="hidden sm:inline">FR Ref</span>
-                                    </>
-                                  ) : (
-                                    h
-                                  )}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {adminData.tables.fleetData.map((t: any, i: number) => {
-                              const vehicleNum = t.values[4];
-                              const rawGarageStart = t.values[6];
+                        <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
+                          <tr className="border-b border-white/5 bg-white/[0.02]">
+                            {[
+                              'Status', 'STAFF COMMENT', 'FR Ref', 'Purpose', 'Start TS', 'Driver', 'Vehicle Num',
+                              'Garage Start', 'Garage End', 'End TS',
+                              'Fuel Cost', 'Fuel Meter', 'Fuel Liters', '2nd Fuel Cost', '2nd Fuel Meter', '2nd Fuel Liters', 'Comments', 'Repair Cost', 'Repair Meter', 'Trip Ref',
+                              'SC Due Amount', 'Drv Comms', 'Trip Start Meter',
+                              'Trip End Meter', 'Pkg Balance Mileage', 'Loss (Start)',
+                              'Loss (End)', 'Total Mileage', 'Final Price', 'Fuel Update TS', 'Payment Type',
+                              'Actions'
+                            ].map(h => (
+                              <th key={h} className={cn(
+                                "py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap",
+                                (h === 'Status' || h === 'STAFF COMMENT') ? "px-2 sm:px-6" : "px-6",
+                                h === 'Actions' ? "sticky right-0 z-10 bg-slate-900 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5" : ""
+                              )}>
+                                {h === 'STAFF COMMENT' ? (
+                                  <>
+                                    <span className="sm:hidden">STF CMM</span>
+                                    <span className="hidden sm:inline">STAFF COMMENT</span>
+                                  </>
+                                ) : h === 'FR Ref' ? (
+                                  <>
+                                    <span className="sm:hidden">FR REF</span>
+                                    <span className="hidden sm:inline">FR Ref</span>
+                                  </>
+                                ) : (
+                                  h
+                                )}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {adminData.tables.fleetData.map((t: any, i: number) => {
+                            const vehicleNum = t.values[4];
+                            const rawGarageStart = t.values[6];
 
-                              const currentStatusStr = String(t.values[0] || '').toLowerCase();
-                              const isCurrentIgnoredForAlerts = currentStatusStr.includes('cancel') || currentStatusStr.includes('approved');
-                              const isPurposeFiltered = adminFilters.purpose !== 'All';
-                              const prevTrip = vehicleNum ? prevTripMap.get(t) : null;
-                              const rawPrevGarageEnd = prevTrip ? prevTrip.values[8] : null;
+                            const currentStatusStr = String(t.values[0] || '').toLowerCase();
+                            const isCurrentIgnoredForAlerts = currentStatusStr.includes('cancel') || currentStatusStr.includes('approved');
+                            const isPurposeFiltered = adminFilters.purpose !== 'All';
+                            const prevTrip = vehicleNum ? prevTripMap.get(t) : null;
+                            const rawPrevGarageEnd = prevTrip ? prevTrip.values[8] : null;
 
-                              let mismatch = 0;
-                              let hasMismatch = false;
+                            let mismatch = 0;
+                            let hasMismatch = false;
 
-                              if (
-                                !isCurrentIgnoredForAlerts && !isPurposeFiltered &&
-                                rawGarageStart !== undefined && rawGarageStart !== null && String(rawGarageStart).trim() !== '' &&
-                                rawPrevGarageEnd !== undefined && rawPrevGarageEnd !== null && String(rawPrevGarageEnd).trim() !== ''
-                              ) {
-                                const garageStart = Number(String(rawGarageStart).replace(/[^\d.-]/g, ''));
-                                const prevGarageEnd = Number(String(rawPrevGarageEnd).replace(/[^\d.-]/g, ''));
-                                if (!isNaN(garageStart) && !isNaN(prevGarageEnd) && garageStart !== prevGarageEnd) {
-                                  mismatch = Math.abs(garageStart - prevGarageEnd);
-                                  hasMismatch = mismatch > 0;
+                            if (
+                              !isCurrentIgnoredForAlerts && !isPurposeFiltered &&
+                              rawGarageStart !== undefined && rawGarageStart !== null && String(rawGarageStart).trim() !== '' &&
+                              rawPrevGarageEnd !== undefined && rawPrevGarageEnd !== null && String(rawPrevGarageEnd).trim() !== ''
+                            ) {
+                              const garageStart = Number(String(rawGarageStart).replace(/[^\d.-]/g, ''));
+                              const prevGarageEnd = Number(String(rawPrevGarageEnd).replace(/[^\d.-]/g, ''));
+                              if (!isNaN(garageStart) && !isNaN(prevGarageEnd) && garageStart !== prevGarageEnd) {
+                                mismatch = Math.abs(garageStart - prevGarageEnd);
+                                hasMismatch = mismatch > 0;
+                              }
+                            }
+
+                            const getFuelLiterTooltip = (idx: string | number) => {
+                              if (idx === 'fuel_liters') {
+                                const rawCost = t.values[9];
+                                const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
+
+                                const rawComments = t.values[10] || '';
+                                const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
+                                let litersStr = '';
+                                if (fuelMatches.length > 0) {
+                                  const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+                                  const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                  if (m) litersStr = m[1];
+                                }
+                                const liters = Number(litersStr);
+                                if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
+                                  return `Rs. ${(cost / liters).toFixed(2)} / L`;
+                                }
+                              } else if (idx === 26) {
+                                const rawCost = t.values[24];
+                                const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
+                                const rawLiters = t.values[26];
+                                const liters = Number(String(rawLiters || '').replace(/[^\d.-]/g, ''));
+                                if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
+                                  return `Rs. ${(cost / liters).toFixed(2)} / L`;
                                 }
                               }
+                              return undefined;
+                            };
 
-                              const getFuelLiterTooltip = (idx: string | number) => {
-                                if (idx === 'fuel_liters') {
-                                  const rawCost = t.values[9];
-                                  const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
+                            return (
+                              <tr
+                                key={i}
+                                className="transition-colors group hover:bg-white/5"
+                              >
+                                {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
+                                  const cellTooltip = (hasMismatch && idx === 6)
+                                    ? `${mismatch} km mismatch with the last trip for this vehicle`
+                                    : idx === 'staff_comment'
+                                      ? (t.values[27] ? String(t.values[27]) : undefined)
+                                      : getFuelLiterTooltip(idx);
 
-                                  const rawComments = t.values[10] || '';
-                                  const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
-                                  let litersStr = '';
-                                  if (fuelMatches.length > 0) {
-                                    const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                                    const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                    if (m) litersStr = m[1];
-                                  }
-                                  const liters = Number(litersStr);
-                                  if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
-                                    return `Rs. ${(cost / liters).toFixed(2)} / L`;
-                                  }
-                                } else if (idx === 26) {
-                                  const rawCost = t.values[24];
-                                  const cost = Number(String(rawCost || '').replace(/[^\d.-]/g, ''));
-                                  const rawLiters = t.values[26];
-                                  const liters = Number(String(rawLiters || '').replace(/[^\d.-]/g, ''));
-                                  if (!isNaN(cost) && cost > 0 && !isNaN(liters) && liters > 0) {
-                                    return `Rs. ${(cost / liters).toFixed(2)} / L`;
-                                  }
-                                }
-                                return undefined;
-                              };
-
-                              return (
-                                <tr
-                                  key={i}
-                                  className="transition-colors group hover:bg-white/5"
-                                >
-                                  {[0, 'staff_comment', 1, 5, 2, 3, 4, 6, 8, 7, 9, 'fuel_meter', 'fuel_liters', 24, 25, 26, 10, 11, 'repair_meter', 12, 13, 14, 15, 16, 17, 18, 19, 22, 23, 28, 32].map((idx) => {
-                                    const cellTooltip = (hasMismatch && idx === 6)
-                                      ? `${mismatch} km mismatch with the last trip for this vehicle`
-                                      : idx === 'staff_comment'
-                                        ? (t.values[27] ? String(t.values[27]) : undefined)
-                                        : getFuelLiterTooltip(idx);
-
-                                    return (
-                                      <td
-                                        key={idx}
-                                        className={cn(
-                                          "py-2 text-xs whitespace-nowrap",
-                                          (idx === 0 || idx === 'staff_comment') ? "px-2 sm:px-6" : "px-6",
-                                          hasMismatch && idx === 6 ? "font-bold" : ""
-                                        )}
-                                        title={cellTooltip}
-                                      >
-                                        {idx === 'staff_comment' ? (
-                                          <div
-                                            onClick={() => {
-                                              const rawComment = t.values[27] || '';
-                                              const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
-                                              const currentComment = isDate ? '' : rawComment;
-                                              setCommentTarget({ rf: t.rf, comment: currentComment });
-                                              setCommentText(currentComment);
-                                              setShowCommentModal(true);
-                                            }}
-                                            title={(() => {
-                                              const rawComment = t.values[27] || '';
-                                              const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
-                                              return isDate ? undefined : (rawComment ? String(rawComment) : undefined);
-                                            })()}
-                                            className="flex items-center gap-1 sm:gap-2 cursor-pointer hover:bg-white/10 p-1 rounded transition-colors group min-w-[40px] sm:min-w-[80px]"
-                                          >
-                                            {(() => {
-                                              const rawComment = t.values[27] || '';
-                                              const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
-                                              const commentVal = isDate ? '' : rawComment;
-                                              if (commentVal) {
-                                                const commentStr = String(commentVal).trim();
-                                                const words = commentStr ? commentStr.split(/\s+/) : [];
-                                                const preview = words.length > 4 ? words.slice(0, 4).join(' ') + '...' : commentStr;
-                                                return (
-                                                  <span className="text-white text-xs" title={String(commentVal)}>
-                                                    {preview}
-                                                  </span>
-                                                );
-                                              }
-                                              return (
-                                                <span className="text-slate-500 italic text-[10px] flex items-center gap-1">
-                                                  <Plus className="w-3 h-3" /> Add
-                                                </span>
-                                              );
-                                            })()}
-                                            {!/^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(t.values[27] || "").trim()) && t.values[27] && <Edit className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                                          </div>
-                                        ) : idx === 'repair_meter' ? (
-                                          <span className="text-white">
-                                            {t.repairMeter || t.values[35] || (t.values[5] === 'Repair' ? (t.values[6] || t.values[8] || '-') : '-')}
-                                          </span>
-                                        ) : idx === 'fuel_meter' || idx === 'fuel_liters' ? (
-                                          <span className="text-white" title={getFuelLiterTooltip(idx)}>
-                                            {(() => {
-                                              const rawComments = t.values[10] || '';
-                                              const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
-                                              if (fuelMatches.length > 0) {
-                                                const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                                                if (idx === 'fuel_meter') {
-                                                  const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                                  return m ? m[1] : '-';
-                                                } else {
-                                                  const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                                  return m ? m[1] : '-';
-                                                }
-                                              } else {
-                                                const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
-                                                const oldFuelMatch = rawComments.match(oldFuelRegex);
-                                                if (oldFuelMatch && idx === 'fuel_meter') return oldFuelMatch[1];
-                                                return '-';
-                                              }
-                                            })()}
-                                          </span>
-                                        ) : idx === 0 ? (
-                                          <div className="flex items-center gap-1.5">
-                                            <div className="relative inline-flex items-center justify-center">
-                                              <select
-                                                value={t.values[idx as number] || 'Pending'}
-                                                onChange={async (e) => {
-                                                  const newStatus = e.target.value;
-                                                  const newValues = [...t.values];
-                                                  newValues[0] = newStatus;
-                                                  setAlert({ type: 'warning', message: 'Updating status...' });
-                                                  try {
-                                                    const res = await fetch('/api/admin/edit-trip', {
-                                                      method: 'PUT',
-                                                      headers: { 'Content-Type': 'application/json' },
-                                                      body: JSON.stringify({ reference: t.rf, rawValues: newValues })
-                                                    });
-                                                    const data = await safeJson(res);
-                                                    if (data.error) throw new Error(data.error);
-                                                    setAlert({ type: 'success', message: 'Status updated!' });
-
-                                                    // Update local state optimistically
-                                                    const newFleetData = [...adminData.tables.fleetData];
-                                                    const rowIdx = newFleetData.findIndex((r: any) => r.rf === t.rf);
-                                                    if (rowIdx > -1) {
-                                                      newFleetData[rowIdx].values[0] = newStatus;
-                                                      newFleetData[rowIdx].status = newStatus;
-                                                      setAdminData({
-                                                        ...adminData,
-                                                        tables: {
-                                                          ...adminData.tables,
-                                                          fleetData: newFleetData
-                                                        }
-                                                      });
-                                                    }
-                                                  } catch (err: any) {
-                                                    setAlert({ type: 'error', message: err.message || 'Failed to update status' });
-                                                  }
-                                                }}
-                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                              >
-                                                <option value="Pending" className="bg-slate-800 text-white font-bold">Pending</option>
-                                                <option value="Approved" className="bg-slate-800 text-white font-bold">Approved</option>
-                                                <option value="Cancelled" className="bg-slate-800 text-white font-bold">Cancelled</option>
-                                              </select>
-                                              <div
-                                                className={cn(
-                                                  "pointer-events-none flex items-center justify-center font-black leading-none text-center",
-                                                  "w-5 h-5 rounded-full text-[10px] sm:w-auto sm:h-auto sm:px-2 sm:py-1 sm:text-[8px] sm:uppercase sm:tracking-widest",
-                                                  (t.values[idx as number] || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
-                                                    (t.values[idx as number] || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
-                                                      "bg-yellow-200 text-yellow-900"
-                                                )}
-                                              >
-                                                <span className="sm:hidden">
-                                                  {(() => {
-                                                    const st = String(t.values[idx as number] || 'Pending').toLowerCase();
-                                                    if (st.includes('approved')) return 'A';
-                                                    if (st.includes('cancel')) return 'C';
-                                                    return 'P';
-                                                  })()}
-                                                </span>
-                                                <span className="hidden sm:inline">
-                                                  {t.values[idx as number] || 'Pending'}
-                                                </span>
-                                              </div>
-                                            </div>
-
-                                            {/* Payment Approved / Rejected Symbol */}
-                                            {(() => {
-                                              const tripRefKey = String(t.rf || t.values?.[1] || '').trim().toUpperCase();
-                                              const tripBookingKey = String(t.values?.[12] || '').trim().toUpperCase();
-                                              const matchedPayment = (tripRefKey && paymentMap.get(tripRefKey)) || (tripBookingKey && paymentMap.get(tripBookingKey));
-                                              const effectiveStatus = matchedPayment?.status || t.paymentStatus;
-                                              if (!effectiveStatus) return null;
-
-                                              const receiptImg = matchedPayment?.imageDataUrl || t.paymentReceiptImage;
-                                              const receiptVal = matchedPayment?.receiptValue || t.paymentValue;
-
-                                              if (effectiveStatus === 'Approved') {
-                                                return (
-                                                  <button
-                                                    type="button"
-                                                    title={`Payment Approved${receiptVal ? ` (Rs. ${Number(receiptVal).toLocaleString()})` : ''}${receiptImg ? ' - Click to view receipt' : ''}`}
-                                                    onClick={(e) => {
-                                                      if (receiptImg) {
-                                                        e.stopPropagation();
-                                                        setFullscreenImage({ url: receiptImg, name: `${t.rf || 'Fleet'} Bank Receipt` });
-                                                      }
-                                                    }}
-                                                    className={cn(
-                                                      "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm",
-                                                      receiptImg ? "cursor-pointer hover:bg-emerald-500/30 active:scale-95 transition-all" : "cursor-default"
-                                                    )}
-                                                  >
-                                                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                                                    <span className="hidden sm:inline">Paid</span>
-                                                  </button>
-                                                );
-                                              }
-
-                                              if (effectiveStatus === 'Rejected') {
-                                                return (
-                                                  <button
-                                                    type="button"
-                                                    title={`Payment Rejected${receiptVal ? ` (Rs. ${Number(receiptVal).toLocaleString()})` : ''}${receiptImg ? ' - Click to view receipt' : ''}`}
-                                                    onClick={(e) => {
-                                                      if (receiptImg) {
-                                                        e.stopPropagation();
-                                                        setFullscreenImage({ url: receiptImg, name: `${t.rf || 'Fleet'} Bank Receipt` });
-                                                      }
-                                                    }}
-                                                    className={cn(
-                                                      "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm",
-                                                      receiptImg ? "cursor-pointer hover:bg-rose-500/30 active:scale-95 transition-all" : "cursor-default"
-                                                    )}
-                                                  >
-                                                    <XCircle className="w-3 h-3 text-rose-400" />
-                                                    <span className="hidden sm:inline">Pay Rej</span>
-                                                  </button>
-                                                );
-                                              }
-
-                                              return (
-                                                <button
-                                                  type="button"
-                                                  title={`Payment Submitted (Pending Review)${receiptVal ? ` - Rs. ${Number(receiptVal).toLocaleString()}` : ''}${receiptImg ? ' - Click to view receipt' : ''}`}
-                                                  onClick={(e) => {
-                                                    if (receiptImg) {
-                                                      e.stopPropagation();
-                                                      setFullscreenImage({ url: receiptImg, name: `${t.rf || 'Fleet'} Bank Receipt` });
-                                                    }
-                                                  }}
-                                                  className={cn(
-                                                    "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm",
-                                                    receiptImg ? "cursor-pointer hover:bg-amber-500/30 active:scale-95 transition-all" : "cursor-default"
-                                                  )}
-                                                >
-                                                  <Clock className="w-3 h-3 text-amber-400" />
-                                                  <span className="hidden sm:inline">Pay Sub</span>
-                                                </button>
-                                              );
-                                            })()}
-                                          </div>
-                                        ) : idx === 5 ? (
-                                          <span className={cn(
-                                            "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                            t.values[idx as number] === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
-                                          )}>
-                                            {t.values[idx as number]}
-                                          </span>
-                                        ) : idx === 10 ? (
-                                          <span className="font-sans font-normal text-white">
-                                            {(() => {
-                                              let val = (t.values[10] || '').toString();
-                                              val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
-                                              return val || '-';
-                                            })()}
-                                          </span>
-                                        ) : idx === 1 ? (
-                                          <div className="flex items-center gap-2">
-                                            {(() => {
-                                              const sLossRaw = t.values[18];
-                                              const eLossRaw = t.values[19];
-                                              if (sLossRaw !== undefined && sLossRaw !== null && String(sLossRaw).trim() !== '' &&
-                                                eLossRaw !== undefined && eLossRaw !== null && String(eLossRaw).trim() !== '') {
-                                                const sLoss = Number(String(sLossRaw).replace(/[^\d.-]/g, ''));
-                                                const eLoss = Number(String(eLossRaw).replace(/[^\d.-]/g, ''));
-                                                if (!isNaN(sLoss) && !isNaN(eLoss) && sLoss !== eLoss) {
-                                                  const currentStatusStr = String(t.values[0] || '').toLowerCase();
-                                                  if (!currentStatusStr.includes('cancel') && !currentStatusStr.includes('approved')) {
-                                                    return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Start and End Loss mismatch"></span>;
-                                                  }
-                                                }
-                                              }
-                                              return null;
-                                            })()}
-                                            <span className="text-white">{t.values[idx as number] !== undefined && t.values[idx as number] !== null ? t.values[idx as number].toString() : '-'}</span>
-                                          </div>
-                                        ) : idx === 32 ? (
-                                          <span className="font-sans font-normal text-white">
-                                            {(() => {
-                                              const hasFuel = Boolean(
-                                                (t.values[9] !== undefined && t.values[9] !== null && String(t.values[9]).trim() !== '' && t.values[9] !== '0' && t.values[9] !== 0) ||
-                                                (t.values[24] !== undefined && t.values[24] !== null && String(t.values[24]).trim() !== '' && t.values[24] !== '0' && t.values[24] !== 0) ||
-                                                (t.values[25] !== undefined && t.values[25] !== null && String(t.values[25]).trim() !== '') ||
-                                                (t.values[26] !== undefined && t.values[26] !== null && String(t.values[26]).trim() !== '') ||
-                                                (t.values[28] !== undefined && t.values[28] !== null && String(t.values[28]).trim() !== '') ||
-                                                (t.values[10] && String(t.values[10]).includes('(Fuel'))
-                                              );
-                                              if (!hasFuel) return '-';
-                                              return t.values[32] || 'Office card';
-                                            })()}
-                                          </span>
-                                        ) : (idx === 15 || idx === 16) ? (
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-sans font-normal text-white">
-                                              {(t.values[idx] !== undefined && t.values[idx] !== null && String(t.values[idx]).trim() !== '')
-                                                ? `${t.values[idx]} KM`
-                                                : '-'}
-                                            </span>
-                                            {(() => {
-                                              const targetPattern = idx === 15 ? 'TripStartMeter' : 'TripEndMeter';
-                                              const hasImg = (t.images || []).some((img: any) => img.name && img.name.includes(targetPattern));
-                                              if (!hasImg) return null;
-                                              return (
-                                                <button
-                                                  type="button"
-                                                  onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    setViewingImages({ rf: t.rf, images: null, loading: true });
-                                                    try {
-                                                      const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
-                                                      const data = await safeJson(res);
-                                                      const allImgs = data.images || [];
-                                                      setViewingImages({ rf: t.rf, images: allImgs, loading: false });
-                                                      const matched = allImgs.find((img: any) => img.name && img.name.includes(targetPattern));
-                                                      if (matched) {
-                                                        setFullscreenImage({ url: matched.dataUrl, name: matched.name });
-                                                      }
-                                                    } catch (err) {
-                                                      setViewingImages({ rf: t.rf, images: [], loading: false });
-                                                    }
-                                                  }}
-                                                  className={`p-1 rounded transition-colors cursor-pointer ${idx === 15 ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400' : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400'}`}
-                                                  title={`View ${idx === 15 ? 'Trip Start' : 'Trip End'} Meter Image`}
-                                                >
-                                                  <Camera className="w-3.5 h-3.5" />
-                                                </button>
-                                              );
-                                            })()}
-                                          </div>
-                                        ) : (
-                                          <span className={cn(
-                                            "font-sans font-normal flex items-center gap-1.5",
-                                            (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
-                                              (idx === 9 || idx === 11 || idx === 24) ? "text-rose-400" : "text-white"
-                                          )} title={getFuelLiterTooltip(idx)}>
-                                            {hasMismatch && idx === 6 && (
-                                              <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0"></span>
-                                            )}
-                                            {(() => {
-                                              const isFinished = t.values[8] !== undefined && t.values[8] !== null && String(t.values[8]).trim() !== '';
-                                              if (!isFinished && (idx === 18 || idx === 19 || idx === 22)) {
-                                                return '0';
-                                              }
-                                              if (idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || String(t.values[idx as number]).trim() === '')) {
-                                                return '0';
-                                              }
-                                              return (t.values[idx as number] !== undefined && t.values[idx as number] !== null) ? t.values[idx as number].toString() : '-';
-                                            })()}
-                                          </span>
-                                        )}
-                                      </td>
-                                    );
-                                  })}
-                                  <td className={cn(
-                                    "px-6 py-2 text-xs whitespace-nowrap sticky right-0 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors",
-                                    activeActionRowRef === t.rf ? "z-50" : "z-10"
-                                  )}>
-                                    <div className="relative group/action">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setActiveActionRowRef(activeActionRowRef === t.rf ? null : t.rf);
-                                        }}
-                                        className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer outline-none active:scale-95"
-                                        title="Actions"
-                                      >
-                                        <MoreVertical className="w-4 h-4 text-slate-400 hover:text-white transition-colors" />
-                                      </button>
-
-                                      {activeActionRowRef === t.rf && (
-                                        <div
-                                          className="fixed inset-0 z-[40]"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setActiveActionRowRef(null);
-                                          }}
-                                        />
+                                  return (
+                                    <td
+                                      key={idx}
+                                      className={cn(
+                                        "py-2 text-xs whitespace-nowrap",
+                                        (idx === 0 || idx === 'staff_comment') ? "px-2 sm:px-6" : "px-6",
+                                        hasMismatch && idx === 6 ? "font-bold" : ""
                                       )}
-
-                                      <div
-                                        className={cn(
-                                          "absolute right-full top-0 mr-2 w-36 bg-slate-800 border border-slate-700/80 rounded-xl shadow-2xl transition-all flex flex-col gap-1 p-1.5 z-[60]",
-                                          activeActionRowRef === t.rf ? "opacity-100 visible" : "opacity-0 invisible group-hover/action:opacity-100 group-hover/action:visible"
-                                        )}
-                                      >
-                                        <button
-                                          type="button"
+                                      title={cellTooltip}
+                                    >
+                                      {idx === 'staff_comment' ? (
+                                        <div
                                           onClick={() => {
-                                            setActiveActionRowRef(null);
-                                            setViewingTrip(t);
+                                            const rawComment = t.values[27] || '';
+                                            const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
+                                            const currentComment = isDate ? '' : rawComment;
+                                            setCommentTarget({ rf: t.rf, comment: currentComment });
+                                            setCommentText(currentComment);
+                                            setShowCommentModal(true);
                                           }}
-                                          className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sky-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
+                                          title={(() => {
+                                            const rawComment = t.values[27] || '';
+                                            const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
+                                            return isDate ? undefined : (rawComment ? String(rawComment) : undefined);
+                                          })()}
+                                          className="flex items-center gap-1 sm:gap-2 cursor-pointer hover:bg-white/10 p-1 rounded transition-colors group min-w-[40px] sm:min-w-[80px]"
                                         >
-                                          <Eye className="w-3.5 h-3.5" /> View Trip
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={async () => {
-                                            setActiveActionRowRef(null);
-                                            setViewingImages({ rf: t.rf, images: null, loading: true });
-                                            try {
-                                              const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
-                                              const data = await safeJson(res);
-                                              setViewingImages({ rf: t.rf, images: data.images || [], loading: false });
-                                            } catch (err) {
-                                              setViewingImages({ rf: t.rf, images: [], loading: false });
+                                          {(() => {
+                                            const rawComment = t.values[27] || '';
+                                            const isDate = /^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(rawComment).trim()) && (!t.values[28] || String(t.values[28]).trim() === '');
+                                            const commentVal = isDate ? '' : rawComment;
+                                            if (commentVal) {
+                                              const commentStr = String(commentVal).trim();
+                                              const words = commentStr ? commentStr.split(/\s+/) : [];
+                                              const preview = words.length > 4 ? words.slice(0, 4).join(' ') + '...' : commentStr;
+                                              return (
+                                                <span className="text-white text-xs" title={String(commentVal)}>
+                                                  {preview}
+                                                </span>
+                                              );
                                             }
-                                          }}
-                                          className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
-                                        >
-                                          <ImageIcon className="w-3.5 h-3.5" /> Proofs {t.imageCount !== undefined ? `(${t.imageCount})` : ''}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setActiveActionRowRef(null);
-                                            let fMeter = '';
-                                            let fLiters = '';
-                                            let cleanComments = t.values[10] || '';
-                                            const fuelMatches: any[] = Array.from(cleanComments.toString().matchAll(/\(Fuel - (.*?)\)/g));
+                                            return (
+                                              <span className="text-slate-500 italic text-[10px] flex items-center gap-1">
+                                                <Plus className="w-3 h-3" /> Add
+                                              </span>
+                                            );
+                                          })()}
+                                          {!/^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(t.values[27] || "").trim()) && t.values[27] && <Edit className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                                        </div>
+                                      ) : idx === 'repair_meter' ? (
+                                        <span className="text-white">
+                                          {t.repairMeter || t.values[35] || (t.values[5] === 'Repair' ? (t.values[6] || t.values[8] || '-') : '-')}
+                                        </span>
+                                      ) : idx === 'fuel_meter' || idx === 'fuel_liters' ? (
+                                        <span className="text-white" title={getFuelLiterTooltip(idx)}>
+                                          {(() => {
+                                            const rawComments = t.values[10] || '';
+                                            const fuelMatches: any[] = Array.from(rawComments.matchAll(/\(Fuel - (.*?)\)/g));
                                             if (fuelMatches.length > 0) {
                                               const fuelStr = fuelMatches[fuelMatches.length - 1][1];
-                                              const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
-                                              if (m1) fMeter = m1[1];
-                                              const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
-                                              if (m2) fLiters = m2[1];
+                                              if (idx === 'fuel_meter') {
+                                                const m = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                                return m ? m[1] : '-';
+                                              } else {
+                                                const m = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                                return m ? m[1] : '-';
+                                              }
                                             } else {
-                                              const oldMatch = cleanComments.toString().match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
-                                              if (oldMatch) fMeter = oldMatch[1];
+                                              const oldFuelRegex = /\(Fuel Meter:\s*([\d.]+)\s*KM\)/i;
+                                              const oldFuelMatch = rawComments.match(oldFuelRegex);
+                                              if (oldFuelMatch && idx === 'fuel_meter') return oldFuelMatch[1];
+                                              return '-';
                                             }
-                                            cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
-                                            setEditingTrip({ ...t, fMeter, fLiters, cleanComments });
-                                          }}
-                                          className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
-                                        >
-                                          <Edit className="w-3.5 h-3.5" /> Edit Trip
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setActiveActionRowRef(null);
-                                            handleDeleteFleetRow(t.rf);
-                                          }}
-                                          className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-red-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" /> Delete Trip
-                                        </button>
+                                          })()}
+                                        </span>
+                                      ) : idx === 0 ? (
+                                        <div className="flex items-center gap-1.5">
+                                          <div className="relative inline-flex items-center justify-center">
+                                          <select
+                                            value={t.values[idx as number] || 'Pending'}
+                                            onChange={async (e) => {
+                                              const newStatus = e.target.value;
+                                              const newValues = [...t.values];
+                                              newValues[0] = newStatus;
+                                              setAlert({ type: 'warning', message: 'Updating status...' });
+                                              try {
+                                                const res = await fetch('/api/admin/edit-trip', {
+                                                  method: 'PUT',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ reference: t.rf, rawValues: newValues })
+                                                });
+                                                const data = await safeJson(res);
+                                                if (data.error) throw new Error(data.error);
+                                                setAlert({ type: 'success', message: 'Status updated!' });
+
+                                                // Update local state optimistically
+                                                const newFleetData = [...adminData.tables.fleetData];
+                                                const rowIdx = newFleetData.findIndex((r: any) => r.rf === t.rf);
+                                                if (rowIdx > -1) {
+                                                  newFleetData[rowIdx].values[0] = newStatus;
+                                                  newFleetData[rowIdx].status = newStatus;
+                                                  setAdminData({
+                                                    ...adminData,
+                                                    tables: {
+                                                      ...adminData.tables,
+                                                      fleetData: newFleetData
+                                                    }
+                                                  });
+                                                }
+                                              } catch (err: any) {
+                                                setAlert({ type: 'error', message: err.message || 'Failed to update status' });
+                                              }
+                                            }}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                          >
+                                            <option value="Pending" className="bg-slate-800 text-white font-bold">Pending</option>
+                                            <option value="Approved" className="bg-slate-800 text-white font-bold">Approved</option>
+                                            <option value="Cancelled" className="bg-slate-800 text-white font-bold">Cancelled</option>
+                                          </select>
+                                          <div
+                                            className={cn(
+                                              "pointer-events-none flex items-center justify-center font-black leading-none text-center",
+                                              "w-5 h-5 rounded-full text-[10px] sm:w-auto sm:h-auto sm:px-2 sm:py-1 sm:text-[8px] sm:uppercase sm:tracking-widest",
+                                              (t.values[idx as number] || 'Pending') === 'Approved' ? "bg-green-300 text-green-900" :
+                                                (t.values[idx as number] || 'Pending') === 'Cancelled' ? "bg-red-500 text-white" :
+                                                  "bg-yellow-200 text-yellow-900"
+                                            )}
+                                          >
+                                            <span className="sm:hidden">
+                                              {(() => {
+                                                const st = String(t.values[idx as number] || 'Pending').toLowerCase();
+                                                if (st.includes('approved')) return 'A';
+                                                if (st.includes('cancel')) return 'C';
+                                                return 'P';
+                                              })()}
+                                            </span>
+                                            <span className="hidden sm:inline">
+                                              {t.values[idx as number] || 'Pending'}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* Payment Approved / Rejected Symbol */}
+                                        {(() => {
+                                          const tripRefKey = String(t.rf || t.values?.[1] || '').trim().toUpperCase();
+                                          const tripBookingKey = String(t.values?.[12] || '').trim().toUpperCase();
+                                          const matchedPayment = (tripRefKey && paymentMap.get(tripRefKey)) || (tripBookingKey && paymentMap.get(tripBookingKey));
+                                          const effectiveStatus = matchedPayment?.status || t.paymentStatus;
+                                          if (!effectiveStatus) return null;
+
+                                          const receiptImg = matchedPayment?.imageDataUrl || t.paymentReceiptImage;
+                                          const receiptVal = matchedPayment?.receiptValue || t.paymentValue;
+
+                                          if (effectiveStatus === 'Approved') {
+                                            return (
+                                              <button
+                                                type="button"
+                                                title={`Payment Approved${receiptVal ? ` (Rs. ${Number(receiptVal).toLocaleString()})` : ''}${receiptImg ? ' - Click to view receipt' : ''}`}
+                                                onClick={(e) => {
+                                                  if (receiptImg) {
+                                                    e.stopPropagation();
+                                                    setFullscreenImage({ url: receiptImg, name: `${t.rf || 'Fleet'} Bank Receipt` });
+                                                  }
+                                                }}
+                                                className={cn(
+                                                  "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm",
+                                                  receiptImg ? "cursor-pointer hover:bg-emerald-500/30 active:scale-95 transition-all" : "cursor-default"
+                                                )}
+                                              >
+                                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                                <span className="hidden sm:inline">Paid</span>
+                                              </button>
+                                            );
+                                          }
+
+                                          if (effectiveStatus === 'Rejected') {
+                                            return (
+                                              <button
+                                                type="button"
+                                                title={`Payment Rejected${receiptVal ? ` (Rs. ${Number(receiptVal).toLocaleString()})` : ''}${receiptImg ? ' - Click to view receipt' : ''}`}
+                                                onClick={(e) => {
+                                                  if (receiptImg) {
+                                                    e.stopPropagation();
+                                                    setFullscreenImage({ url: receiptImg, name: `${t.rf || 'Fleet'} Bank Receipt` });
+                                                  }
+                                                }}
+                                                className={cn(
+                                                  "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm",
+                                                  receiptImg ? "cursor-pointer hover:bg-rose-500/30 active:scale-95 transition-all" : "cursor-default"
+                                                )}
+                                              >
+                                                <XCircle className="w-3 h-3 text-rose-400" />
+                                                <span className="hidden sm:inline">Pay Rej</span>
+                                              </button>
+                                            );
+                                          }
+
+                                          return (
+                                            <button
+                                              type="button"
+                                              title={`Payment Submitted (Pending Review)${receiptVal ? ` - Rs. ${Number(receiptVal).toLocaleString()}` : ''}${receiptImg ? ' - Click to view receipt' : ''}`}
+                                              onClick={(e) => {
+                                                if (receiptImg) {
+                                                  e.stopPropagation();
+                                                  setFullscreenImage({ url: receiptImg, name: `${t.rf || 'Fleet'} Bank Receipt` });
+                                                }
+                                              }}
+                                              className={cn(
+                                                "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm",
+                                                receiptImg ? "cursor-pointer hover:bg-amber-500/30 active:scale-95 transition-all" : "cursor-default"
+                                              )}
+                                            >
+                                              <Clock className="w-3 h-3 text-amber-400" />
+                                              <span className="hidden sm:inline">Pay Sub</span>
+                                            </button>
+                                          );
+                                        })()}
                                       </div>
+                                      ) : idx === 5 ? (
+                                        <span className={cn(
+                                          "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                          t.values[idx as number] === 'Hire' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
+                                        )}>
+                                          {t.values[idx as number]}
+                                        </span>
+                                      ) : idx === 10 ? (
+                                        <span className="font-sans font-normal text-white">
+                                          {(() => {
+                                            let val = (t.values[10] || '').toString();
+                                            val = val.replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+                                            return val || '-';
+                                          })()}
+                                        </span>
+                                      ) : idx === 1 ? (
+                                        <div className="flex items-center gap-2">
+                                          {(() => {
+                                            const sLossRaw = t.values[18];
+                                            const eLossRaw = t.values[19];
+                                            if (sLossRaw !== undefined && sLossRaw !== null && String(sLossRaw).trim() !== '' &&
+                                              eLossRaw !== undefined && eLossRaw !== null && String(eLossRaw).trim() !== '') {
+                                              const sLoss = Number(String(sLossRaw).replace(/[^\d.-]/g, ''));
+                                              const eLoss = Number(String(eLossRaw).replace(/[^\d.-]/g, ''));
+                                              if (!isNaN(sLoss) && !isNaN(eLoss) && sLoss !== eLoss) {
+                                                const currentStatusStr = String(t.values[0] || '').toLowerCase();
+                                                if (!currentStatusStr.includes('cancel') && !currentStatusStr.includes('approved')) {
+                                                  return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="Start and End Loss mismatch"></span>;
+                                                }
+                                              }
+                                            }
+                                            return null;
+                                          })()}
+                                          <span className="text-white">{t.values[idx as number] !== undefined && t.values[idx as number] !== null ? t.values[idx as number].toString() : '-'}</span>
+                                        </div>
+                                      ) : idx === 32 ? (
+                                        <span className="font-sans font-normal text-white">
+                                          {(() => {
+                                            const hasFuel = Boolean(
+                                              (t.values[9] !== undefined && t.values[9] !== null && String(t.values[9]).trim() !== '' && t.values[9] !== '0' && t.values[9] !== 0) ||
+                                              (t.values[24] !== undefined && t.values[24] !== null && String(t.values[24]).trim() !== '' && t.values[24] !== '0' && t.values[24] !== 0) ||
+                                              (t.values[25] !== undefined && t.values[25] !== null && String(t.values[25]).trim() !== '') ||
+                                              (t.values[26] !== undefined && t.values[26] !== null && String(t.values[26]).trim() !== '') ||
+                                              (t.values[28] !== undefined && t.values[28] !== null && String(t.values[28]).trim() !== '') ||
+                                              (t.values[10] && String(t.values[10]).includes('(Fuel'))
+                                            );
+                                            if (!hasFuel) return '-';
+                                            return t.values[32] || 'Office card';
+                                          })()}
+                                        </span>
+                                      ) : (idx === 15 || idx === 16) ? (
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-sans font-normal text-white">
+                                            {(t.values[idx] !== undefined && t.values[idx] !== null && String(t.values[idx]).trim() !== '')
+                                              ? `${t.values[idx]} KM`
+                                              : '-'}
+                                          </span>
+                                          {(() => {
+                                            const targetPattern = idx === 15 ? 'TripStartMeter' : 'TripEndMeter';
+                                            const hasImg = (t.images || []).some((img: any) => img.name && img.name.includes(targetPattern));
+                                            if (!hasImg) return null;
+                                            return (
+                                              <button
+                                                type="button"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  setViewingImages({ rf: t.rf, images: null, loading: true });
+                                                  try {
+                                                    const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
+                                                    const data = await safeJson(res);
+                                                    const allImgs = data.images || [];
+                                                    setViewingImages({ rf: t.rf, images: allImgs, loading: false });
+                                                    const matched = allImgs.find((img: any) => img.name && img.name.includes(targetPattern));
+                                                    if (matched) {
+                                                      setFullscreenImage({ url: matched.dataUrl, name: matched.name });
+                                                    }
+                                                  } catch (err) {
+                                                    setViewingImages({ rf: t.rf, images: [], loading: false });
+                                                  }
+                                                }}
+                                                className={`p-1 rounded transition-colors cursor-pointer ${idx === 15 ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400' : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400'}`}
+                                                title={`View ${idx === 15 ? 'Trip Start' : 'Trip End'} Meter Image`}
+                                              >
+                                                <Camera className="w-3.5 h-3.5" />
+                                              </button>
+                                            );
+                                          })()}
+                                        </div>
+                                      ) : (
+                                        <span className={cn(
+                                          "font-sans font-normal flex items-center gap-1.5",
+                                          (idx === 13 || idx === 14 || idx === 23) ? "text-emerald-500" :
+                                            (idx === 9 || idx === 11 || idx === 24) ? "text-rose-400" : "text-white"
+                                        )} title={getFuelLiterTooltip(idx)}>
+                                          {hasMismatch && idx === 6 && (
+                                            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0"></span>
+                                          )}
+                                          {(() => {
+                                            const isFinished = t.values[8] !== undefined && t.values[8] !== null && String(t.values[8]).trim() !== '';
+                                            if (!isFinished && (idx === 18 || idx === 19 || idx === 22)) {
+                                              return '0';
+                                            }
+                                            if (idx === 18 && (t.values[idx as number] === undefined || t.values[idx as number] === null || String(t.values[idx as number]).trim() === '')) {
+                                              return '0';
+                                            }
+                                            return (t.values[idx as number] !== undefined && t.values[idx as number] !== null) ? t.values[idx as number].toString() : '-';
+                                          })()}
+                                        </span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                                <td className={cn(
+                                  "px-6 py-2 text-xs whitespace-nowrap sticky right-0 bg-slate-900 group-hover:bg-slate-800 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)] border-l border-white/5 transition-colors",
+                                  activeActionRowRef === t.rf ? "z-50" : "z-10"
+                                )}>
+                                  <div className="relative group/action">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveActionRowRef(activeActionRowRef === t.rf ? null : t.rf);
+                                      }}
+                                      className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer outline-none active:scale-95"
+                                      title="Actions"
+                                    >
+                                      <MoreVertical className="w-4 h-4 text-slate-400 hover:text-white transition-colors" />
+                                    </button>
+
+                                    {activeActionRowRef === t.rf && (
+                                      <div
+                                        className="fixed inset-0 z-[40]"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveActionRowRef(null);
+                                        }}
+                                      />
+                                    )}
+
+                                    <div
+                                      className={cn(
+                                        "absolute right-full top-0 mr-2 w-36 bg-slate-800 border border-slate-700/80 rounded-xl shadow-2xl transition-all flex flex-col gap-1 p-1.5 z-[60]",
+                                        activeActionRowRef === t.rf ? "opacity-100 visible" : "opacity-0 invisible group-hover/action:opacity-100 group-hover/action:visible"
+                                      )}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveActionRowRef(null);
+                                          setViewingTrip(t);
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sky-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" /> View Trip
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          setActiveActionRowRef(null);
+                                          setViewingImages({ rf: t.rf, images: null, loading: true });
+                                          try {
+                                            const res = await fetch(`/api/admin/trip-images?ref=${t.rf}`);
+                                            const data = await safeJson(res);
+                                            setViewingImages({ rf: t.rf, images: data.images || [], loading: false });
+                                          } catch (err) {
+                                            setViewingImages({ rf: t.rf, images: [], loading: false });
+                                          }
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
+                                      >
+                                        <ImageIcon className="w-3.5 h-3.5" /> Proofs {t.imageCount !== undefined ? `(${t.imageCount})` : ''}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveActionRowRef(null);
+                                          let fMeter = '';
+                                          let fLiters = '';
+                                          let cleanComments = t.values[10] || '';
+                                          const fuelMatches: any[] = Array.from(cleanComments.toString().matchAll(/\(Fuel - (.*?)\)/g));
+                                          if (fuelMatches.length > 0) {
+                                            const fuelStr = fuelMatches[fuelMatches.length - 1][1];
+                                            const m1 = fuelStr.match(/Meter:\s*([\d.]+)\s*KM/i);
+                                            if (m1) fMeter = m1[1];
+                                            const m2 = fuelStr.match(/Liters:\s*([\d.]+)/i);
+                                            if (m2) fLiters = m2[1];
+                                          } else {
+                                            const oldMatch = cleanComments.toString().match(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/i);
+                                            if (oldMatch) fMeter = oldMatch[1];
+                                          }
+                                          cleanComments = cleanComments.toString().replace(/\(Fuel - (.*?)\)/g, '').replace(/\(Fuel Meter:\s*([\d.]+)\s*KM\)/ig, '').trim();
+                                          setEditingTrip({ ...t, fMeter, fLiters, cleanComments });
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-emerald-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
+                                      >
+                                        <Edit className="w-3.5 h-3.5" /> Edit Trip
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveActionRowRef(null);
+                                          handleDeleteFleetRow(t.rf);
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-red-400 rounded-lg w-full text-left text-xs font-bold transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" /> Delete Trip
+                                      </button>
                                     </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                     )}
 
                     {/* Pagination Controls moved to top */}
@@ -7217,76 +7202,76 @@ export default function FleetApp() {
                                 return true;
                               })
                               .map((b: any, i: number) => {
-                                const invoiceNo = b.id ?? '';
-                                const driverCode = String(b.driverId || b.driver?.userId || '').trim();
-                                const driverName =
-                                  b.fleetDriverName ||
-                                  reportFleetData?.driverNames?.[driverCode] ||
-                                  reportFleetData?.driverNames?.[driverCode.toUpperCase()] ||
-                                  adminData?.driverNames?.[driverCode] ||
-                                  adminData?.driverNames?.[driverCode.toUpperCase()] ||
-                                  b.driver?.name ||
-                                  driverCode;
+                              const invoiceNo = b.id ?? '';
+                              const driverCode = String(b.driverId || b.driver?.userId || '').trim();
+                              const driverName =
+                                b.fleetDriverName ||
+                                reportFleetData?.driverNames?.[driverCode] ||
+                                reportFleetData?.driverNames?.[driverCode.toUpperCase()] ||
+                                adminData?.driverNames?.[driverCode] ||
+                                adminData?.driverNames?.[driverCode.toUpperCase()] ||
+                                b.driver?.name ||
+                                driverCode;
 
-                                const isCredit =
-                                  String(b.paymentType || '').toUpperCase() === 'CP' ||
-                                  String(b.settlementType || '').toUpperCase() === 'CREDIT' ||
-                                  Boolean(b.isCorporate);
+                              const isCredit =
+                                String(b.paymentType || '').toUpperCase() === 'CP' ||
+                                String(b.settlementType || '').toUpperCase() === 'CREDIT' ||
+                                Boolean(b.isCorporate);
 
-                                const customerName = isCredit
-                                  ? 'Senu Cabs and Tours'
-                                  : (driverName ? `${driverName} - Cash` : '- Cash');
+                              const customerName = isCredit
+                                ? 'Senu Cabs and Tours'
+                                : (driverName ? `${driverName} - Cash` : '- Cash');
 
-                                let endTimestamp = '';
-                                const endTimeVal = b.estimatedCompletedAt || b.completedAt;
-                                if (endTimeVal) {
-                                  const parts = String(endTimeVal).split('T');
-                                  endTimestamp = parts.length === 2 ? `${parts[0]} ${parts[1].substring(0, 5)}` : String(endTimeVal);
-                                }
+                              let endTimestamp = '';
+                              const endTimeVal = b.estimatedCompletedAt || b.completedAt;
+                              if (endTimeVal) {
+                                const parts = String(endTimeVal).split('T');
+                                endTimestamp = parts.length === 2 ? `${parts[0]} ${parts[1].substring(0, 5)}` : String(endTimeVal);
+                              }
 
-                                const vehicleNum = b.vehiclePlate || b.vehicle?.plateNo || '';
-                                let itemAmount =
-                                  b.fleetFinalPrice !== undefined && b.fleetFinalPrice !== null
-                                    ? String(b.fleetFinalPrice)
-                                    : '';
+                              const vehicleNum = b.vehiclePlate || b.vehicle?.plateNo || '';
+                              let itemAmount =
+                                b.fleetFinalPrice !== undefined && b.fleetFinalPrice !== null
+                                  ? String(b.fleetFinalPrice)
+                                  : '';
 
-                                let driverComm = b.fleetDrvComm || '';
-                                if (!itemAmount || !driverComm) {
-                                  const fleetList = reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || [];
-                                  const fleetMatch = fleetList.find(
-                                    (t: any) =>
-                                      !String(t.values?.[0] || t.status || '').toLowerCase().includes('cancel') &&
-                                      String(t.values?.[12] || '').trim() === String(invoiceNo).trim()
-                                  );
-                                  if (fleetMatch) {
-                                    if (!itemAmount) {
-                                      const rawPrice = String(fleetMatch.values?.[23] ?? fleetMatch.finalPrice ?? '').replace(/Rs\.?\s*/gi, '').trim();
-                                      if (rawPrice) itemAmount = rawPrice;
-                                    }
-                                    if (!driverComm) {
-                                      driverComm = String(fleetMatch.values?.[14] || '').replace(/Rs\.?\s*/gi, '').trim();
-                                    }
+                              let driverComm = b.fleetDrvComm || '';
+                              if (!itemAmount || !driverComm) {
+                                const fleetList = reportFleetData?.tables?.fleetData || adminData?.tables?.fleetData || [];
+                                const fleetMatch = fleetList.find(
+                                  (t: any) =>
+                                    !String(t.values?.[0] || t.status || '').toLowerCase().includes('cancel') &&
+                                    String(t.values?.[12] || '').trim() === String(invoiceNo).trim()
+                                );
+                                if (fleetMatch) {
+                                  if (!itemAmount) {
+                                    const rawPrice = String(fleetMatch.values?.[23] ?? fleetMatch.finalPrice ?? '').replace(/Rs\.?\s*/gi, '').trim();
+                                    if (rawPrice) itemAmount = rawPrice;
+                                  }
+                                  if (!driverComm) {
+                                    driverComm = String(fleetMatch.values?.[14] || '').replace(/Rs\.?\s*/gi, '').trim();
                                   }
                                 }
+                              }
 
-                                return (
-                                  <tr key={b.id || i} className="hover:bg-white/5 transition-colors border-b border-white/5">
-                                    <td className="p-2 border-r border-white/5 text-slate-400">{invoiceNo}</td>
-                                    <td className="p-2 border-r border-white/5 text-emerald-400">{customerName}</td>
-                                    <td className="p-2 border-r border-white/5 text-center text-white">{endTimestamp}</td>
-                                    <td className="p-2 border-r border-white/5 text-center text-white">{endTimestamp}</td>
-                                    <td className="p-2 border-r border-white/5"></td>
-                                    <td className="p-2 border-r border-white/5"></td>
-                                    <td className="p-2 border-r border-white/5"></td>
-                                    <td className="p-2 border-r border-white/5 text-white">{vehicleNum}</td>
-                                    <td className="p-2 border-r border-white/5"></td>
-                                    <td className="p-2 border-r border-white/5"></td>
-                                    <td className="p-2 border-r border-white/5"></td>
-                                    <td className="p-2 border-r border-white/5 text-right font-bold text-white">{itemAmount}</td>
-                                    <td className="p-2 text-right font-bold text-rose-400">{driverComm}</td>
-                                  </tr>
-                                );
-                              })}
+                              return (
+                                <tr key={b.id || i} className="hover:bg-white/5 transition-colors border-b border-white/5">
+                                  <td className="p-2 border-r border-white/5 text-slate-400">{invoiceNo}</td>
+                                  <td className="p-2 border-r border-white/5 text-emerald-400">{customerName}</td>
+                                  <td className="p-2 border-r border-white/5 text-center text-white">{endTimestamp}</td>
+                                  <td className="p-2 border-r border-white/5 text-center text-white">{endTimestamp}</td>
+                                  <td className="p-2 border-r border-white/5"></td>
+                                  <td className="p-2 border-r border-white/5"></td>
+                                  <td className="p-2 border-r border-white/5"></td>
+                                  <td className="p-2 border-r border-white/5 text-white">{vehicleNum}</td>
+                                  <td className="p-2 border-r border-white/5"></td>
+                                  <td className="p-2 border-r border-white/5"></td>
+                                  <td className="p-2 border-r border-white/5"></td>
+                                  <td className="p-2 border-r border-white/5 text-right font-bold text-white">{itemAmount}</td>
+                                  <td className="p-2 text-right font-bold text-rose-400">{driverComm}</td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -8020,26 +8005,6 @@ export default function FleetApp() {
           </div>
         )}
 
-        {/* Alert Component */}
-        <AnimatePresence>
-          {alert && ['last-trip', 'salary', 'contact-office'].includes(stage) && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className={cn(
-                "p-4 rounded-2xl mb-6 flex items-center gap-3 border shadow-lg",
-                alert.type === 'success' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
-                alert.type === 'warning' && "bg-amber-500/10 border-amber-500/20 text-amber-400",
-                alert.type === 'error' && "bg-rose-500/10 border-rose-500/20 text-rose-400"
-              )}
-            >
-              {alert.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-              <p className="text-sm font-medium">{alert.message}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Form Content */}
         <AnimatePresence>
           {['new', 'update', 'last-trip', 'salary'].includes(stage) && (
@@ -8051,10 +8016,10 @@ export default function FleetApp() {
                     stage === 'new'
                       ? 'New Record'
                       : stage === 'update'
-                        ? 'Update Record'
-                        : stage === 'last-trip'
-                          ? 'Last Trip'
-                          : 'Driver Salary'
+                      ? 'Update Record'
+                      : stage === 'last-trip'
+                      ? 'Last Trip'
+                      : 'Driver Salary'
                   }
                   showBack={true}
                 />
@@ -8065,10 +8030,10 @@ export default function FleetApp() {
                     {stage === 'new'
                       ? 'New Record'
                       : stage === 'update'
-                        ? 'Update Record'
-                        : stage === 'last-trip'
-                          ? 'Last Trip'
-                          : 'Driver Salary'}
+                      ? 'Update Record'
+                      : stage === 'last-trip'
+                      ? 'Last Trip'
+                      : 'Driver Salary'}
                   </h2>
                   <button
                     type="button"
