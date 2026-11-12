@@ -107,7 +107,7 @@ const captureLocation = (): Promise<string> => {
 
 export default function FleetApp() {
   const [user, setUser] = useState<any>(null);
-  const [stage, setStage] = useState<'dashboard' | 'new' | 'update' | 'last-trip' | 'salary' | 'contact-office' | 'admin' | 'bank-receipts'>('dashboard');
+  const [stage, setStage] = useState<'dashboard' | 'new' | 'update' | 'last-trip' | 'salary' | 'contact-office' | 'admin' | 'bank-receipts' | 'driver-payment-list'>('dashboard');
   const [loading, setLoading] = useState(false);
   const isSubmittingRef = useRef(false);
   const [fetchingDetails, setFetchingDetails] = useState(false);
@@ -748,6 +748,34 @@ export default function FleetApp() {
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
   const [paymentSearch, setPaymentSearch] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('All');
+  const [driverPaymentList, setDriverPaymentList] = useState<any[]>([]);
+  const [loadingDriverPaymentList, setLoadingDriverPaymentList] = useState(false);
+  const [driverPaymentPage, setDriverPaymentPage] = useState(1);
+
+  const fetchDriverPaymentList = async (drvId?: string) => {
+    const idToUse = drvId || user?.[0];
+    if (!idToUse) return;
+    setLoadingDriverPaymentList(true);
+    try {
+      const res = await fetch(`/api/fleet/bank-receipts?driverId=${encodeURIComponent(idToUse)}&oneMonth=true&_t=${Date.now()}`);
+      const data = await safeJson(res);
+      if (data && Array.isArray(data.receipts)) {
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        const oneMonthAgoMs = oneMonthAgo.getTime();
+        const filtered = data.receipts.filter((r: any) => {
+          if (!r.createdAt) return true;
+          const t = new Date(r.createdAt).getTime();
+          return isNaN(t) || t >= oneMonthAgoMs;
+        });
+        setDriverPaymentList(filtered);
+      }
+    } catch (err) {
+      console.error('Error fetching driver payment list:', err);
+    } finally {
+      setLoadingDriverPaymentList(false);
+    }
+  };
 
   const filteredPaymentList = useMemo(() => {
     return paymentList.filter((p: any) => {
@@ -1245,13 +1273,14 @@ export default function FleetApp() {
       setSelectedBankTripDetails(null);
       setBankReceiptFile(null);
 
-      // Refresh pending references
+      // Refresh pending references and driver payment list
       if (user && user[0]) {
         fetch(`/api/fleet/bank-receipts?type=pending-refs&driverId=${user[0]}`)
           .then(safeJson)
           .then((d) => {
             if (d && d.pendingRefs) setPendingFleetHireRefs(d.pendingRefs);
           });
+        fetchDriverPaymentList(user[0]);
       }
     } catch (err: any) {
       setAlert({ type: 'error', message: err.message || 'Failed to submit bank receipt' });
@@ -1566,6 +1595,8 @@ export default function FleetApp() {
       } else if (stage === 'contact-office') {
         fetchInboxMessages();
         fetchSentMessages();
+      } else if (stage === 'driver-payment-list') {
+        fetchDriverPaymentList(user[0]);
       }
     }
   }, [stage, user]);
@@ -1661,6 +1692,9 @@ export default function FleetApp() {
         }
       } else if (role === 'driver' && stage !== 'admin' && stage !== 'salary') {
         fetchInitialData(user[0]);
+        if (stage === 'driver-payment-list') {
+          fetchDriverPaymentList(user[0]);
+        }
       }
     }, intervalTime);
 
@@ -4132,14 +4166,21 @@ export default function FleetApp() {
                         <span className="font-bold text-teal-700 text-[10px] sm:text-xs text-center leading-tight">Bank<br />Receipts</span>
                       </button>
 
-                      {/* Leave Request */}
+                      {/* Payment List */}
                       <button
-                        onClick={() => setShowDevPopup(true)}
+                        onClick={() => {
+                          window.history.pushState({ stage: 'driver-payment-list' }, '');
+                          setStage('driver-payment-list');
+                          setDriverPaymentPage(1);
+                          if (user && user[0]) {
+                            fetchDriverPaymentList(user[0]);
+                          }
+                        }}
                         disabled={loading}
                         className="bg-[#f0f4ff] border border-blue-200/80 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
                       >
-                        <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 group-hover:scale-110 transition-transform" />
-                        <span className="font-bold text-blue-700 text-[10px] sm:text-xs text-center leading-tight">Leave<br />Request</span>
+                        <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-blue-700 text-[10px] sm:text-xs text-center leading-tight">Payment<br />List</span>
                       </button>
                     </div>
                   </div>
@@ -4147,7 +4188,7 @@ export default function FleetApp() {
                   {/* Menu Section */}
                   <div className="space-y-2">
                     <p className="text-xs font-bold text-slate-400 tracking-wide px-1">Menu</p>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-2 sm:gap-3">
                       {/* Last trip */}
                       <button
                         onClick={() => {
@@ -4155,12 +4196,12 @@ export default function FleetApp() {
                           setStage('last-trip');
                         }}
                         disabled={loading}
-                        className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                        className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
                       >
                         <div className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center">
                           <MapPin className="w-5 h-5 text-purple-500" />
                         </div>
-                        <span className="font-bold text-slate-700 text-xs">Last trip</span>
+                        <span className="font-bold text-slate-700 text-[11px] sm:text-xs text-center leading-tight">Last trip</span>
                       </button>
 
                       {/* Salary */}
@@ -4170,12 +4211,12 @@ export default function FleetApp() {
                           setStage('salary');
                         }}
                         disabled={loading}
-                        className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                        className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
                       >
                         <div className="w-9 h-9 rounded-full bg-teal-50 flex items-center justify-center">
                           <Wallet className="w-5 h-5 text-teal-600" />
                         </div>
-                        <span className="font-bold text-slate-700 text-xs">Salary</span>
+                        <span className="font-bold text-slate-700 text-[11px] sm:text-xs text-center leading-tight">Salary</span>
                       </button>
 
                       {/* Contact */}
@@ -4185,7 +4226,7 @@ export default function FleetApp() {
                           setStage('contact-office');
                         }}
                         disabled={loading}
-                        className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group relative"
+                        className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group relative"
                       >
                         {(() => {
                           const unreadCount = inboxMessages.filter((m: any) => !m.isRead).length;
@@ -4201,7 +4242,19 @@ export default function FleetApp() {
                         <div className="w-9 h-9 rounded-full bg-sky-50 flex items-center justify-center">
                           <MessageSquare className="w-5 h-5 text-sky-500" />
                         </div>
-                        <span className="font-bold text-slate-700 text-xs">Contact</span>
+                        <span className="font-bold text-slate-700 text-[11px] sm:text-xs text-center leading-tight">Contact</span>
+                      </button>
+
+                      {/* Leave Request */}
+                      <button
+                        onClick={() => setShowDevPopup(true)}
+                        disabled={loading}
+                        className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer group"
+                      >
+                        <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
+                          <Calendar className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <span className="font-bold text-slate-700 text-[10px] sm:text-xs text-center leading-tight">Leave<br />Request</span>
                       </button>
                     </div>
                   </div>
@@ -4491,6 +4544,203 @@ export default function FleetApp() {
             </div>
           </div>
         )}
+
+        {stage === 'driver-payment-list' && (() => {
+          const ITEMS_PER_PAGE = 10;
+          const totalRecords = driverPaymentList.length;
+          const totalPages = Math.max(1, Math.ceil(totalRecords / ITEMS_PER_PAGE));
+          const currentPage = Math.min(driverPaymentPage, totalPages);
+          const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+          const paginatedReceipts = driverPaymentList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+          return (
+            <div className="max-w-md mx-auto">
+              <div className="bg-[#f4f7f9] text-slate-800 font-sans p-4 sm:p-6 rounded-[22px] pb-24 min-h-[calc(100vh-1rem)] space-y-5 flex flex-col justify-between">
+                {/* Mobile Driver Header */}
+                <DriverMobileHeader title="Payment List" showBack={true} />
+
+                {/* Desktop Back Button */}
+                <div className="hidden md:flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.history.pushState({ stage: 'dashboard' }, '');
+                      setStage('dashboard');
+                    }}
+                    className="py-2.5 px-4 rounded-2xl bg-white border border-slate-200/80 text-slate-700 hover:bg-slate-50 transition-all text-xs font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Back to Dashboard
+                  </button>
+                </div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-5 sm:p-6 space-y-4"
+                >
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-3 text-slate-900 font-bold text-lg">
+                      <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-base text-slate-900 leading-tight">Payment List</h3>
+                        <p className="text-[11px] text-slate-400 font-medium">Last 1 month submitted bank receipts</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200/60 px-2.5 py-1 rounded-full shrink-0">
+                      {totalRecords} {totalRecords === 1 ? 'Record' : 'Records'}
+                    </span>
+                  </div>
+
+                  {loadingDriverPaymentList ? (
+                    <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
+                      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                      <p className="text-xs font-bold uppercase tracking-wider">Loading payment list...</p>
+                    </div>
+                  ) : paginatedReceipts.length === 0 ? (
+                    <div className="py-12 flex flex-col items-center justify-center text-center gap-2">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-1">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm font-extrabold text-slate-700">No Receipts Found</p>
+                      <p className="text-xs text-slate-400 max-w-xs">
+                        No submitted bank receipts found in the last 1 month.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200/80">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200/80">
+                            <th className="py-2.5 px-2.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Ref</th>
+                            <th className="py-2.5 px-2.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Receipt Value</th>
+                            <th className="py-2.5 px-2.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider text-center">Receipt</th>
+                            <th className="py-2.5 px-2.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider text-right">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {paginatedReceipts.map((p: any, idx: number) => {
+                            const rawStatus = String(p.status || '').trim().toLowerCase();
+                            const displayStatus =
+                              rawStatus === 'approved'
+                                ? 'Approved'
+                                : rawStatus === 'rejected'
+                                ? 'Rejected'
+                                : 'Submitted';
+                            const receiptValNum = Number(p.receiptValue || 0);
+
+                            return (
+                              <tr key={p._id || idx} className="hover:bg-slate-50/70 transition-colors">
+                                <td className="py-2.5 px-2.5 text-xs font-extrabold text-slate-800 font-mono whitespace-nowrap">
+                                  {p.tripRef || p.reference}
+                                </td>
+                                <td className="py-2.5 px-2.5 text-xs font-bold text-emerald-600 whitespace-nowrap">
+                                  Rs. {receiptValNum.toLocaleString()}
+                                </td>
+                                <td className="py-2.5 px-2.5 text-center whitespace-nowrap">
+                                  {p.imageDataUrl ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setFullscreenImage({
+                                          url: p.imageDataUrl,
+                                          name: p.imageName || `${p.reference} Bank Receipt`,
+                                        })
+                                      }
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/70 font-bold text-[10px] transition-colors cursor-pointer"
+                                    >
+                                      <Camera className="w-3 h-3" />
+                                      <span>View</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs text-slate-400">-</span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-2.5 text-right whitespace-nowrap">
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider border",
+                                      displayStatus === 'Approved'
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : displayStatus === 'Rejected'
+                                        ? "bg-rose-50 text-rose-700 border-rose-200"
+                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                    )}
+                                  >
+                                    {displayStatus}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Pagination Controls (10 records per page) */}
+                  {totalRecords > 0 && (
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                      <button
+                        type="button"
+                        disabled={currentPage <= 1}
+                        onClick={() => setDriverPaymentPage((prev) => Math.max(1, prev - 1))}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center gap-1 border transition-all",
+                          currentPage <= 1
+                            ? "bg-slate-100 text-slate-300 border-slate-200/60 cursor-not-allowed"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-xs cursor-pointer"
+                        )}
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        Prev
+                      </button>
+
+                      <div className="text-center">
+                        <p className="text-[11px] font-extrabold text-slate-700">
+                          Page {currentPage} of {totalPages}
+                        </p>
+                        <p className="text-[9.5px] font-medium text-slate-400">
+                          Showing {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, totalRecords)} of {totalRecords}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setDriverPaymentPage((prev) => Math.min(totalPages, prev + 1))}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center gap-1 border transition-all",
+                          currentPage >= totalPages
+                            ? "bg-slate-100 text-slate-300 border-slate-200/60 cursor-not-allowed"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-xs cursor-pointer"
+                        )}
+                      >
+                        Next
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.history.pushState({ stage: 'dashboard' }, '');
+                      setStage('dashboard');
+                    }}
+                    className="w-full py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer mt-2"
+                  >
+                    Back to Dashboard
+                  </button>
+                </motion.div>
+
+                {/* Mobile Driver Footer */}
+                <DriverMobileFooter />
+              </div>
+            </div>
+          );
+        })()}
 
         {stage === 'contact-office' && (
           <div className="max-w-md mx-auto">

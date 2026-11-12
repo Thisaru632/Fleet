@@ -2,9 +2,42 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Trip from "@/models/Trip";
 import BankReceipt from "@/models/BankReceipt";
+import User from "@/models/User";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+async function resolveDriverIdRegexes(driverId: string): Promise<RegExp[]> {
+  const clean = driverId.trim();
+  if (!clean) return [];
+  const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const primaryRegex = new RegExp(`^${escaped}$`, "i");
+  const idSet = new Set<string>([clean.toUpperCase()]);
+
+  try {
+    const matchedUsers = await User.find({
+      $or: [
+        { username: primaryRegex },
+        { driverId: primaryRegex },
+        { "rawValues.0": primaryRegex },
+        { "rawValues.3": primaryRegex },
+      ],
+    }).lean();
+
+    matchedUsers.forEach((u: any) => {
+      if (u.username) idSet.add(String(u.username).trim().toUpperCase());
+      if (u.driverId) idSet.add(String(u.driverId).trim().toUpperCase());
+      if (u.rawValues?.[0]) idSet.add(String(u.rawValues[0]).trim().toUpperCase());
+      if (u.rawValues?.[3]) idSet.add(String(u.rawValues[3]).trim().toUpperCase());
+    });
+  } catch (err) {
+    console.error("Error resolving driver aliases:", err);
+  }
+
+  return Array.from(idSet)
+    .filter(Boolean)
+    .map((id) => new RegExp(`^${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
+}
 
 const BASE_URL = process.env.LAKMOBILE_API_BASE_URL || process.env.BOOKING_API_BASE_URL || "https://senuportal.lakmobile.com";
 const USERNAME = process.env.LAKMOBILE_API_USER || process.env.BOOKING_API_USER || "vconnect-senu-ext-prod";
@@ -91,7 +124,8 @@ export async function GET(request: Request) {
       };
 
       if (driverId && driverId.toLowerCase() !== "admin") {
-        query.driverId = { $regex: new RegExp(`^${driverId.trim()}$`, "i") };
+        const driverRegexes = await resolveDriverIdRegexes(driverId);
+        query.driverId = driverRegexes.length === 1 ? driverRegexes[0] : { $in: driverRegexes };
       }
 
       // Fetch active receipts, candidate trips, and Lak Mobile cash bookings in parallel
@@ -179,8 +213,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ pendingRefs });
     }
 
-    // Default: fetch payment list for admin
-    const receipts = await BankReceipt.find().sort({ createdAt: -1 }).lean();
+    // Default: fetch payment list (for admin or filtered by driver + 1 month)
+    const driverIdParam = searchParams.get("driverId");
+    const oneMonthParam = searchParams.get("oneMonth") === "true";
+
+    const receiptFilter: any = {};
+    if (driverIdParam && driverIdParam.toLowerCase() !== "admin") {
+      const driverRegexes = await resolveDriverIdRegexes(driverIdParam);
+      if (driverRegexes.length > 0) {
+        receiptFilter.driverId = { $in: driverRegexes };
+      }
+    }
+    if (oneMonthParam) {
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      receiptFilter.createdAt = { $gte: oneMonthAgo };
+    }
+
+    const receipts = await BankReceipt.find(receiptFilter).sort({ createdAt: -1 }).lean();
 
     const refs = receipts.map((r: any) => r.reference).filter(Boolean);
     const tripRefs = receipts.map((r: any) => r.tripRef).filter(Boolean);
