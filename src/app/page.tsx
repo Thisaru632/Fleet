@@ -810,7 +810,7 @@ export default function FleetApp() {
         ? fleetMatch.values[23]
         : (p.finalPrice !== undefined && p.finalPrice !== null && String(p.finalPrice).trim() !== '' ? p.finalPrice : '');
       const cleanPriceNum = Number(String(finalPriceRaw).replace(/[^\d.-]/g, ''));
-      const balance = !isNaN(cleanPriceNum) ? (Math.round((cleanPriceNum - Number(p.receiptValue || 0)) * 100) / 100) : 0;
+      const balance = !isNaN(cleanPriceNum) ? (Math.round((Number(p.receiptValue || 0) - cleanPriceNum) * 100) / 100) : 0;
 
       return [
         p.reference || '',
@@ -1254,6 +1254,7 @@ export default function FleetApp() {
 
       setAlert({ type: 'success', message: 'Bank receipt submitted successfully!' });
       setBankReceiptForm({ reference: '', receiptValue: '', comments: '' });
+      setSelectedBankTripDetails(null);
       setBankReceiptFile(null);
 
       // Refresh pending references
@@ -4125,6 +4126,9 @@ export default function FleetApp() {
                         onClick={() => {
                           window.history.pushState({ stage: 'bank-receipts' }, '');
                           setStage('bank-receipts');
+                          setBankReceiptForm({ reference: '', receiptValue: '', comments: '' });
+                          setSelectedBankTripDetails(null);
+                          setBankReceiptFile(null);
                           if (user && user[0]) {
                             fetch(`/api/fleet/bank-receipts?type=pending-refs&driverId=${user[0]}`)
                               .then(safeJson)
@@ -5445,12 +5449,12 @@ export default function FleetApp() {
                                   <td className={cn(
                                     "py-2.5 px-6 text-xs whitespace-nowrap font-bold",
                                     hasPrice ? (
-                                      (cleanPriceNum - Number(p.receiptValue || 0)) === 0 ? "text-emerald-400" :
-                                      (cleanPriceNum - Number(p.receiptValue || 0)) > 0 ? "text-amber-400" : "text-purple-400"
+                                      (Number(p.receiptValue || 0) - cleanPriceNum) === 0 ? "text-emerald-400" :
+                                      (Number(p.receiptValue || 0) - cleanPriceNum) > 0 ? "text-amber-400" : "text-purple-400"
                                     ) : "text-slate-400"
                                   )}>
                                     {hasPrice ? (
-                                      `Rs. ${(Math.round((cleanPriceNum - Number(p.receiptValue || 0)) * 100) / 100).toLocaleString()}`
+                                      `Rs. ${(Math.round((Number(p.receiptValue || 0) - cleanPriceNum) * 100) / 100).toLocaleString()}`
                                     ) : '-'}
                                   </td>
                                   <td className="py-2.5 px-6 text-xs whitespace-nowrap">

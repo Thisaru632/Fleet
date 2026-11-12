@@ -24,12 +24,16 @@ export async function GET(request: Request) {
     if (type === "pending-refs" || searchParams.get("pending") === "true") {
       const driverId = searchParams.get("driverId");
 
-      // Find any receipts already uploaded so we don't display already uploaded trips
-      const existingReceipts = await BankReceipt.find({}, { reference: 1, tripRef: 1 }).lean();
-      const uploadedSet = new Set<string>();
-      existingReceipts.forEach((r: any) => {
-        if (r.reference) uploadedSet.add(String(r.reference).trim().toUpperCase());
-        if (r.tripRef) uploadedSet.add(String(r.tripRef).trim().toUpperCase());
+      // Find receipts that are actively Submitted or Approved (NOT Rejected).
+      // When a bank receipt is Rejected by admin, the trip must display again in the pending dropdown.
+      const activeReceipts = await BankReceipt.find(
+        { status: { $in: ["Submitted", "Approved"] } },
+        { reference: 1, tripRef: 1 }
+      ).lean();
+      const activeUploadedSet = new Set<string>();
+      activeReceipts.forEach((r: any) => {
+        if (r.reference) activeUploadedSet.add(String(r.reference).trim().toUpperCase());
+        if (r.tripRef) activeUploadedSet.add(String(r.tripRef).trim().toUpperCase());
       });
 
       const isVD0322OrAdmin = !driverId || driverId.toLowerCase() === "admin" || driverId.trim().toUpperCase() === "VD0322";
@@ -38,6 +42,7 @@ export async function GET(request: Request) {
         purpose: "Hire",
         $or: [
           { status: { $regex: /^pending$/i } },
+          { paymentStatus: "Rejected" },
           ...(isVD0322OrAdmin ? [
             { "rawValues.12": "1002246" },
             { reference: "FR08385" },
@@ -60,7 +65,8 @@ export async function GET(request: Request) {
         timestamp: 1,
         rawValues: 1,
         status: 1,
-        purpose: 1
+        purpose: 1,
+        paymentStatus: 1
       }).sort({ createdAt: -1 }).limit(100).lean();
 
       const parseNum = (val: any) => Number(String(val ?? "").replace(/[^\d.-]/g, "")) || 0;
@@ -72,8 +78,8 @@ export async function GET(request: Request) {
         const refUpper = String(t.reference || "").trim().toUpperCase();
         const tripRefUpper = String(t.rawValues?.[12] || "").trim().toUpperCase();
 
-        // If already uploaded, do not display
-        if ((refUpper && uploadedSet.has(refUpper)) || (tripRefUpper && uploadedSet.has(tripRefUpper))) {
+        // If has an active (Submitted or Approved) receipt, do not display
+        if ((refUpper && activeUploadedSet.has(refUpper)) || (tripRefUpper && activeUploadedSet.has(tripRefUpper))) {
           return;
         }
 
@@ -176,8 +182,9 @@ export async function POST(request: Request) {
 
     const imgName = fileName || `${reference.trim()}_BankReceipt_${Date.now()}`;
 
-    // Also attach to Trip.images so it's visible in Trip Proofs
+    // Also attach to Trip.images so it's visible in Trip Proofs and update paymentStatus to Submitted
     if (trip) {
+      trip.paymentStatus = "Submitted";
       trip.images = trip.images || [];
       trip.images.push({ name: imgName, dataUrl: fileData });
       trip.markModified("images");
@@ -229,10 +236,15 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Bank receipt not found" }, { status: 404 });
     }
 
-    // Also update Trip.paymentStatus if the trip exists
-    if (receipt.reference) {
-      await Trip.updateOne(
-        { reference: receipt.reference.trim() },
+    // Also update Trip.paymentStatus if the trip exists (match by reference or tripRef)
+    if (receipt.reference || receipt.tripRef) {
+      await Trip.updateMany(
+        {
+          $or: [
+            ...(receipt.reference ? [{ reference: receipt.reference.trim() }, { "rawValues.1": receipt.reference.trim() }] : []),
+            ...(receipt.tripRef ? [{ "rawValues.12": receipt.tripRef.trim() }] : [])
+          ]
+        },
         { $set: { paymentStatus: status } }
       );
     }
