@@ -11,6 +11,7 @@ const BankReceiptSchema: Schema = new Schema({
   imageName: { type: String, default: "" },
   imageDataUrl: { type: String, default: "" },
   status: { type: String, default: "Submitted" },
+  reviewedBy: { type: String, default: "" },
 }, { timestamps: true });
 
 BankReceiptSchema.index({ createdAt: -1 });

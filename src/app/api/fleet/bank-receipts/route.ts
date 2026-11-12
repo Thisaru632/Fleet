@@ -6,6 +6,57 @@ import BankReceipt from "@/models/BankReceipt";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const BASE_URL = process.env.LAKMOBILE_API_BASE_URL || process.env.BOOKING_API_BASE_URL || "https://senuportal.lakmobile.com";
+const USERNAME = process.env.LAKMOBILE_API_USER || process.env.BOOKING_API_USER || "vconnect-senu-ext-prod";
+const PASSWORD = process.env.LAKMOBILE_API_PASS || process.env.BOOKING_API_PASS || "YKExtprodKH8988!202897SAM";
+const TENANT = process.env.LAKMOBILE_API_TENANT || process.env.BOOKING_API_TENANT || "vconnect";
+
+function getLakAuthHeader(): string {
+  const credentials = `${USERNAME}:${PASSWORD}`;
+  return `Basic ${Buffer.from(credentials).toString("base64")}`;
+}
+
+async function fetchLakMobileCashRefSet(): Promise<Set<string> | null> {
+  try {
+    const now = new Date();
+    const toDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const toStr = toDate.toISOString().split("T")[0];
+    const fromDate = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const fromStr = fromDate.toISOString().split("T")[0];
+
+    const url = `${BASE_URL.replace(/\/+$/, "")}/api/ext/bookings?from=${fromStr}&to=${toStr}`;
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: getLakAuthHeader(),
+        "customer-reference": TENANT,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const bookings = Array.isArray(data?.dataBundle) ? data.dataBundle : [];
+    const cashSet = new Set<string>();
+
+    bookings.forEach((b: any) => {
+      const idStr = String(b?.id ?? "").trim().toUpperCase();
+      if (!idStr) return;
+      const payType = String(b?.paymentType ?? "").trim().toUpperCase();
+      if (payType === "CA" || payType === "CASH") {
+        cashSet.add(idStr);
+      }
+    });
+
+    return cashSet;
+  } catch (err) {
+    console.error("Error fetching Lak Mobile bookings for cash filter:", err);
+    return null;
+  }
+}
+
 export async function GET(request: Request) {
   try {
     await dbConnect();
@@ -23,18 +74,6 @@ export async function GET(request: Request) {
 
     if (type === "pending-refs" || searchParams.get("pending") === "true") {
       const driverId = searchParams.get("driverId");
-
-      // Find receipts that are actively Submitted or Approved (NOT Rejected).
-      // When a bank receipt is Rejected by admin, the trip must display again in the pending dropdown.
-      const activeReceipts = await BankReceipt.find(
-        { status: { $in: ["Submitted", "Approved"] } },
-        { reference: 1, tripRef: 1 }
-      ).lean();
-      const activeUploadedSet = new Set<string>();
-      activeReceipts.forEach((r: any) => {
-        if (r.reference) activeUploadedSet.add(String(r.reference).trim().toUpperCase());
-        if (r.tripRef) activeUploadedSet.add(String(r.tripRef).trim().toUpperCase());
-      });
 
       const isVD0322OrAdmin = !driverId || driverId.toLowerCase() === "admin" || driverId.trim().toUpperCase() === "VD0322";
 
@@ -55,19 +94,33 @@ export async function GET(request: Request) {
         query.driverId = { $regex: new RegExp(`^${driverId.trim()}$`, "i") };
       }
 
-      const trips = await Trip.find(query, {
-        reference: 1,
-        driverId: 1,
-        vehicle: 1,
-        finalPrice: 1,
-        scDue: 1,
-        commission: 1,
-        timestamp: 1,
-        rawValues: 1,
-        status: 1,
-        purpose: 1,
-        paymentStatus: 1
-      }).sort({ createdAt: -1 }).limit(100).lean();
+      // Fetch active receipts, candidate trips, and Lak Mobile cash bookings in parallel
+      const [activeReceipts, trips, lakCashSet] = await Promise.all([
+        BankReceipt.find(
+          { status: { $in: ["Submitted", "Approved"] } },
+          { reference: 1, tripRef: 1 }
+        ).lean(),
+        Trip.find(query, {
+          reference: 1,
+          driverId: 1,
+          vehicle: 1,
+          finalPrice: 1,
+          scDue: 1,
+          commission: 1,
+          timestamp: 1,
+          rawValues: 1,
+          status: 1,
+          purpose: 1,
+          paymentStatus: 1
+        }).sort({ createdAt: -1 }).limit(100).lean(),
+        fetchLakMobileCashRefSet()
+      ]);
+
+      const activeUploadedSet = new Set<string>();
+      activeReceipts.forEach((r: any) => {
+        if (r.reference) activeUploadedSet.add(String(r.reference).trim().toUpperCase());
+        if (r.tripRef) activeUploadedSet.add(String(r.tripRef).trim().toUpperCase());
+      });
 
       const parseNum = (val: any) => Number(String(val ?? "").replace(/[^\d.-]/g, "")) || 0;
 
@@ -77,6 +130,14 @@ export async function GET(request: Request) {
       trips.forEach((t: any) => {
         const refUpper = String(t.reference || "").trim().toUpperCase();
         const tripRefUpper = String(t.rawValues?.[12] || "").trim().toUpperCase();
+
+        // Only display Cash hire references matched against Lak Mobile bookings
+        if (lakCashSet) {
+          const isCashHire = (tripRefUpper && lakCashSet.has(tripRefUpper)) || (refUpper && lakCashSet.has(refUpper));
+          if (!isCashHire) {
+            return;
+          }
+        }
 
         // If has an active (Submitted or Approved) receipt, do not display
         if ((refUpper && activeUploadedSet.has(refUpper)) || (tripRefUpper && activeUploadedSet.has(tripRefUpper))) {
@@ -216,7 +277,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     await dbConnect();
-    const { id, status } = await request.json();
+    const { id, status, reviewedBy } = await request.json();
 
     if (!id || !status) {
       return NextResponse.json({ error: "ID and status are required" }, { status: 400 });
@@ -226,10 +287,15 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invalid status value" }, { status: 400 });
     }
 
+    const updateFields: Record<string, any> = { status };
+    if (reviewedBy !== undefined) {
+      updateFields.reviewedBy = String(reviewedBy).trim();
+    }
+
     const receipt = await BankReceipt.findByIdAndUpdate(
       id,
-      { $set: { status } },
-      { new: true }
+      { $set: updateFields },
+      { new: true, strict: false }
     );
 
     if (!receipt) {
