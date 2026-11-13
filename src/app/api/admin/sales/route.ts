@@ -10,6 +10,122 @@ import BankReceipt from "@/models/BankReceipt";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const LAK_BASE_URL = process.env.LAKMOBILE_API_BASE_URL || process.env.BOOKING_API_BASE_URL || "https://senuportal.lakmobile.com";
+const LAK_USERNAME = process.env.LAKMOBILE_API_USER || process.env.BOOKING_API_USER || "vconnect-senu-ext-prod";
+const LAK_PASSWORD = process.env.LAKMOBILE_API_PASS || process.env.BOOKING_API_PASS || "YKExtprodKH8988!202897SAM";
+const LAK_TENANT = process.env.LAKMOBILE_API_TENANT || process.env.BOOKING_API_TENANT || "vconnect";
+
+function getLakAuthHeader(): string {
+  const credentials = `${LAK_USERNAME}:${LAK_PASSWORD}`;
+  return `Basic ${Buffer.from(credentials).toString("base64")}`;
+}
+
+function isLakBookingCredit(b: any): boolean {
+  if (!b) return false;
+  const payType = String(b.paymentType ?? "").trim().toUpperCase();
+  const settleType = String(b.settlementType ?? "").trim().toUpperCase();
+  return (
+    payType === "CP" ||
+    payType === "CREDIT" ||
+    settleType === "CREDIT" ||
+    Boolean(b.isCorporate)
+  );
+}
+
+async function fetchLakMobileCreditRefSet(tripsForPage: any[]): Promise<Set<string>> {
+  const creditSet = new Set<string>();
+  try {
+    const hireRefs = Array.from(
+      new Set(
+        (tripsForPage || [])
+          .filter((t: any) => String(t?.purpose || t?.rawValues?.[5] || "").trim() === "Hire")
+          .map((t: any) => String(t?.rawValues?.[12] || "").trim().toUpperCase())
+          .filter(Boolean)
+      )
+    );
+    if (hireRefs.length === 0) return creditSet;
+
+    const now = new Date();
+    let minTime = now.getTime() - 60 * 24 * 60 * 60 * 1000;
+    let maxTime = now.getTime() + 2 * 24 * 60 * 60 * 1000;
+
+    (tripsForPage || []).forEach((t: any) => {
+      [t?.rawValues?.[6], t?.rawValues?.[7], t?.timestamp].forEach((dtVal: any) => {
+        if (!dtVal) return;
+        const dateStr = String(dtVal).split("T")[0].split(" ")[0].trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          const parsed = new Date(`${dateStr}T00:00:00`).getTime();
+          if (!isNaN(parsed)) {
+            const paddedMin = parsed - 14 * 24 * 60 * 60 * 1000;
+            const paddedMax = parsed + 3 * 24 * 60 * 60 * 1000;
+            if (paddedMin < minTime) minTime = paddedMin;
+            if (paddedMax > maxTime) maxTime = paddedMax;
+          }
+        }
+      });
+    });
+
+    const fromStr = new Date(minTime).toISOString().split("T")[0];
+    const toStr = new Date(maxTime).toISOString().split("T")[0];
+    const baseUrlClean = LAK_BASE_URL.replace(/\/+$/, "");
+    const authHeader = getLakAuthHeader();
+
+    const seenIds = new Set<string>();
+    const listUrl = `${baseUrlClean}/api/ext/bookings?from=${fromStr}&to=${toStr}`;
+    const res = await fetch(listUrl, {
+      method: "GET",
+      headers: {
+        Authorization: authHeader,
+        "customer-reference": LAK_TENANT,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      const bookings = Array.isArray(data?.dataBundle) ? data.dataBundle : [];
+      bookings.forEach((b: any) => {
+        const idStr = String(b?.id ?? "").trim().toUpperCase();
+        if (!idStr) return;
+        seenIds.add(idStr);
+        if (isLakBookingCredit(b)) {
+          creditSet.add(idStr);
+        }
+      });
+    }
+
+    const unmatchedNumericRefs = hireRefs.filter((r) => /^\d+$/.test(r) && !seenIds.has(r)).slice(0, 20);
+    if (unmatchedNumericRefs.length > 0) {
+      await Promise.all(
+        unmatchedNumericRefs.map(async (ref) => {
+          try {
+            const detRes = await fetch(`${baseUrlClean}/api/ext/bookings/${encodeURIComponent(ref)}`, {
+              method: "GET",
+              headers: {
+                Authorization: authHeader,
+                "customer-reference": LAK_TENANT,
+                Accept: "application/json",
+              },
+              cache: "no-store",
+            });
+            if (!detRes.ok) return;
+            const detData = await detRes.json().catch(() => null);
+            if (isLakBookingCredit(detData?.dataBundle)) {
+              creditSet.add(ref);
+            }
+          } catch {
+            // Ignore individual booking lookup failures
+          }
+        })
+      );
+    }
+  } catch (err) {
+    console.error("Error fetching Lak Mobile bookings for credit hire check:", err);
+  }
+  return creditSet;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get("startDate");
@@ -388,10 +504,15 @@ export async function GET(request: Request) {
       if (br.tripRef) bankReceiptMap.set(String(br.tripRef).trim().toUpperCase(), br);
     });
 
+    const lakCreditRefSet = await fetchLakMobileCreditRefSet(tripsForPage);
+
     // Format Fleet Data for the current page
     const fleetData = tripsForPage.map((trip: any) => {
       const matchedReceipt = bankReceiptMap.get(String(trip.reference || '').trim().toUpperCase()) ||
         bankReceiptMap.get(String(trip.rawValues?.[12] || '').trim().toUpperCase());
+      const tripRefUpper = String(trip.rawValues?.[12] || '').trim().toUpperCase();
+      const isHire = String(trip.purpose || trip.rawValues?.[5] || '').trim() === 'Hire';
+      const isCreditHire = isHire && Boolean(tripRefUpper && lakCreditRefSet.has(tripRefUpper));
       return {
       rf: trip.reference,
       date: trip.rawValues?.[7] || trip.timestamp,
@@ -399,7 +520,8 @@ export async function GET(request: Request) {
       vehicle: trip.vehicle,
       purpose: trip.purpose,
       status: trip.status,
-      paymentType: accountTypeMap.get(String(trip.rawValues?.[12] || '').trim()) || 'cash',
+      paymentType: isCreditHire ? 'credit' : (accountTypeMap.get(String(trip.rawValues?.[12] || '').trim()) || 'cash'),
+      isCreditHire,
       repairMeter: trip.repairMeter || trip.rawValues?.[35] || '',
       values: trip.rawValues || [],
       images: (trip.images || []).map((img: any) => ({ name: img.name, id: img._id })),

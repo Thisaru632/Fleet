@@ -6009,30 +6009,30 @@ export default function FleetApp() {
                                     <div className="flex items-center gap-2">
                                       <button
                                         type="button"
-                                        disabled={updatingPaymentId === p._id || p.status === 'Approved'}
+                                        disabled={updatingPaymentId === p._id || p.status === 'Approved' || p.status === 'Rejected'}
                                         onClick={() => handleUpdatePaymentStatus(p._id, 'Approved', p.reference)}
                                         className={cn(
-                                          "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
-                                          p.status === 'Approved'
-                                            ? "bg-emerald-500/10 text-emerald-400/40 border border-emerald-500/10 cursor-default"
-                                            : "bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 shadow-sm border border-emerald-500/30"
+                                          "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all",
+                                          p.status === 'Approved' || p.status === 'Rejected'
+                                            ? "bg-emerald-500/10 text-emerald-400/40 border border-emerald-500/10 cursor-not-allowed opacity-50"
+                                            : "bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 shadow-sm border border-emerald-500/30 cursor-pointer"
                                         )}
-                                        title="Approve Payment"
+                                        title={p.status === 'Approved' || p.status === 'Rejected' ? `Already ${p.status}${p.reviewedBy ? ` by ${p.reviewedBy}` : ''}` : "Approve Payment"}
                                       >
                                         {updatingPaymentId === p._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                                         <span>Approve</span>
                                       </button>
                                       <button
                                         type="button"
-                                        disabled={updatingPaymentId === p._id || p.status === 'Rejected'}
+                                        disabled={updatingPaymentId === p._id || p.status === 'Approved' || p.status === 'Rejected'}
                                         onClick={() => handleUpdatePaymentStatus(p._id, 'Rejected', p.reference)}
                                         className={cn(
-                                          "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer",
-                                          p.status === 'Rejected'
-                                            ? "bg-rose-500/10 text-rose-400/40 border border-rose-500/10 cursor-default"
-                                            : "bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white shadow-sm border border-rose-500/30"
+                                          "px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all",
+                                          p.status === 'Approved' || p.status === 'Rejected'
+                                            ? "bg-rose-500/10 text-rose-400/40 border border-rose-500/10 cursor-not-allowed opacity-50"
+                                            : "bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white shadow-sm border border-rose-500/30 cursor-pointer"
                                         )}
-                                        title="Reject Payment"
+                                        title={p.status === 'Approved' || p.status === 'Rejected' ? `Already ${p.status}${p.reviewedBy ? ` by ${p.reviewedBy}` : ''}` : "Reject Payment"}
                                       >
                                         <X className="w-3.5 h-3.5" />
                                         <span>Reject</span>
@@ -6365,6 +6365,33 @@ export default function FleetApp() {
                                               <Clock className="w-3 h-3 text-amber-400" />
                                               <span className="hidden sm:inline">Pay Sub</span>
                                             </button>
+                                          );
+                                        })()}
+
+                                        {/* Credit Hire Badge (from Lak Mobile) */}
+                                        {(() => {
+                                          const isHire = String(t.purpose || t.values?.[5] || '').trim() === 'Hire';
+                                          if (!isHire) return null;
+                                          const tripBookingRef = String(t.values?.[12] || '').trim().toUpperCase();
+                                          const lakBookingMatch = tripBookingRef && Array.isArray(reportLakMobileData)
+                                            ? reportLakMobileData.find((b: any) => String(b?.id ?? '').trim().toUpperCase() === tripBookingRef)
+                                            : null;
+                                          const isLakCredit = lakBookingMatch
+                                            ? (
+                                                String(lakBookingMatch.paymentType || '').trim().toUpperCase() === 'CP' ||
+                                                String(lakBookingMatch.paymentType || '').trim().toUpperCase() === 'CREDIT' ||
+                                                String(lakBookingMatch.settlementType || '').trim().toUpperCase() === 'CREDIT' ||
+                                                Boolean(lakBookingMatch.isCorporate)
+                                              )
+                                            : Boolean(t.isCreditHire);
+                                          if (!isLakCredit) return null;
+                                          return (
+                                            <span
+                                              title={`Credit Hire (Lak Mobile Ref: ${tripBookingRef})`}
+                                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm whitespace-nowrap"
+                                            >
+                                              Credit Hire
+                                            </span>
                                           );
                                         })()}
                                       </div>

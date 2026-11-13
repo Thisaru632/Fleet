@@ -337,6 +337,18 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invalid status value" }, { status: 400 });
     }
 
+    const existingReceipt: any = await BankReceipt.findById(id).lean();
+    if (!existingReceipt) {
+      return NextResponse.json({ error: "Bank receipt not found" }, { status: 404 });
+    }
+
+    if (existingReceipt.status === "Approved" || existingReceipt.status === "Rejected") {
+      return NextResponse.json(
+        { error: "This receipt has already been approved or rejected and cannot be changed." },
+        { status: 400 }
+      );
+    }
+
     const updateFields: Record<string, any> = { status };
     if (reviewedBy !== undefined) {
       updateFields.reviewedBy = String(reviewedBy).trim();
@@ -347,10 +359,6 @@ export async function PATCH(request: Request) {
       { $set: updateFields },
       { new: true, strict: false }
     );
-
-    if (!receipt) {
-      return NextResponse.json({ error: "Bank receipt not found" }, { status: 404 });
-    }
 
     // Also update Trip.paymentStatus if the trip exists (match by reference or tripRef)
     if (receipt.reference || receipt.tripRef) {
